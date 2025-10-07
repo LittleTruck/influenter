@@ -1,0 +1,77 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Frontend
+frontend/node_modules/
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+frontend/.cache/
+frontend/.env
+
+# Backend
+backend/tmp/
+backend/bin/
+backend/vendor/
+backend/*.exe
+backend/.env
+
+# Air (Go hot reload)
+backend/build-errors.log
+backend/build-errors-worker.log
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# Database
+*.db
+*.sqlite
+*.sql.backup
+
+# Temporary files
+tmp/
+temp/
+
+# Testing
+coverage/
+.nyc_output/
+*.test
+
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Docker volumes (local development data)
+postgres_data/
+redis_data/
+
+# Package managers
+node_modules/
+vendor/
+
+# Certificates & Keys (NEVER commit these!)
+*.pem
+*.key
+*.crt
+secrets/
+
