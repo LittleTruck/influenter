@@ -4,7 +4,13 @@ go 1.22
 
 require (
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/hibiken/asynq v0.24.1
+	github.com/sashabaranov/go-openai v1.20.4
+	golang.org/x/oauth2 v0.18.0
+	google.golang.org/api v0.169.0
+	gorm.io/driver/postgres v1.5.7
+	gorm.io/gorm v1.25.7
 )
 
 require (
