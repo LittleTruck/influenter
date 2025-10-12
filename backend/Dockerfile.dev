@@ -1,5 +1,5 @@
 # Influenter Backend - 開發環境 Dockerfile
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 # 安裝必要工具
 RUN apk add --no-cache git gcc musl-dev
