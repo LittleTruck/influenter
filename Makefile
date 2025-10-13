@@ -88,14 +88,29 @@ frontend-dev:
 ## migrate-up: 執行資料庫遷移 (升級)
 migrate-up:
 	@echo "$(COLOR_BLUE)📊 執行資料庫遷移...$(COLOR_RESET)"
-	docker-compose exec backend-api go run cmd/migrate/main.go up
+	docker-compose exec backend-api go run ./cmd/migrate up
 	@echo "$(COLOR_GREEN)✅ 遷移完成$(COLOR_RESET)"
 
 ## migrate-down: 回滾資料庫遷移
 migrate-down:
 	@echo "$(COLOR_YELLOW)⚠️  回滾資料庫遷移...$(COLOR_RESET)"
-	docker-compose exec backend-api go run cmd/migrate/main.go down
+	docker-compose exec backend-api go run ./cmd/migrate down
 	@echo "$(COLOR_GREEN)✅ 回滾完成$(COLOR_RESET)"
+
+## migrate-status: 查看遷移狀態
+migrate-status:
+	@echo "$(COLOR_BLUE)📋 查看遷移狀態...$(COLOR_RESET)"
+	docker-compose exec backend-api go run ./cmd/migrate status
+
+## migrate-create: 創建新遷移 (使用方式: make migrate-create NAME=your_migration_name)
+migrate-create:
+	@if [ -z "$(NAME)" ]; then \
+		echo "$(COLOR_YELLOW)❌ 請指定遷移名稱: make migrate-create NAME=your_migration_name$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(COLOR_BLUE)📝 創建遷移: $(NAME)...$(COLOR_RESET)"
+	docker-compose exec backend-api go run ./cmd/migrate create $(NAME)
+	@echo "$(COLOR_GREEN)✅ 遷移檔案已建立$(COLOR_RESET)"
 
 ## test: 執行測試
 test:
