@@ -1,6 +1,7 @@
 # Influenter Frontend - 生產環境 Dockerfile
 # Stage 1: Build
-FROM node:18-alpine AS builder
+# 使用 Node.js 20+ 以支援 Nuxt 3 的最新版本
+FROM node:20 AS builder
 
 WORKDIR /app
 
@@ -17,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Runtime
-FROM node:18-alpine
+FROM node:20-slim
 
 WORKDIR /app
 

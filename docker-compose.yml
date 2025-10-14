@@ -162,6 +162,27 @@ services:
         air -c .air.worker.toml || go run cmd/worker/main.go
       "
 
+  # 前端 Nuxt 應用
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: influenter-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080}
+      NODE_ENV: development
+    volumes:
+      # 掛載原始碼以支援 hot reload
+      - ./frontend:/app
+      - /app/node_modules  # 避免本地 node_modules 覆蓋容器內的
+      - /app/.nuxt
+    depends_on:
+      - backend-api
+    networks:
+      - influenter-network
+
   # Asynq Web UI (選用 - 監控背景任務)
   asynqmon:
     image: hibiken/asynqmon:latest

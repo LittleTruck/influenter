@@ -18,19 +18,18 @@ help:
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## /  $(COLOR_GREEN)/' | sed 's/:/ $(COLOR_RESET)-/'
 	@echo ""
 
-## dev: 啟動完整開發環境 (Docker + 前端本機)
+## dev: 啟動完整開發環境 (所有服務在 Docker 中)
 dev:
 	@echo "$(COLOR_BLUE)🚀 啟動開發環境...$(COLOR_RESET)"
 	docker-compose up -d
 	@echo "$(COLOR_GREEN)✅ Docker 服務已啟動$(COLOR_RESET)"
-	@echo "$(COLOR_YELLOW)📝 現在可以在另一個終端機執行: cd frontend && npm run dev$(COLOR_RESET)"
 	@echo ""
 	@echo "服務列表:"
 	@echo "  - PostgreSQL: localhost:5432"
 	@echo "  - Redis: localhost:6379"
 	@echo "  - Backend API: http://localhost:8080"
+	@echo "  - Frontend: http://localhost:3000"
 	@echo "  - Asynq Monitor: http://localhost:8081"
-	@echo "  - Frontend: http://localhost:3000 (需手動啟動)"
 
 ## up: 啟動所有 Docker 服務
 up:
@@ -56,6 +55,10 @@ logs-api:
 logs-worker:
 	docker-compose logs -f backend-worker
 
+## logs-frontend: 查看 Frontend 日誌
+logs-frontend:
+	docker-compose logs -f frontend
+
 ## clean: 清理所有容器和資料卷
 clean:
 	@echo "$(COLOR_YELLOW)⚠️  警告: 這將刪除所有資料！$(COLOR_RESET)"
@@ -80,10 +83,16 @@ frontend-init:
 	cd frontend && npm install
 	@echo "$(COLOR_GREEN)✅ 前端專案已初始化$(COLOR_RESET)"
 
-## frontend-dev: 啟動前端開發伺服器
+## frontend-dev: 啟動前端開發伺服器 (本機)
 frontend-dev:
 	@echo "$(COLOR_BLUE)🎨 啟動前端開發伺服器...$(COLOR_RESET)"
 	cd frontend && npm run dev
+
+## frontend-build: 構建前端專案
+frontend-build:
+	@echo "$(COLOR_BLUE)🔨 構建前端專案...$(COLOR_RESET)"
+	docker-compose exec frontend npm run build
+	@echo "$(COLOR_GREEN)✅ 構建完成$(COLOR_RESET)"
 
 ## migrate-up: 執行資料庫遷移 (升級)
 migrate-up:
@@ -135,6 +144,10 @@ shell-api:
 ## shell-db: 進入 PostgreSQL 容器
 shell-db:
 	docker-compose exec postgres psql -U influenter_user -d influenter
+
+## shell-frontend: 進入 Frontend 容器的 shell
+shell-frontend:
+	docker-compose exec frontend sh
 
 ## prod-up: 啟動生產環境
 prod-up:

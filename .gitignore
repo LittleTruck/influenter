@@ -75,3 +75,4 @@ vendor/
 *.crt
 secrets/
 
+*.md

@@ -1,0 +1,26 @@
+# Influenter Frontend - 開發環境 Dockerfile
+# 使用 Node.js 20+ 以支援 Nuxt 3 的最新版本
+FROM node:20
+
+WORKDIR /app
+
+# 複製 package files
+COPY package*.json ./
+
+# 安裝依賴
+RUN npm install
+
+# 複製原始碼
+COPY . .
+
+# 暴露開發伺服器埠
+EXPOSE 3000
+
+# 設定環境變數
+ENV NODE_ENV=development
+ENV HOST=0.0.0.0
+ENV PORT=3000
+
+# 啟動開發伺服器
+CMD ["npm", "run", "dev"]
+
