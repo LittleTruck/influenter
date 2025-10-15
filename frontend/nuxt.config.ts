@@ -1,11 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: '2024-04-03',
+  compatibilityDate: '2024-11-01',
+  
+  future: {
+    compatibilityVersion: 4
+  },
+
   devtools: { enabled: true },
   
   // Modules
   modules: [
-    '@pinia/nuxt',
+    '@nuxt/ui',
+    '@nuxt/fonts',
   ],
 
   // App config
@@ -31,12 +37,19 @@ export default defineNuxtConfig({
   },
 
   // CSS
-  css: [],
+  css: ['~/assets/css/main.css'],
 
   // TypeScript
   typescript: {
     strict: true,
-    typeCheck: false  // 關閉 vue-tsc 類型檢查以避免開發環境中的錯誤
+    typeCheck: false
+  },
+
+  // Nuxt UI Configuration
+  ui: {
+    colorMode: {
+      preference: 'light'
+    }
   },
 
   // Nitro

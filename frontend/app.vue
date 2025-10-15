@@ -1,27 +1,18 @@
 <template>
-  <div>
+  <UApp>
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-  </div>
+  </UApp>
 </template>
 
 <script setup lang="ts">
 // 主應用程式入口
+useSeoMeta({
+  title: 'Influenter - 網紅案件管理系統',
+  description: 'AI 驅動的網紅案件管理系統，智能郵件分析、案件追蹤、自動回覆生成'
+})
 </script>
 
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-</style>
 
 
