@@ -10,8 +10,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	"github.com/designcomb/influenter-backend/internal/api"
 	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/database"
+	"github.com/designcomb/influenter-backend/internal/middleware"
 )
 
 func main() {
@@ -42,8 +44,11 @@ func main() {
 	log.Printf("📝 Environment: %s", cfg.Env)
 	log.Printf("🌐 Frontend URL: %s", cfg.FrontendURL)
 	log.Println("📡 Available endpoints:")
-	log.Println("   GET  /health       - Health check")
-	log.Println("   GET  /api/v1/ping  - Ping test")
+	log.Println("   GET  /health              - Health check")
+	log.Println("   GET  /api/v1/ping         - Ping test")
+	log.Println("   POST /api/v1/auth/google  - Google OAuth login")
+	log.Println("   GET  /api/v1/auth/me      - Get current user (protected)")
+	log.Println("   POST /api/v1/auth/logout  - Logout (protected)")
 
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("❌ Failed to start server: %v", err)
@@ -61,11 +66,23 @@ func setupRouter(cfg *config.Config, db *database.DB) *gin.Engine {
 	// Health check endpoint
 	router.GET("/health", healthCheckHandler(db))
 
+	// 建立 auth handler
+	authHandler := api.NewAuthHandler(db.DB, cfg)
+
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/ping", pingHandler)
-		// 之後會在這裡加入其他 API endpoints
+
+		// Auth routes (公開)
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/google", authHandler.GoogleLogin)
+			auth.POST("/logout", authHandler.Logout)
+
+			// 需要認證的路由
+			auth.GET("/me", middleware.AuthMiddleware(cfg), authHandler.GetCurrentUser)
+		}
 	}
 
 	return router
