@@ -172,6 +172,7 @@ services:
       - "3000:3000"
     environment:
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080}
+      NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       NODE_ENV: development
     volumes:
       # 掛載原始碼以支援 hot reload

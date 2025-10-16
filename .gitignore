@@ -76,3 +76,4 @@ vendor/
 secrets/
 
 *.md
+.cursor/

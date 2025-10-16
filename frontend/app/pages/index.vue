@@ -19,7 +19,7 @@
             <UIcon name="i-lucide-sparkles" class="w-10 h-10 text-primary" />
             <div>
               <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-                歡迎來到 Influenter
+                {{ user ? `歡迎回來，${user.name || user.email}` : '歡迎來到 Influenter' }}
               </h1>
               <p class="text-gray-500 dark:text-gray-400 mt-1">
                 AI 驅動的網紅案件管理系統
@@ -156,6 +156,13 @@
 
 <script setup lang="ts">
 // 首頁 - Dashboard
+
+definePageMeta({
+  middleware: ['auth'], // 需要登入才能存取
+})
+
+const authStore = useAuthStore()
+const user = computed(() => authStore.user)
 </script>
 
 

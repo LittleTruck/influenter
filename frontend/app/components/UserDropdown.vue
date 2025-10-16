@@ -6,9 +6,9 @@
   >
     <UButton
       :avatar="{
-        src: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Influenter'
+        src: user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Influenter'}`
       }"
-      :label="collapsed ? undefined : '使用者'"
+      :label="collapsed ? undefined : (user?.name || user?.email || '使用者')"
       color="neutral"
       variant="ghost"
       class="w-full"
@@ -22,7 +22,13 @@ defineProps<{
   collapsed?: boolean
 }>()
 
-const items = [
+const { user, logout } = useAuth()
+
+const handleLogout = async () => {
+  await logout()
+}
+
+const items = computed(() => [
   [{
     label: '個人資料',
     icon: 'i-lucide-user',
@@ -34,11 +40,8 @@ const items = [
   }], [{
     label: '登出',
     icon: 'i-lucide-log-out',
-    click: () => {
-      // TODO: 實作登出邏輯
-      console.log('登出')
-    }
+    click: handleLogout
   }]
-]
+])
 </script>
 

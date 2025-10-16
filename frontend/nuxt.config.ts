@@ -6,12 +6,15 @@ export default defineNuxtConfig({
     compatibilityVersion: 4
   },
 
+  srcDir: 'app/',
+
   devtools: { enabled: true },
   
   // Modules
   modules: [
     '@nuxt/ui',
     '@nuxt/fonts',
+    '@pinia/nuxt',
   ],
 
   // App config
@@ -33,6 +36,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',
     }
   },
 
