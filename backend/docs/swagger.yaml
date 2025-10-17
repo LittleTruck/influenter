@@ -1,0 +1,158 @@
+basePath: /api/v1
+definitions:
+  github_com_designcomb_influenter-backend_internal_models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      google_id:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      profile_picture_url:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_designcomb_influenter-backend_internal_services.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_designcomb_influenter-backend_internal_models.User'
+    type: object
+  internal_api.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  internal_api.GoogleLoginRequest:
+    properties:
+      clientId:
+        type: string
+      credential:
+        type: string
+    required:
+    - credential
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@influenter.example.com
+    name: API Support
+    url: http://influenter.example.com/support
+  description: |-
+    AI 驅動的網紅案件管理系統 API
+    提供 Google OAuth 認證、郵件管理、案件管理、AI 分析等功能
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://influenter.example.com/terms/
+  title: Influenter API
+  version: "1.0"
+paths:
+  /auth/google:
+    post:
+      consumes:
+      - application/json
+      description: 使用 Google credential 登入系統，如果使用者不存在會自動建立帳號
+      parameters:
+      - description: Google 登入請求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.GoogleLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登入成功，返回使用者資訊和 JWT token
+          schema:
+            $ref: '#/definitions/github_com_designcomb_influenter-backend_internal_services.LoginResponse'
+        "400":
+          description: 請求格式錯誤
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Google token 無效或驗證失敗
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: 伺服器內部錯誤
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Google OAuth 登入
+      tags:
+      - 認證
+  /auth/logout:
+    post:
+      description: 登出當前使用者，客戶端需清除本地儲存的 token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登出成功訊息
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 使用者登出
+      tags:
+      - 認證
+  /auth/me:
+    get:
+      description: 根據 JWT token 取得當前登入的使用者完整資訊
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 使用者資訊
+          schema:
+            $ref: '#/definitions/github_com_designcomb_influenter-backend_internal_models.User'
+        "401":
+          description: 未認證或 token 無效
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: 使用者不存在
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: 伺服器內部錯誤
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 取得當前使用者資訊
+      tags:
+      - 認證
+  /ping:
+    get:
+      description: 測試 API 是否正常運作
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pong 回應
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ping 測試
+      tags:
+      - 系統
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

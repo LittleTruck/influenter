@@ -38,17 +38,17 @@ type ErrorResponse struct {
 }
 
 // GoogleLogin 處理 Google 登入
-// @Summary Google OAuth 登入
-// @Description 使用 Google credential 登入並返回 JWT token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body GoogleLoginRequest true "Google Login Request"
-// @Success 200 {object} services.LoginResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/auth/google [post]
+// @Summary      Google OAuth 登入
+// @Description  使用 Google credential 登入系統，如果使用者不存在會自動建立帳號
+// @Tags         認證
+// @Accept       json
+// @Produce      json
+// @Param        request  body      GoogleLoginRequest  true  "Google 登入請求"
+// @Success      200      {object}  services.LoginResponse  "登入成功，返回使用者資訊和 JWT token"
+// @Failure      400      {object}  ErrorResponse  "請求格式錯誤"
+// @Failure      401      {object}  ErrorResponse  "Google token 無效或驗證失敗"
+// @Failure      500      {object}  ErrorResponse  "伺服器內部錯誤"
+// @Router       /auth/google [post]
 func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 	var req GoogleLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -85,15 +85,16 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 }
 
 // GetCurrentUser 取得當前登入的使用者
-// @Summary 取得當前使用者
-// @Description 根據 JWT token 取得當前登入的使用者資訊
-// @Tags auth
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} models.User
-// @Failure 401 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Router /api/v1/auth/me [get]
+// @Summary      取得當前使用者資訊
+// @Description  根據 JWT token 取得當前登入的使用者完整資訊
+// @Tags         認證
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  github_com_designcomb_influenter-backend_internal_models.User  "使用者資訊"
+// @Failure      401  {object}  ErrorResponse  "未認證或 token 無效"
+// @Failure      404  {object}  ErrorResponse  "使用者不存在"
+// @Failure      500  {object}  ErrorResponse  "伺服器內部錯誤"
+// @Router       /auth/me [get]
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	// 從 context 中取得 user_id (由 auth middleware 設定)
 	userIDStr, exists := c.Get("user_id")
@@ -137,13 +138,13 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 }
 
 // Logout 登出
-// @Summary 登出
-// @Description 登出當前使用者（客戶端需清除 token）
-// @Tags auth
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]string
-// @Router /api/v1/auth/logout [post]
+// @Summary      使用者登出
+// @Description  登出當前使用者，客戶端需清除本地儲存的 token
+// @Tags         認證
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]string  "登出成功訊息"
+// @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// 目前使用 JWT，登出只需要客戶端清除 token 即可
 	// 如果未來需要實作 token blacklist，可以在這裡加入

@@ -9,12 +9,37 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/designcomb/influenter-backend/internal/api"
 	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/database"
 	"github.com/designcomb/influenter-backend/internal/middleware"
+
+	_ "github.com/designcomb/influenter-backend/docs" // Swagger docs
 )
+
+// @title           Influenter API
+// @version         1.0
+// @description     AI 驅動的網紅案件管理系統 API
+// @description     提供 Google OAuth 認證、郵件管理、案件管理、AI 分析等功能
+// @termsOfService  http://influenter.example.com/terms/
+
+// @contact.name   API Support
+// @contact.url    http://influenter.example.com/support
+// @contact.email  support@influenter.example.com
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	// 1. 載入配置
@@ -45,6 +70,7 @@ func main() {
 	log.Printf("🌐 Frontend URL: %s", cfg.FrontendURL)
 	log.Println("📡 Available endpoints:")
 	log.Println("   GET  /health              - Health check")
+	log.Println("   GET  /swagger/index.html  - API Documentation (Swagger UI)")
 	log.Println("   GET  /api/v1/ping         - Ping test")
 	log.Println("   POST /api/v1/auth/google  - Google OAuth login")
 	log.Println("   GET  /api/v1/auth/me      - Get current user (protected)")
@@ -65,6 +91,9 @@ func setupRouter(cfg *config.Config, db *database.DB) *gin.Engine {
 
 	// Health check endpoint
 	router.GET("/health", healthCheckHandler(db))
+
+	// Swagger 文檔
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 建立 auth handler
 	authHandler := api.NewAuthHandler(db.DB, cfg)
@@ -156,6 +185,12 @@ func healthCheckHandler(db *database.DB) gin.HandlerFunc {
 }
 
 // pingHandler 測試用的 ping 處理器
+// @Summary      Ping 測試
+// @Description  測試 API 是否正常運作
+// @Tags         系統
+// @Produce      json
+// @Success      200  {object}  map[string]string  "Pong 回應"
+// @Router       /ping [get]
 func pingHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":   "pong",
