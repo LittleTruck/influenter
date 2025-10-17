@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/database"
 	"github.com/designcomb/influenter-backend/internal/middleware"
+	"github.com/designcomb/influenter-backend/internal/utils"
 
 	_ "github.com/designcomb/influenter-backend/docs" // Swagger docs
 )
@@ -45,46 +47,63 @@ func main() {
 	// 1. 載入配置
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+		log.Fatal().Err(err).Msg("Failed to load config")
 	}
-	log.Printf("✅ Config loaded (env=%s)", cfg.Env)
 
-	// 2. 連接資料庫
+	// 2. 初始化結構化日誌
+	logger := utils.InitLogger(cfg.Env, cfg.LogLevel)
+	logger.Info().
+		Str("env", cfg.Env).
+		Str("log_level", cfg.LogLevel).
+		Msg("Config loaded successfully")
+
+	// 3. 連接資料庫
 	db, err := database.New(cfg)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to database: %v", err)
+		logger.Fatal().Err(err).Msg("Failed to connect to database")
 	}
 	defer db.Close()
-	log.Println("✅ Database connected")
+	logger.Info().
+		Str("host", cfg.Database.Host).
+		Str("database", cfg.Database.Database).
+		Msg("Database connected successfully")
 
-	// 3. 設定 Gin 模式
+	// 4. 設定 Gin 模式
 	gin.SetMode(cfg.GinMode)
 
-	// 4. 建立路由
-	router := setupRouter(cfg, db)
+	// 5. 建立路由
+	router := setupRouter(cfg, db, &logger)
 
-	// 5. 啟動伺服器
+	// 6. 啟動伺服器
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("🚀 Server is starting on %s", addr)
-	log.Printf("📝 Environment: %s", cfg.Env)
-	log.Printf("🌐 Frontend URL: %s", cfg.FrontendURL)
-	log.Println("📡 Available endpoints:")
-	log.Println("   GET  /health              - Health check")
-	log.Println("   GET  /swagger/index.html  - API Documentation (Swagger UI)")
-	log.Println("   GET  /api/v1/ping         - Ping test")
-	log.Println("   POST /api/v1/auth/google  - Google OAuth login")
-	log.Println("   GET  /api/v1/auth/me      - Get current user (protected)")
-	log.Println("   POST /api/v1/auth/logout  - Logout (protected)")
+	logger.Info().
+		Str("addr", addr).
+		Str("env", cfg.Env).
+		Str("frontend_url", cfg.FrontendURL).
+		Msg("Starting HTTP server")
+
+	logger.Info().Msg("📡 Available endpoints:")
+	logger.Info().Msg("   GET  /health              - Health check")
+	logger.Info().Msg("   GET  /swagger/index.html  - API Documentation (Swagger UI)")
+	logger.Info().Msg("   GET  /api/v1/ping         - Ping test")
+	logger.Info().Msg("   POST /api/v1/auth/google  - Google OAuth login")
+	logger.Info().Msg("   GET  /api/v1/auth/me      - Get current user (protected)")
+	logger.Info().Msg("   POST /api/v1/auth/logout  - Logout (protected)")
 
 	if err := router.Run(addr); err != nil {
-		log.Fatalf("❌ Failed to start server: %v", err)
+		logger.Fatal().Err(err).Msg("Failed to start server")
 	}
 }
 
 // setupRouter 設定並返回 Gin router
-func setupRouter(cfg *config.Config, db *database.DB) *gin.Engine {
-	// 建立 router（包含 logger 和 recovery middleware）
-	router := gin.Default()
+func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *gin.Engine {
+	// 建立 router（不使用預設的 logger）
+	router := gin.New()
+
+	// 使用自訂的結構化日誌 middleware
+	router.Use(middleware.RequestIDMiddleware())
+	router.Use(middleware.LoggerMiddleware())
+	router.Use(gin.Recovery())
 
 	// CORS middleware
 	router.Use(corsMiddleware(cfg))

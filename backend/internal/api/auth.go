@@ -1,10 +1,10 @@
 package api
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/designcomb/influenter-backend/internal/config"
+	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -60,9 +60,13 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 	}
 
 	// 呼叫認證服務
+	logger := middleware.GetLogger(c)
 	response, err := h.authService.GoogleLogin(req.Credential)
 	if err != nil {
-		log.Printf("Google login error: %v", err)
+		logger.Error().
+			Err(err).
+			Str("client_id", req.ClientID).
+			Msg("Google login failed")
 
 		// 根據錯誤類型返回不同的 status code
 		statusCode := http.StatusUnauthorized
@@ -79,7 +83,10 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 		return
 	}
 
-	log.Printf("✅ User logged in: %s (%s)", response.User.Email, response.User.ID)
+	logger.Info().
+		Str("user_id", response.User.ID.String()).
+		Str("email", response.User.Email).
+		Msg("User logged in successfully")
 
 	c.JSON(http.StatusOK, response)
 }
@@ -116,9 +123,13 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	// 取得使用者資訊
+	logger := middleware.GetLogger(c)
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
 		if err == services.ErrUserNotFound {
+			logger.Warn().
+				Str("user_id", userID.String()).
+				Msg("User not found")
 			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error:   "user_not_found",
 				Message: "User not found",
@@ -126,7 +137,10 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 			return
 		}
 
-		log.Printf("Error getting user: %v", err)
+		logger.Error().
+			Err(err).
+			Str("user_id", userID.String()).
+			Msg("Failed to get user information")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Message: "Failed to get user information",
