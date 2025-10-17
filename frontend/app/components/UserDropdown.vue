@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 defineProps<{
   collapsed?: boolean
 }>()
@@ -40,7 +42,7 @@ const items = computed(() => [
   }], [{
     label: '登出',
     icon: 'i-lucide-log-out',
-    click: handleLogout
+    onClick: handleLogout
   }]
 ])
 </script>

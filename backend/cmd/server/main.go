@@ -122,14 +122,19 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	{
 		v1.GET("/ping", pingHandler)
 
-		// Auth routes (公開)
+		// Auth routes
 		auth := v1.Group("/auth")
 		{
+			// 公開路由
 			auth.POST("/google", authHandler.GoogleLogin)
-			auth.POST("/logout", authHandler.Logout)
 
 			// 需要認證的路由
-			auth.GET("/me", middleware.AuthMiddleware(cfg), authHandler.GetCurrentUser)
+			authProtected := auth.Group("")
+			authProtected.Use(middleware.AuthMiddleware(cfg))
+			{
+				authProtected.GET("/me", authHandler.GetCurrentUser)
+				authProtected.POST("/logout", authHandler.Logout)
+			}
 		}
 	}
 

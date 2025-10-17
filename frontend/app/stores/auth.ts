@@ -68,12 +68,15 @@ export const useAuthStore = defineStore('auth', {
       this.setToken(token)
     },
 
-    logout() {
+    async logout() {
       this.setUser(null)
       this.setToken(null)
+      this.isAuthenticated = false
       // 導向登入頁面
       if (import.meta.client) {
-        navigateTo('/auth/login')
+        await navigateTo('/auth/login', { replace: true })
+        // 強制刷新頁面以確保完全清除狀態
+        window.location.href = '/auth/login'
       }
     },
   },

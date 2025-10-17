@@ -158,8 +158,19 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  map[string]string  "登出成功訊息"
+// @Failure      401  {object}  ErrorResponse  "未認證"
 // @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// 取得使用者 ID（由 auth middleware 設定）
+	logger := middleware.GetLogger(c)
+
+	userIDStr, exists := c.Get("user_id")
+	if exists {
+		logger.Info().
+			Str("user_id", userIDStr.(string)).
+			Msg("User logged out successfully")
+	}
+
 	// 目前使用 JWT，登出只需要客戶端清除 token 即可
 	// 如果未來需要實作 token blacklist，可以在這裡加入
 
