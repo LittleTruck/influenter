@@ -24,7 +24,7 @@
         <div class="flex flex-col items-center space-y-4">
           <ClientOnly>
             <div v-if="googleClientId" class="w-full max-w-md">
-              <GoogleLoginButton :callback="handleGoogleLogin" />
+              <GoogleLoginButton />
             </div>
             <UAlert
               v-else

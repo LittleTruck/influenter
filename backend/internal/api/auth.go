@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/designcomb/influenter-backend/internal/config"
@@ -8,6 +10,8 @@ import (
 	"github.com/designcomb/influenter-backend/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +33,12 @@ func NewAuthHandler(db *gorm.DB, cfg *config.Config) *AuthHandler {
 type GoogleLoginRequest struct {
 	Credential string `json:"credential" binding:"required"`
 	ClientID   string `json:"clientId"`
+}
+
+// GoogleOAuthCallbackRequest Google OAuth callback 請求
+type GoogleOAuthCallbackRequest struct {
+	Code        string `json:"code" binding:"required"`
+	RedirectURI string `json:"redirect_uri" binding:"required"`
 }
 
 // ErrorResponse 錯誤回應
@@ -149,6 +159,124 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+// GoogleOAuthCallback 處理 Google OAuth callback
+// @Summary      Google OAuth Callback
+// @Description  處理 Google OAuth 授權回調，換取 access token 並建立/更新使用者
+// @Tags         認證
+// @Accept       json
+// @Produce      json
+// @Param        request  body      GoogleOAuthCallbackRequest  true  "OAuth callback 請求"
+// @Success      200      {object}  services.LoginResponse  "登入成功，返回使用者資訊和 JWT token"
+// @Failure      400      {object}  ErrorResponse  "請求格式錯誤"
+// @Failure      401      {object}  ErrorResponse  "OAuth 授權失敗"
+// @Failure      500      {object}  ErrorResponse  "伺服器內部錯誤"
+// @Router       /auth/google/callback [post]
+func (h *AuthHandler) GoogleOAuthCallback(c *gin.Context) {
+	var req GoogleOAuthCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "invalid_request",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	logger := middleware.GetLogger(c)
+
+	// 1. 建立 OAuth config
+	oauth2Config := &oauth2.Config{
+		ClientID:     h.config.Google.ClientID,
+		ClientSecret: h.config.Google.ClientSecret,
+		RedirectURL:  req.RedirectURI,
+		Scopes: []string{
+			"openid",
+			"email",
+			"profile",
+			"https://www.googleapis.com/auth/gmail.readonly",
+			"https://www.googleapis.com/auth/gmail.modify",
+			"https://www.googleapis.com/auth/gmail.labels",
+		},
+		Endpoint: google.Endpoint,
+	}
+
+	// 2. 用 authorization code 換取 tokens
+	token, err := oauth2Config.Exchange(context.Background(), req.Code)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to exchange code for token")
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "oauth_exchange_failed",
+			Message: "Failed to exchange authorization code: " + err.Error(),
+		})
+		return
+	}
+
+	// 3. 用 access token 取得使用者資訊
+	client := oauth2Config.Client(context.Background(), token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get user info")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "user_info_failed",
+			Message: "Failed to get user information",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error().Int("status", resp.StatusCode).Msg("Failed to get user info")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "user_info_failed",
+			Message: "Failed to get user information from Google",
+		})
+		return
+	}
+
+	// 4. 解析使用者資訊
+	var userInfo struct {
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+		Sub     string `json:"id"` // Google User ID
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		logger.Error().Err(err).Msg("Failed to parse user info")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "parse_failed",
+			Message: "Failed to parse user information",
+		})
+		return
+	}
+
+	// 5. 呼叫認證服務處理登入和 token 儲存
+	response, err := h.authService.GoogleOAuthLogin(&services.GoogleOAuthData{
+		GoogleID:     userInfo.Sub,
+		Email:        userInfo.Email,
+		Name:         userInfo.Name,
+		Picture:      userInfo.Picture,
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		TokenExpiry:  token.Expiry,
+	})
+
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to complete OAuth login")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "login_failed",
+			Message: "Failed to complete login: " + err.Error(),
+		})
+		return
+	}
+
+	logger.Info().
+		Str("user_id", response.User.ID.String()).
+		Str("email", response.User.Email).
+		Bool("has_refresh_token", token.RefreshToken != "").
+		Msg("User logged in successfully via OAuth")
+
+	c.JSON(http.StatusOK, response)
 }
 
 // Logout 登出

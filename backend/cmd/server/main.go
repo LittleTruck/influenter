@@ -57,7 +57,13 @@ func main() {
 		Str("log_level", cfg.LogLevel).
 		Msg("Config loaded successfully")
 
-	// 3. 連接資料庫
+	// 3. 初始化加密工具
+	if err := utils.InitCrypto(); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize crypto")
+	}
+	logger.Info().Msg("Crypto initialized successfully")
+
+	// 4. 連接資料庫
 	db, err := database.New(cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to connect to database")
@@ -68,13 +74,13 @@ func main() {
 		Str("database", cfg.Database.Database).
 		Msg("Database connected successfully")
 
-	// 4. 設定 Gin 模式
+	// 5. 設定 Gin 模式
 	gin.SetMode(cfg.GinMode)
 
-	// 5. 建立路由
+	// 6. 建立路由
 	router := setupRouter(cfg, db, &logger)
 
-	// 6. 啟動伺服器
+	// 7. 啟動伺服器
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	logger.Info().
 		Str("addr", addr).
@@ -135,6 +141,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 		{
 			// 公開路由
 			auth.POST("/google", authHandler.GoogleLogin)
+			auth.POST("/google/callback", authHandler.GoogleOAuthCallback)
 
 			// 需要認證的路由
 			authProtected := auth.Group("")
