@@ -102,23 +102,23 @@ export const useEmailsStore = defineStore('emails', () => {
     error.value = null
 
     try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
       // 合併篩選參數
       const queryParams = { ...filters.value, ...params }
       
-      const { data, error: apiError } = await useAPI<EmailListResponse>('/api/v1/emails', {
+      const data = await $fetch<EmailListResponse>(`${config.public.apiBase}/api/v1/emails`, {
         method: 'GET',
-        params: queryParams
+        params: queryParams,
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
 
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '獲取郵件列表失敗')
-      }
-
-      if (data.value) {
-        emails.value = data.value.emails
-        pagination.value = data.value.pagination
-        filters.value = { ...queryParams }
-      }
+      emails.value = data.emails
+      pagination.value = data.pagination
+      filters.value = { ...queryParams }
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to fetch emails:', e)
@@ -132,17 +132,17 @@ export const useEmailsStore = defineStore('emails', () => {
     error.value = null
 
     try {
-      const { data, error: apiError } = await useAPI<EmailDetail>(`/api/v1/emails/${id}`, {
-        method: 'GET'
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      const data = await $fetch<EmailDetail>(`${config.public.apiBase}/api/v1/emails/${id}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
 
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '獲取郵件詳情失敗')
-      }
-
-      if (data.value) {
-        currentEmail.value = data.value
-      }
+      currentEmail.value = data
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to fetch email:', e)
@@ -153,14 +153,16 @@ export const useEmailsStore = defineStore('emails', () => {
 
   const markAsRead = async (id: string, isRead = true) => {
     try {
-      const { data, error: apiError } = await useAPI<EmailDetail>(`/api/v1/emails/${id}`, {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      const data = await $fetch<EmailDetail>(`${config.public.apiBase}/api/v1/emails/${id}`, {
         method: 'PATCH',
-        body: { is_read: isRead }
+        body: { is_read: isRead },
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
-
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '更新郵件狀態失敗')
-      }
 
       // 更新本地狀態
       const index = emails.value.findIndex(e => e.id === id)
@@ -172,7 +174,7 @@ export const useEmailsStore = defineStore('emails', () => {
         currentEmail.value.is_read = isRead
       }
 
-      return data.value
+      return data
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to mark email as read:', e)
@@ -182,14 +184,16 @@ export const useEmailsStore = defineStore('emails', () => {
 
   const linkToCase = async (emailId: string, caseId: string) => {
     try {
-      const { data, error: apiError } = await useAPI<EmailDetail>(`/api/v1/emails/${emailId}`, {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      const data = await $fetch<EmailDetail>(`${config.public.apiBase}/api/v1/emails/${emailId}`, {
         method: 'PATCH',
-        body: { case_id: caseId }
+        body: { case_id: caseId },
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
-
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '關聯案件失敗')
-      }
 
       // 更新本地狀態
       const index = emails.value.findIndex(e => e.id === emailId)
@@ -201,7 +205,7 @@ export const useEmailsStore = defineStore('emails', () => {
         currentEmail.value.case_id = caseId
       }
 
-      return data.value
+      return data
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to link email to case:', e)
@@ -211,17 +215,17 @@ export const useEmailsStore = defineStore('emails', () => {
 
   const fetchGmailStatus = async () => {
     try {
-      const { data, error: apiError } = await useAPI<GmailStatus>('/api/v1/gmail/status', {
-        method: 'GET'
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      const data = await $fetch<GmailStatus>(`${config.public.apiBase}/api/v1/gmail/status`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
 
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '獲取 Gmail 狀態失敗')
-      }
-
-      if (data.value) {
-        gmailStatus.value = data.value
-      }
+      gmailStatus.value = data
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to fetch Gmail status:', e)
@@ -233,20 +237,22 @@ export const useEmailsStore = defineStore('emails', () => {
     error.value = null
 
     try {
-      const { data, error: apiError } = await useAPI('/api/v1/gmail/sync', {
-        method: 'POST'
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      const data = await $fetch(`${config.public.apiBase}/api/v1/gmail/sync`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
-
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '觸發同步失敗')
-      }
 
       // 等待一下再重新獲取狀態
       setTimeout(() => {
         fetchGmailStatus()
       }, 2000)
 
-      return data.value
+      return data
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to trigger sync:', e)
@@ -258,13 +264,15 @@ export const useEmailsStore = defineStore('emails', () => {
 
   const disconnectGmail = async () => {
     try {
-      const { error: apiError } = await useAPI('/api/v1/gmail/disconnect', {
-        method: 'DELETE'
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+      
+      await $fetch(`${config.public.apiBase}/api/v1/gmail/disconnect`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
       })
-
-      if (apiError.value) {
-        throw new Error(apiError.value.data?.message || '斷開連接失敗')
-      }
 
       // 清空本地資料
       emails.value = []

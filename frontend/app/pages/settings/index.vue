@@ -155,36 +155,33 @@ const syncStatusColor = computed(() => {
               </UButton>
             </div>
 
-            <!-- 未連接提示 -->
-            <div v-if="!emailsStore.isConnected" class="space-y-4">
-              <div class="p-4 rounded-lg border border-warning/20 bg-warning/5">
-                <div class="flex items-start gap-3">
-                  <UIcon name="i-lucide-alert-triangle" class="w-5 h-5 text-warning mt-0.5" />
-                  <div class="flex-1">
-                    <h4 class="font-medium text-highlighted mb-1">Gmail 權限授權開發中</h4>
-                    <p class="text-sm text-muted mb-2">
-                      目前系統使用 Google 帳號登入，但尚未實作 Gmail API 的完整 OAuth 授權流程。
-                    </p>
-                    <p class="text-sm text-muted">
-                      Gmail 郵件管理功能將在下一個版本中啟用。敬請期待！
-                    </p>
-                  </div>
+            <!-- 載入中 -->
+            <div v-if="!emailsStore.isConnected && !emailsStore.gmailStatus" class="p-4 rounded-lg bg-elevated/50">
+              <div class="flex items-center gap-3">
+                <UIcon name="i-lucide-loader-2" class="w-5 h-5 text-primary animate-spin" />
+                <div>
+                  <p class="text-sm text-muted">正在檢查 Gmail 連接狀態...</p>
                 </div>
               </div>
+            </div>
 
+            <!-- 未連接提示 -->
+            <div v-else-if="!emailsStore.isConnected && emailsStore.gmailStatus" class="space-y-4">
               <div class="p-4 rounded-lg border border-info/20 bg-info/5">
                 <div class="flex items-start gap-3">
                   <UIcon name="i-lucide-info" class="w-5 h-5 text-info mt-0.5" />
                   <div class="flex-1">
-                    <h4 class="font-medium text-highlighted mb-1">開發團隊</h4>
-                    <p class="text-sm text-muted mb-2">
-                      如果您是開發人員，需要完成以下步驟來啟用 Gmail 功能：
+                    <h4 class="font-medium text-highlighted mb-1">Gmail 尚未連接</h4>
+                    <p class="text-sm text-muted mb-3">
+                      您已使用 Google 帳號登入，但需要重新授權以獲取 Gmail 存取權限。
                     </p>
-                    <ol class="text-sm text-muted list-decimal list-inside space-y-1">
-                      <li>實作前端 Google OAuth 2.0 流程（包含 Gmail scope）</li>
-                      <li>修改登入 API 以接收並儲存 access_token 和 refresh_token</li>
-                      <li>在 oauth_accounts 表中儲存有效的 Gmail API tokens</li>
-                    </ol>
+                    <UButton
+                      icon="i-lucide-mail"
+                      color="primary"
+                      @click="router.push('/auth/login')"
+                    >
+                      重新授權 Gmail
+                    </UButton>
                   </div>
                 </div>
               </div>
