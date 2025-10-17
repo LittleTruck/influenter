@@ -97,19 +97,19 @@ frontend-build:
 ## migrate-up: 執行資料庫遷移 (升級)
 migrate-up:
 	@echo "$(COLOR_BLUE)📊 執行資料庫遷移...$(COLOR_RESET)"
-	docker-compose exec backend-api go run ./cmd/migrate up
+	docker-compose exec backend-api go run ./cmd/migrate/main.go up
 	@echo "$(COLOR_GREEN)✅ 遷移完成$(COLOR_RESET)"
 
 ## migrate-down: 回滾資料庫遷移
 migrate-down:
 	@echo "$(COLOR_YELLOW)⚠️  回滾資料庫遷移...$(COLOR_RESET)"
-	docker-compose exec backend-api go run ./cmd/migrate down
+	docker-compose exec backend-api go run ./cmd/migrate/main.go down
 	@echo "$(COLOR_GREEN)✅ 回滾完成$(COLOR_RESET)"
 
 ## migrate-status: 查看遷移狀態
 migrate-status:
 	@echo "$(COLOR_BLUE)📋 查看遷移狀態...$(COLOR_RESET)"
-	docker-compose exec backend-api go run ./cmd/migrate status
+	docker-compose exec backend-api go run ./cmd/migrate/main.go status
 
 ## migrate-create: 創建新遷移 (使用方式: make migrate-create NAME=your_migration_name)
 migrate-create:
@@ -118,8 +118,25 @@ migrate-create:
 		exit 1; \
 	fi
 	@echo "$(COLOR_BLUE)📝 創建遷移: $(NAME)...$(COLOR_RESET)"
-	docker-compose exec backend-api go run ./cmd/migrate create $(NAME)
+	docker-compose exec backend-api go run ./cmd/migrate/main.go create $(NAME)
 	@echo "$(COLOR_GREEN)✅ 遷移檔案已建立$(COLOR_RESET)"
+
+## db-reset: 重置資料庫（刪除所有資料並重新執行 migrations）
+db-reset:
+	@echo "$(COLOR_YELLOW)⚠️  警告: 這將刪除所有資料！$(COLOR_RESET)"
+	@read -p "確定要繼續嗎? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "$(COLOR_BLUE)🔄 重置資料庫...$(COLOR_RESET)"; \
+		docker-compose down postgres; \
+		docker volume rm influenter_postgres_data 2>/dev/null || true; \
+		docker-compose up -d postgres; \
+		echo "⏳ 等待資料庫啟動..."; \
+		sleep 8; \
+		docker-compose exec backend-api go run ./cmd/migrate/main.go up; \
+		echo "$(COLOR_GREEN)✅ 資料庫重置完成$(COLOR_RESET)"; \
+	else \
+		echo "$(COLOR_BLUE)已取消$(COLOR_RESET)"; \
+	fi
 
 ## test: 執行測試
 test:

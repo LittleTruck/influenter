@@ -14,10 +14,10 @@
 │     users       │
 └────────┬────────┘
          │
-         │ 1:1
+         │ 1:N
          ▼
 ┌─────────────────┐         ┌──────────────────┐
-│ gmail_accounts  │────┬───▶│     emails       │
+│ oauth_accounts  │────┬───▶│     emails       │
 └─────────────────┘    │    └────────┬─────────┘
                        │             │
                        │             │ M:N
@@ -55,10 +55,7 @@ CREATE TABLE users (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(255) NOT NULL UNIQUE,
     name                VARCHAR(100),
-    avatar_url          TEXT,
-    
-    -- 認證相關
-    google_id           VARCHAR(255) UNIQUE,
+    profile_picture_url TEXT,
     
     -- 設定
     ai_reply_tone       VARCHAR(50) DEFAULT 'professional',  -- 回覆語氣
@@ -66,14 +63,20 @@ CREATE TABLE users (
     notification_prefs  JSONB,  -- 通知偏好設定
     
     -- 系統欄位
-    created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
-    last_login_at       TIMESTAMP
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_login_at       TIMESTAMP WITH TIME ZONE,
+    deleted_at          TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 ```
+
+**設計考量**：
+- OAuth 相關資訊（Google ID、tokens 等）統一存放在 `oauth_accounts` 表
+- 系統預設使用 Google 登入，但架構支援其他 OAuth 提供商
+- 使用者可以連結多個第三方帳號（如同時連結 Google 和 Outlook）
 
 **範例資料**：
 ```json
@@ -81,6 +84,7 @@ CREATE INDEX idx_users_google_id ON users(google_id);
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "email": "alice@example.com",
   "name": "Alice Chen",
+  "profile_picture_url": "https://...",
   "ai_reply_tone": "friendly",
   "notification_prefs": {
     "email_on_new_case": true,
@@ -92,71 +96,87 @@ CREATE INDEX idx_users_google_id ON users(google_id);
 
 ---
 
-### 2. gmail_accounts（Gmail 帳號）
+### 2. oauth_accounts（第三方 OAuth 帳號）
 
-**用途**：儲存 Gmail OAuth tokens（加密）
+**用途**：儲存使用者連結的第三方 OAuth 帳號（如 Gmail、Outlook 等）的 OAuth tokens（加密）
 
 ```sql
-CREATE TABLE gmail_accounts (
+CREATE TABLE oauth_accounts (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     
-    -- Gmail 資訊
+    -- OAuth 提供商資訊
+    provider        VARCHAR(50) NOT NULL,           -- google, outlook, apple
+    provider_id     VARCHAR(255),                   -- 提供商的使用者 ID
     email           VARCHAR(255) NOT NULL,
     
-    -- OAuth tokens（加密儲存）
-    access_token    TEXT NOT NULL,      -- AES-256 加密
-    refresh_token   TEXT NOT NULL,      -- AES-256 加密
-    token_expiry    TIMESTAMP NOT NULL,
+    -- OAuth tokens（加密儲存 - AES-256-GCM）
+    access_token    TEXT NOT NULL,                  -- 加密的 access token
+    refresh_token   TEXT NOT NULL,                  -- 加密的 refresh token
+    token_expiry    TIMESTAMP WITH TIME ZONE NOT NULL,
     
-    -- 同步狀態
-    last_sync_at    TIMESTAMP,
-    last_history_id VARCHAR(100),       -- Gmail API history ID
-    sync_status     VARCHAR(50) DEFAULT 'active',  -- active, paused, error
+    -- 同步狀態（主要用於郵件同步）
+    last_sync_at    TIMESTAMP WITH TIME ZONE,
+    last_history_id VARCHAR(100),                   -- Gmail API history ID 或其他提供商的同步 ID
+    sync_status     VARCHAR(50) DEFAULT 'active',   -- active, paused, error
     sync_error      TEXT,
     
-    -- 系統欄位
-    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    -- 額外資訊（JSON 格式，可存放提供商特定資訊）
+    metadata        JSONB,
     
-    CONSTRAINT unique_user_gmail UNIQUE (user_id, email)
+    -- 系統欄位
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at      TIMESTAMP WITH TIME ZONE,
+    
+    -- 唯一約束：一個使用者不能重複連結同一個 provider 的同一個 email
+    CONSTRAINT unique_user_provider_email UNIQUE (user_id, provider, email)
 );
 
-CREATE INDEX idx_gmail_accounts_user_id ON gmail_accounts(user_id);
-CREATE INDEX idx_gmail_accounts_sync_status ON gmail_accounts(sync_status);
+CREATE INDEX idx_oauth_accounts_user_id ON oauth_accounts(user_id);
+CREATE INDEX idx_oauth_accounts_provider ON oauth_accounts(provider);
+CREATE INDEX idx_oauth_accounts_sync_status ON oauth_accounts(sync_status);
+CREATE INDEX idx_oauth_accounts_deleted_at ON oauth_accounts(deleted_at);
+CREATE INDEX idx_oauth_accounts_token_expiry ON oauth_accounts(token_expiry);
 ```
 
-**重要**：`access_token` 和 `refresh_token` 在儲存前必須使用 AES-256 加密。
+**重要**：`access_token` 和 `refresh_token` 在儲存前必須使用 AES-256-GCM 加密。
+
+**設計考量**：
+- 使用通用的 `provider` 欄位支援多個 OAuth 提供商（Google、Outlook、Apple 等）
+- `metadata` 欄位可儲存提供商特定的資訊（如 Gmail 的 history ID、Outlook 的 delta link 等）
+- 支援軟刪除（deleted_at）
+- 一個使用者可以連結多個不同提供商的帳號，但同一個 provider 的同一個 email 只能連結一次
 
 ---
 
 ### 3. emails（郵件）
 
-**用途**：儲存同步的 Gmail 郵件
+**用途**：儲存從第三方 OAuth 帳號（如 Gmail、Outlook 等）同步的郵件
 
 ```sql
 CREATE TABLE emails (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    gmail_account_id    UUID NOT NULL REFERENCES gmail_accounts(id) ON DELETE CASCADE,
+    oauth_account_id    UUID NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
     
-    -- Gmail 原始資訊
-    gmail_message_id    VARCHAR(255) NOT NULL UNIQUE,  -- Gmail 的 message ID
-    thread_id           VARCHAR(255),
+    -- 郵件提供商原始資訊
+    provider_message_id VARCHAR(255) NOT NULL UNIQUE,  -- Gmail message ID 或其他提供商的 message ID
+    thread_id           VARCHAR(255),                  -- 郵件串 ID
     
     -- 郵件基本資訊
     from_email          VARCHAR(255) NOT NULL,
     from_name           VARCHAR(255),
     to_email            VARCHAR(255),
     subject             TEXT,
-    body_text           TEXT,      -- 純文字內容
-    body_html           TEXT,      -- HTML 內容
-    snippet             TEXT,      -- Gmail 摘要
+    body_text           TEXT,                          -- 純文字內容
+    body_html           TEXT,                          -- HTML 內容
+    snippet             TEXT,                          -- 郵件摘要（前 150 字）
     
     -- 郵件屬性
-    received_at         TIMESTAMP NOT NULL,
+    received_at         TIMESTAMP WITH TIME ZONE NOT NULL,
     is_read             BOOLEAN DEFAULT FALSE,
     has_attachments     BOOLEAN DEFAULT FALSE,
-    labels              TEXT[],    -- Gmail labels
+    labels              TEXT[],                        -- 標籤（Gmail labels 或其他提供商標籤）
     
     -- AI 分析狀態
     ai_analyzed         BOOLEAN DEFAULT FALSE,
@@ -166,21 +186,34 @@ CREATE TABLE emails (
     case_id             UUID REFERENCES cases(id) ON DELETE SET NULL,
     
     -- 系統欄位
-    created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at          TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_emails_gmail_account_id ON emails(gmail_account_id);
-CREATE INDEX idx_emails_gmail_message_id ON emails(gmail_message_id);
-CREATE INDEX idx_emails_case_id ON emails(case_id);
+CREATE INDEX idx_emails_oauth_account_id ON emails(oauth_account_id);
+CREATE INDEX idx_emails_provider_message_id ON emails(provider_message_id);
+CREATE INDEX idx_emails_thread_id ON emails(thread_id);
+CREATE INDEX idx_emails_from_email ON emails(from_email);
+CREATE INDEX idx_emails_to_email ON emails(to_email);
 CREATE INDEX idx_emails_received_at ON emails(received_at DESC);
+CREATE INDEX idx_emails_case_id ON emails(case_id);
+CREATE INDEX idx_emails_deleted_at ON emails(deleted_at);
+
+-- 部分索引：僅針對未分析的郵件（效能優化）
 CREATE INDEX idx_emails_ai_analyzed ON emails(ai_analyzed) WHERE ai_analyzed = FALSE;
+
+-- GIN 索引：用於主旨全文搜尋
+CREATE INDEX idx_emails_subject_gin ON emails USING GIN (to_tsvector('english', COALESCE(subject, '')));
 ```
 
 **設計考量**：
 - 只儲存郵件基本資訊，不下載附件實體檔案
 - `labels` 使用 PostgreSQL array 型別，方便查詢
-- `ai_analyzed` 索引僅針對未分析的郵件，提升背景任務效率
+- `ai_analyzed` 部分索引僅針對未分析的郵件，提升背景任務效率
+- 使用 `provider_message_id` 而非 `gmail_message_id`，支援多種郵件提供商
+- 支援軟刪除（deleted_at）
+- GIN 索引用於主旨的全文搜尋功能
 
 ---
 
@@ -590,12 +623,12 @@ PostgreSQL 完全可以應對 ✅
 ### 敏感欄位加密
 
 以下欄位必須加密儲存：
-- `gmail_accounts.access_token`
-- `gmail_accounts.refresh_token`
+- `oauth_accounts.access_token`
+- `oauth_accounts.refresh_token`
 
 ### 加密方式
 - 演算法：**AES-256-GCM**
-- 金鑰管理：環境變數 `ENCRYPTION_KEY`（32 bytes）
+- 金鑰管理：環境變數 `ENCRYPTION_KEY`（32 bytes，base64 編碼）
 - 生產環境：使用 AWS KMS / GCP KMS
 
 ---
@@ -621,18 +654,32 @@ type User struct {
     ID                uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
     Email             string         `gorm:"uniqueIndex;not null"`
     Name              string         `gorm:"size:100"`
-    AvatarURL         string
-    GoogleID          string         `gorm:"uniqueIndex"`
+    ProfilePictureURL *string
     AIReplyTone       string         `gorm:"default:'professional'"`
     Timezone          string         `gorm:"default:'Asia/Taipei'"`
     NotificationPrefs datatypes.JSON `gorm:"type:jsonb"`
     CreatedAt         time.Time
     UpdatedAt         time.Time
     LastLoginAt       *time.Time
+    DeletedAt         gorm.DeletedAt `gorm:"index"`
     
     // Relations
-    GmailAccounts []GmailAccount
+    OAuthAccounts []OAuthAccount
     Cases         []Case
+}
+
+// GetPrimaryOAuthAccount 取得主要的 OAuth 帳號（通常是用來登入的帳號）
+// 優先返回 Google 帳號（系統預設登入方式）
+func (u *User) GetPrimaryOAuthAccount() *OAuthAccount {
+    for i := range u.OAuthAccounts {
+        if u.OAuthAccounts[i].Provider == OAuthProviderGoogle {
+            return &u.OAuthAccounts[i]
+        }
+    }
+    if len(u.OAuthAccounts) > 0 {
+        return &u.OAuthAccounts[0]
+    }
+    return nil
 }
 
 // Case 模型

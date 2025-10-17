@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/models"
@@ -116,14 +115,19 @@ func (s *AuthService) GoogleLogin(credential string) (*LoginResponse, error) {
 	}, nil
 }
 
-// findOrCreateUser 查找或建立使用者
+// findOrCreateUser 查找或建立使用者（新架構：使用 oauth_accounts）
 func (s *AuthService) findOrCreateUser(tokenInfo *GoogleTokenInfo) (*models.User, error) {
 	var user models.User
+	var oauthAccount models.OAuthAccount
 
-	// 先嘗試用 Google ID 查找
-	result := s.db.Where("google_id = ?", tokenInfo.Sub).First(&user)
+	// 1. 先嘗試透過 oauth_accounts 查找使用者
+	result := s.db.Joins("JOIN oauth_accounts ON oauth_accounts.user_id = users.id").
+		Where("oauth_accounts.provider = ? AND oauth_accounts.provider_id = ?",
+			models.OAuthProviderGoogle, tokenInfo.Sub).
+		First(&user)
+
 	if result.Error == nil {
-		// 找到使用者，更新資訊
+		// 找到使用者，更新基本資訊
 		updates := map[string]interface{}{
 			"name":                tokenInfo.Name,
 			"email":               tokenInfo.Email,
@@ -140,36 +144,70 @@ func (s *AuthService) findOrCreateUser(tokenInfo *GoogleTokenInfo) (*models.User
 		return nil, result.Error
 	}
 
-	// 使用者不存在，建立新使用者
-	user = models.User{
-		ID:                uuid.New(),
-		Email:             tokenInfo.Email,
-		Name:              tokenInfo.Name,
-		GoogleID:          &tokenInfo.Sub,
-		ProfilePictureURL: &tokenInfo.Picture,
+	// 2. 使用者不存在，檢查是否有相同 email 的使用者
+	result = s.db.Where("email = ?", tokenInfo.Email).First(&user)
+	if result.Error == nil {
+		// Email 已存在，為該使用者創建 Google OAuth 帳號記錄
+		oauthAccount = models.OAuthAccount{
+			ID:         uuid.New(),
+			UserID:     user.ID,
+			Provider:   models.OAuthProviderGoogle,
+			ProviderID: tokenInfo.Sub,
+			Email:      tokenInfo.Email,
+			// Note: AccessToken 和 RefreshToken 需要在 OAuth callback 中設定
+		}
+		if err := s.db.Create(&oauthAccount).Error; err != nil {
+			return nil, fmt.Errorf("failed to create oauth account: %w", err)
+		}
+
+		// 更新使用者資訊
+		updates := map[string]interface{}{
+			"name":                tokenInfo.Name,
+			"profile_picture_url": tokenInfo.Picture,
+		}
+		if err := s.db.Model(&user).Updates(updates).Error; err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
+		return &user, nil
 	}
 
-	if err := s.db.Create(&user).Error; err != nil {
-		// 檢查是否是唯一性衝突（email 已存在）
-		if strings.Contains(err.Error(), "duplicate key") {
-			// Email 已存在，嘗試更新該使用者的 Google ID
-			result := s.db.Where("email = ?", tokenInfo.Email).First(&user)
-			if result.Error != nil {
-				return nil, result.Error
-			}
+	// 如果是 "record not found" 以外的錯誤，返回錯誤
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, result.Error
+	}
 
-			// 更新 Google ID 和其他資訊
-			updates := map[string]interface{}{
-				"google_id":           tokenInfo.Sub,
-				"name":                tokenInfo.Name,
-				"profile_picture_url": tokenInfo.Picture,
-			}
-			if err := s.db.Model(&user).Updates(updates).Error; err != nil {
-				return nil, fmt.Errorf("failed to link google account: %w", err)
-			}
-			return &user, nil
+	// 3. 完全新的使用者，創建 User 和 OAuthAccount
+	// 使用 Transaction 確保資料一致性
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 創建使用者
+		user = models.User{
+			ID:                uuid.New(),
+			Email:             tokenInfo.Email,
+			Name:              tokenInfo.Name,
+			ProfilePictureURL: &tokenInfo.Picture,
 		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		if err := tx.Create(&user).Error; err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
+		}
+
+		// 創建 OAuth 帳號記錄
+		oauthAccount = models.OAuthAccount{
+			ID:         uuid.New(),
+			UserID:     user.ID,
+			Provider:   models.OAuthProviderGoogle,
+			ProviderID: tokenInfo.Sub,
+			Email:      tokenInfo.Email,
+			// Note: AccessToken 和 RefreshToken 需要在 OAuth callback 中設定
+		}
+		if err := tx.Create(&oauthAccount).Error; err != nil {
+			return fmt.Errorf("failed to create oauth account: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &user, nil

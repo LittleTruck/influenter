@@ -12,11 +12,28 @@ type User struct {
 	ID                uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Email             string         `gorm:"uniqueIndex;not null" json:"email"`
 	Name              string         `gorm:"not null" json:"name"`
-	GoogleID          *string        `gorm:"uniqueIndex" json:"google_id,omitempty"`
 	ProfilePictureURL *string        `json:"profile_picture_url,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// 關聯
+	OAuthAccounts []OAuthAccount `gorm:"foreignKey:UserID" json:"-"`
+}
+
+// GetPrimaryOAuthAccount 取得主要的 OAuth 帳號（通常是用來登入的帳號）
+// 優先返回 Google 帳號
+func (u *User) GetPrimaryOAuthAccount() *OAuthAccount {
+	for i := range u.OAuthAccounts {
+		if u.OAuthAccounts[i].Provider == OAuthProviderGoogle {
+			return &u.OAuthAccounts[i]
+		}
+	}
+	// 如果沒有 Google 帳號，返回第一個
+	if len(u.OAuthAccounts) > 0 {
+		return &u.OAuthAccounts[0]
+	}
+	return nil
 }
 
 // TableName 指定表名

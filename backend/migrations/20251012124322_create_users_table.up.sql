@@ -6,7 +6,6 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    google_id VARCHAR(255) UNIQUE,
     profile_picture_url TEXT,
     
     -- Timestamps
@@ -18,11 +17,8 @@ CREATE TABLE users (
 -- Create index on email for faster lookups
 CREATE INDEX idx_users_email ON users(email);
 
--- Create index on google_id for OAuth lookups
-CREATE INDEX idx_users_google_id ON users(google_id);
-
 -- Create index on deleted_at for soft delete queries
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 
 -- Add comment to table
-COMMENT ON TABLE users IS 'User accounts table';
+COMMENT ON TABLE users IS 'User accounts table. OAuth credentials are stored in oauth_accounts table.';
