@@ -83,12 +83,18 @@ func main() {
 		Msg("Starting HTTP server")
 
 	logger.Info().Msg("📡 Available endpoints:")
-	logger.Info().Msg("   GET  /health              - Health check")
-	logger.Info().Msg("   GET  /swagger/index.html  - API Documentation (Swagger UI)")
-	logger.Info().Msg("   GET  /api/v1/ping         - Ping test")
-	logger.Info().Msg("   POST /api/v1/auth/google  - Google OAuth login")
-	logger.Info().Msg("   GET  /api/v1/auth/me      - Get current user (protected)")
-	logger.Info().Msg("   POST /api/v1/auth/logout  - Logout (protected)")
+	logger.Info().Msg("   GET  /health                    - Health check")
+	logger.Info().Msg("   GET  /swagger/index.html        - API Documentation (Swagger UI)")
+	logger.Info().Msg("   GET  /api/v1/ping               - Ping test")
+	logger.Info().Msg("   POST /api/v1/auth/google        - Google OAuth login")
+	logger.Info().Msg("   GET  /api/v1/auth/me            - Get current user (protected)")
+	logger.Info().Msg("   POST /api/v1/auth/logout        - Logout (protected)")
+	logger.Info().Msg("   GET  /api/v1/emails             - List emails (protected)")
+	logger.Info().Msg("   GET  /api/v1/emails/:id         - Get email (protected)")
+	logger.Info().Msg("   PATCH /api/v1/emails/:id        - Update email (protected)")
+	logger.Info().Msg("   GET  /api/v1/gmail/status       - Gmail sync status (protected)")
+	logger.Info().Msg("   POST /api/v1/gmail/sync         - Trigger sync (protected)")
+	logger.Info().Msg("   DELETE /api/v1/gmail/disconnect - Disconnect Gmail (protected)")
 
 	if err := router.Run(addr); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start server")
@@ -114,8 +120,10 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	// Swagger 文檔
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// 建立 auth handler
+	// 建立 handlers
 	authHandler := api.NewAuthHandler(db.DB, cfg)
+	emailHandler := api.NewEmailHandler(db.DB)
+	gmailHandler := api.NewGmailHandler(db.DB)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -134,6 +142,27 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 			{
 				authProtected.GET("/me", authHandler.GetCurrentUser)
 				authProtected.POST("/logout", authHandler.Logout)
+			}
+		}
+
+		// 需要認證的路由群組
+		protected := v1.Group("")
+		protected.Use(middleware.AuthMiddleware(cfg))
+		{
+			// Email routes
+			emails := protected.Group("/emails")
+			{
+				emails.GET("", emailHandler.ListEmails)
+				emails.GET("/:id", emailHandler.GetEmail)
+				emails.PATCH("/:id", emailHandler.UpdateEmail)
+			}
+
+			// Gmail integration routes
+			gmailGroup := protected.Group("/gmail")
+			{
+				gmailGroup.GET("/status", gmailHandler.GetStatus)
+				gmailGroup.POST("/sync", gmailHandler.TriggerSync)
+				gmailGroup.DELETE("/disconnect", gmailHandler.DisconnectGmail)
 			}
 		}
 	}

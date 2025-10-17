@@ -52,8 +52,7 @@ const navigationItems: NavigationMenuItem[][] = [[{
 }, {
   label: '郵件',
   icon: 'i-lucide-mail',
-  to: '/emails',
-  badge: '即將推出'
+  to: '/emails'
 }, {
   label: '日曆',
   icon: 'i-lucide-calendar',

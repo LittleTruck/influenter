@@ -7,8 +7,9 @@ RUN apk add --no-cache git gcc musl-dev
 # 設定工作目錄
 WORKDIR /app
 
-# 安裝 Air (hot reload 工具) - 使用相容版本
+# 安裝開發工具
 RUN go install github.com/air-verse/air@v1.52.3
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 
 # 複製 go.mod 和 go.sum
 COPY go.mod go.sum ./

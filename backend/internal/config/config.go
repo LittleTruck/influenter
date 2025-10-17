@@ -110,16 +110,16 @@ type AsynqConfig struct {
 
 // EmailSyncConfig 郵件同步配置
 type EmailSyncConfig struct {
-	InitialSyncDays    int
-	MaxEmailsPerSync   int
-	SyncCooldownSec    int
+	InitialSyncDays  int
+	MaxEmailsPerSync int
+	SyncCooldownSec  int
 }
 
 // AIConfig AI 分析配置
 type AIConfig struct {
-	AutoAnalyze              bool
-	ConfidenceThreshold      float64
-	AutoCreateCaseThreshold  float64
+	AutoAnalyze             bool
+	ConfidenceThreshold     float64
+	AutoCreateCaseThreshold float64
 }
 
 // NotificationConfig 通知配置
@@ -133,11 +133,11 @@ type NotificationConfig struct {
 
 // SecurityConfig 安全配置
 type SecurityConfig struct {
-	RateLimitPerMinute int
-	SessionCookieName  string
-	SessionCookieSecure bool
+	RateLimitPerMinute    int
+	SessionCookieName     string
+	SessionCookieSecure   bool
 	SessionCookieHTTPOnly bool
-	SessionMaxAge      int
+	SessionMaxAge         int
 }
 
 // Load 從環境變數載入配置
@@ -261,15 +261,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("DB_NAME is required")
 	}
 
-	// Google OAuth 必要欄位
-	if c.Google.ClientID == "" {
-		return fmt.Errorf("GOOGLE_CLIENT_ID is required")
-	}
-	if c.Google.ClientSecret == "" {
-		return fmt.Errorf("GOOGLE_CLIENT_SECRET is required")
-	}
-	if c.Google.RedirectURL == "" {
-		return fmt.Errorf("GOOGLE_REDIRECT_URL is required")
+	// Google OAuth 必要欄位（開發環境可選）
+	if c.IsProduction() {
+		if c.Google.ClientID == "" {
+			return fmt.Errorf("GOOGLE_CLIENT_ID is required in production")
+		}
+		if c.Google.ClientSecret == "" {
+			return fmt.Errorf("GOOGLE_CLIENT_SECRET is required in production")
+		}
+		if c.Google.RedirectURL == "" {
+			return fmt.Errorf("GOOGLE_REDIRECT_URL is required in production")
+		}
 	}
 
 	// JWT 必要欄位
@@ -280,12 +282,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
 	}
 
-	// 加密金鑰必要欄位
-	if c.EncryptionKey == "" {
-		return fmt.Errorf("ENCRYPTION_KEY is required")
-	}
-	if len(c.EncryptionKey) != 32 {
-		return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters")
+	// 加密金鑰必要欄位（開發環境可選，但建議設定）
+	if c.IsProduction() && c.EncryptionKey == "" {
+		return fmt.Errorf("ENCRYPTION_KEY is required in production")
 	}
 
 	// OpenAI API Key (在開發環境可選，但生產環境建議要有)
@@ -398,21 +397,20 @@ func getEnvAsIntSlice(key string, defaultValue []int) []int {
 	if valueStr == "" {
 		return defaultValue
 	}
-	
+
 	parts := strings.Split(valueStr, ",")
 	result := make([]int, 0, len(parts))
-	
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if num, err := strconv.Atoi(part); err == nil {
 			result = append(result, num)
 		}
 	}
-	
+
 	if len(result) == 0 {
 		return defaultValue
 	}
-	
+
 	return result
 }
-

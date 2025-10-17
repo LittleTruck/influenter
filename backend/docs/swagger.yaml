@@ -1,12 +1,55 @@
 basePath: /api/v1
 definitions:
+  github_com_designcomb_influenter-backend_internal_models.EmailDetailResponse:
+    properties:
+      ai_analysis_id:
+        type: string
+      ai_analyzed:
+        type: boolean
+      body_html:
+        type: string
+      body_text:
+        type: string
+      case_id:
+        type: string
+      created_at:
+        type: string
+      from_email:
+        type: string
+      from_name:
+        type: string
+      has_attachments:
+        type: boolean
+      id:
+        type: string
+      is_read:
+        type: boolean
+      labels:
+        items:
+          type: string
+        type: array
+      oauth_account_id:
+        type: string
+      provider_message_id:
+        type: string
+      received_at:
+        type: string
+      snippet:
+        type: string
+      subject:
+        type: string
+      thread_id:
+        type: string
+      to_email:
+        type: string
+      updated_at:
+        type: string
+    type: object
   github_com_designcomb_influenter-backend_internal_models.User:
     properties:
       created_at:
         type: string
       email:
-        type: string
-      google_id:
         type: string
       id:
         type: string
@@ -39,6 +82,13 @@ definitions:
         type: string
     required:
     - credential
+    type: object
+  internal_api.UpdateEmailRequest:
+    properties:
+      case_id:
+        type: string
+      is_read:
+        type: boolean
     type: object
 host: localhost:8080
 info:
@@ -102,6 +152,10 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "401":
+          description: 未認證
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
       security:
       - BearerAuth: []
       summary: 使用者登出
@@ -134,6 +188,257 @@ paths:
       summary: 取得當前使用者資訊
       tags:
       - 認證
+  /emails:
+    get:
+      description: 取得使用者的郵件列表，支援分頁、篩選、搜尋
+      parameters:
+      - description: OAuth 帳號 ID
+        in: query
+        name: oauth_account_id
+        type: string
+      - description: 是否已讀
+        in: query
+        name: is_read
+        type: boolean
+      - description: 案件 ID
+        in: query
+        name: case_id
+        type: string
+      - description: 寄件者 email
+        in: query
+        name: from_email
+        type: string
+      - description: 主旨關鍵字
+        in: query
+        name: subject
+        type: string
+      - description: 開始日期 (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: 結束日期 (RFC3339)
+        in: query
+        name: end_date
+        type: string
+      - default: 1
+        description: 頁數
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每頁數量
+        in: query
+        name: page_size
+        type: integer
+      - default: received_at
+        description: 排序欄位
+        in: query
+        name: sort_by
+        type: string
+      - default: desc
+        description: 排序方向 (asc/desc)
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 郵件列表和分頁資訊
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 取得郵件列表
+      tags:
+      - 郵件
+  /emails/{id}:
+    get:
+      description: 取得單封郵件的完整內容
+      parameters:
+      - description: 郵件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_designcomb_influenter-backend_internal_models.EmailDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 取得郵件詳情
+      tags:
+      - 郵件
+    patch:
+      consumes:
+      - application/json
+      description: 更新郵件狀態（標記已讀、關聯案件等）
+      parameters:
+      - description: 郵件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新內容
+        in: body
+        name: updates
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.UpdateEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_designcomb_influenter-backend_internal_models.EmailDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新郵件
+      tags:
+      - 郵件
+  /gmail/disconnect:
+    delete:
+      description: 刪除 Gmail OAuth 帳號連接（保留已同步的郵件）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 斷開 Gmail 連接
+      tags:
+      - Gmail
+  /gmail/status:
+    get:
+      description: 取得使用者的 Gmail 帳號連接和同步狀態
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 取得 Gmail 同步狀態
+      tags:
+      - Gmail
+  /gmail/sync:
+    post:
+      description: 手動觸發郵件同步（有冷卻時間限制）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "429":
+          description: 同步冷卻中
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 手動觸發 Gmail 同步
+      tags:
+      - Gmail
   /ping:
     get:
       description: 測試 API 是否正常運作

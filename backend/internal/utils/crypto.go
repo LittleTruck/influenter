@@ -24,20 +24,56 @@ var (
 var encryptionKey []byte
 
 // InitCrypto 初始化加密工具，從環境變數載入金鑰
+// 開發環境下如果沒有設定，會生成臨時金鑰（⚠️ 僅限開發使用）
 func InitCrypto() error {
 	keyStr := os.Getenv("ENCRYPTION_KEY")
+	env := os.Getenv("ENV")
+
+	// 開發環境下如果沒有設定，生成臨時金鑰
 	if keyStr == "" {
-		return ErrEncryptionKeyNotSet
+		if env == "production" {
+			return ErrEncryptionKeyNotSet
+		}
+
+		// ⚠️ 警告：使用臨時金鑰（開發環境）
+		fmt.Println("⚠️  WARNING: Using temporary encryption key (development only)")
+		key := make([]byte, 32)
+		// 填充隨機數據
+		if _, err := rand.Read(key); err != nil {
+			return fmt.Errorf("failed to generate temporary key: %w", err)
+		}
+		encryptionKey = key
+		return nil
 	}
 
 	// 解碼 base64 編碼的金鑰
 	key, err := base64.StdEncoding.DecodeString(keyStr)
 	if err != nil {
+		// 開發環境下，如果解碼失敗，生成臨時金鑰
+		if env != "production" {
+			fmt.Printf("⚠️  WARNING: Failed to decode encryption key, using temporary key (development only)\n")
+			key = make([]byte, 32)
+			if _, err := rand.Read(key); err != nil {
+				return fmt.Errorf("failed to generate temporary key: %w", err)
+			}
+			encryptionKey = key
+			return nil
+		}
 		return fmt.Errorf("failed to decode encryption key: %w", err)
 	}
 
 	// 檢查金鑰長度（AES-256 需要 32 bytes）
 	if len(key) != 32 {
+		// 開發環境下，如果長度不對，生成臨時金鑰
+		if env != "production" {
+			fmt.Printf("⚠️  WARNING: Invalid key length (%d bytes), using temporary key (development only)\n", len(key))
+			key = make([]byte, 32)
+			if _, err := rand.Read(key); err != nil {
+				return fmt.Errorf("failed to generate temporary key: %w", err)
+			}
+			encryptionKey = key
+			return nil
+		}
 		return ErrInvalidKeySize
 	}
 
