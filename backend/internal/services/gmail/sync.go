@@ -30,16 +30,17 @@ func NewSyncService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*SyncServic
 	}, nil
 }
 
-// InitialSync 首次同步（抓取最近 30 天的郵件）
+// InitialSync 首次同步（抓取最近 100 封郵件）
 func (s *SyncService) InitialSync(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{
 		SyncedAt: time.Now(),
 	}
 
-	// 建構查詢：最近 30 天，在收件匣中
-	query := "in:inbox newer_than:30d"
+	// 建構查詢：最近 7 天，在收件匣中，限制 100 封
+	// 使用較短的時間範圍以避免首次同步過多郵件
+	query := "in:inbox newer_than:7d"
 
-	return s.syncWithQuery(ctx, query, result)
+	return s.syncWithQueryLimited(ctx, query, result, 100)
 }
 
 // IncrementalSync 增量同步（只抓取新郵件）
@@ -123,6 +124,11 @@ func (s *SyncService) HistorySync(ctx context.Context) (*SyncResult, error) {
 
 // syncWithQuery 使用查詢同步郵件
 func (s *SyncService) syncWithQuery(ctx context.Context, query string, result *SyncResult) (*SyncResult, error) {
+	return s.syncWithQueryLimited(ctx, query, result, 0) // 0 表示無限制
+}
+
+// syncWithQueryLimited 使用查詢同步郵件（可限制數量）
+func (s *SyncService) syncWithQueryLimited(ctx context.Context, query string, result *SyncResult, maxEmails int) (*SyncResult, error) {
 	opts := &ListMessagesOptions{
 		Query:      query,
 		MaxResults: 100,
@@ -139,10 +145,14 @@ func (s *SyncService) syncWithQuery(ctx context.Context, query string, result *S
 
 		for _, msg := range listResult.Messages {
 			allMessageIDs = append(allMessageIDs, msg.ID)
+			// 如果設定了最大數量限制，達到後就停止
+			if maxEmails > 0 && len(allMessageIDs) >= maxEmails {
+				break
+			}
 		}
 
-		// 如果沒有下一頁，結束
-		if listResult.NextPageToken == "" {
+		// 如果達到限制或沒有下一頁，結束
+		if (maxEmails > 0 && len(allMessageIDs) >= maxEmails) || listResult.NextPageToken == "" {
 			break
 		}
 

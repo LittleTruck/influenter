@@ -161,11 +161,12 @@ func IsForeignKeyViolation(err error) bool {
 
 // getLogger 根據配置返回適當的 logger
 func getLogger(cfg *config.Config) logger.Interface {
-	logLevel := logger.Info
+	logLevel := logger.Warn // 預設只記錄警告和錯誤
 
 	switch cfg.LogLevel {
 	case "debug":
-		logLevel = logger.Info
+		// debug 模式只記錄慢查詢（超過 200ms），避免記錄大量 SQL
+		logLevel = logger.Warn
 	case "info":
 		logLevel = logger.Warn
 	case "warn":
@@ -175,7 +176,7 @@ func getLogger(cfg *config.Config) logger.Interface {
 	case "silent":
 		logLevel = logger.Silent
 	default:
-		logLevel = logger.Info
+		logLevel = logger.Warn
 	}
 
 	// 生產環境使用較少的日誌
@@ -183,7 +184,16 @@ func getLogger(cfg *config.Config) logger.Interface {
 		logLevel = logger.Error
 	}
 
-	return logger.Default.LogMode(logLevel)
+	// 自訂 logger，設定慢查詢閾值為 200ms
+	return logger.New(
+		log.New(log.Writer(), "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond, // 慢查詢閾值
+			LogLevel:                  logLevel,
+			IgnoreRecordNotFoundError: true,  // 忽略 ErrRecordNotFound 錯誤
+			Colorful:                  false, // 在生產環境中不需要顏色
+		},
+	)
 }
 
 // Paginate 分頁輔助函數

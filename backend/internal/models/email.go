@@ -12,7 +12,7 @@ import (
 // 用途：儲存從第三方帳號（如 Gmail）同步的郵件
 type Email struct {
 	ID             uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	OAuthAccountID uuid.UUID `gorm:"type:uuid;not null;index" json:"oauth_account_id"`
+	OAuthAccountID uuid.UUID `gorm:"column:oauth_account_id;type:uuid;not null;index" json:"oauth_account_id"`
 
 	// 郵件提供商原始資訊
 	ProviderMessageID string  `gorm:"type:varchar(255);not null;uniqueIndex" json:"provider_message_id"` // Gmail message ID 或其他提供商的 message ID
