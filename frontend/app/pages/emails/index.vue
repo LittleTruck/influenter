@@ -247,18 +247,37 @@ watch([filterIsRead, searchQuery], async () => {
 })
 
 // 刷新郵件列表
+const refreshing = ref(false)
 const refreshEmails = async () => {
-  await emailsStore.fetchEmails()
-  toast.add({
-    title: '郵件列表已更新',
-    color: 'success'
-  })
+  refreshing.value = true
+  try {
+    await emailsStore.fetchEmails()
+    // todo：改用 toast 取代 alert
+    alert('郵件列表已更新')
+    toast.add({
+      title: '郵件列表已更新',
+      color: 'success',
+      icon: 'i-lucide-check-circle'
+    })
+  } catch (e: any) {
+    // todo：改用 toast 取代 alert
+    alert('更新失敗')
+    toast.add({
+      title: '更新失敗',
+      description: e.message || '無法載入郵件列表',
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    refreshing.value = false
+  }
 }
 
 // 觸發同步
 const handleSync = async () => {
   try {
     await emailsStore.triggerSync()
+    // todo：改用 toast 取代 alert
     alert('同步成功')
     toast.add({
       title: '同步成功',
@@ -266,6 +285,7 @@ const handleSync = async () => {
       color: 'success'
     })
   } catch (e: any) {
+    // todo：改用 toast 取代 alert
     alert(`同步失敗: ${e?.message || ''}`)
     toast.add({
       title: '同步失敗',
@@ -322,13 +342,20 @@ function onSelectRow(e: Event, row: any) {
 
         <!-- 重新整理 -->
         <UButton
-          icon="i-lucide-rotate-cw"
           color="neutral"
           variant="ghost"
-          :loading="emailsStore.loading"
+          :loading="refreshing"
+          :disabled="refreshing"
           @click="refreshEmails"
           aria-label="重新整理"
-        />
+        >
+          <template #leading>
+            <UIcon 
+              name="i-lucide-rotate-cw" 
+              :class="{ 'animate-spin': refreshing }"
+            />
+          </template>
+        </UButton>
       </div>
     </div>
 
