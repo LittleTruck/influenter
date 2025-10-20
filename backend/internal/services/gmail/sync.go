@@ -235,17 +235,18 @@ func (s *SyncService) updateEmail(messageID string) error {
 		return fmt.Errorf("failed to get message %s: %w", messageID, err)
 	}
 
-	// 更新資料庫中的郵件
-	updates := map[string]interface{}{
-		"labels":  gmailMsg.LabelIds,
-		"is_read": !contains(gmailMsg.LabelIds, LabelUnread),
+	// 查詢現有郵件
+	var email models.Email
+	if err := s.db.Where("provider_message_id = ?", messageID).First(&email).Error; err != nil {
+		return fmt.Errorf("failed to find message %s: %w", messageID, err)
 	}
 
-	err = s.db.Model(&models.Email{}).
-		Where("provider_message_id = ?", messageID).
-		Updates(updates).Error
+	// 更新欄位
+	email.Labels = gmailMsg.LabelIds // pq.StringArray 類型會自動處理
+	email.IsRead = !contains(gmailMsg.LabelIds, LabelUnread)
 
-	if err != nil {
+	// 儲存更新
+	if err := s.db.Save(&email).Error; err != nil {
 		return fmt.Errorf("failed to update message %s: %w", messageID, err)
 	}
 
@@ -455,10 +456,9 @@ func (s *SyncService) UpdateEmailFromGmail(emailID string) error {
 	}
 
 	// 更新標籤和已讀狀態
-	updates := map[string]interface{}{
-		"labels":  gmailMsg.LabelIds,
-		"is_read": !contains(gmailMsg.LabelIds, LabelUnread),
-	}
+	email.Labels = gmailMsg.LabelIds // pq.StringArray 類型會自動處理
+	email.IsRead = !contains(gmailMsg.LabelIds, LabelUnread)
 
-	return s.db.Model(&email).Updates(updates).Error
+	// 儲存更新
+	return s.db.Save(&email).Error
 }
