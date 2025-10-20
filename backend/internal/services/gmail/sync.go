@@ -18,7 +18,7 @@ type SyncService struct {
 
 // NewSyncService 建立新的同步服務
 func NewSyncService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*SyncService, error) {
-	gmailService, err := NewService(oauthAccount)
+	gmailService, err := NewService(db, oauthAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gmail service: %w", err)
 	}

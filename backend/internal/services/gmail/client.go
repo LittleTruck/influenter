@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/models"
 	"github.com/designcomb/influenter-backend/internal/utils"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+	"gorm.io/gorm"
 )
 
 // Service Gmail 服務
@@ -18,11 +21,12 @@ type Service struct {
 	client       *gmail.Service
 	oauthAccount *models.OAuthAccount
 	userEmail    string
+	db           *gorm.DB
 }
 
-// NewService 建立新的 Gmail Service
+// NewService 建立新的 Gmail Service，支援自動 refresh 並將新 token 回寫資料庫
 // 從 OAuthAccount 創建 Gmail API client
-func NewService(oauthAccount *models.OAuthAccount) (*Service, error) {
+func NewService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*Service, error) {
 	if !oauthAccount.IsGmail() {
 		return nil, fmt.Errorf("oauth account is not a Gmail account")
 	}
@@ -44,10 +48,38 @@ func NewService(oauthAccount *models.OAuthAccount) (*Service, error) {
 		TokenType:    "Bearer",
 	}
 
-	// 創建 HTTP client
-	// 注意：如果沒有 client config，token 過期時需要手動處理
+	// 建立 oauth2.Config 以便自動 refresh
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	oauthCfg := &oauth2.Config{
+		ClientID:     cfg.Google.ClientID,
+		ClientSecret: cfg.Google.ClientSecret,
+		RedirectURL:  cfg.Google.RedirectURL,
+		Scopes: []string{
+			gmail.GmailModifyScope,
+			gmail.GmailReadonlyScope,
+			gmail.GmailSendScope,
+			gmail.GmailLabelsScope,
+		},
+		Endpoint: google.Endpoint,
+	}
+
+	// 建立會自動嘗試 refresh 的 TokenSource
 	ctx := context.Background()
-	client := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+	baseSource := oauthCfg.TokenSource(ctx, token)
+
+	// 包一層寫回資料庫的 TokenSource
+	wrappedSource := oauth2.ReuseTokenSource(token, &persistingTokenSource{
+		base:    baseSource,
+		db:      db,
+		account: oauthAccount,
+	})
+
+	// 建立具備自動 refresh 的 HTTP client
+	client := oauth2.NewClient(ctx, wrappedSource)
 
 	// 創建 Gmail service
 	gmailService, err := gmail.NewService(ctx, option.WithHTTPClient(client))
@@ -59,7 +91,58 @@ func NewService(oauthAccount *models.OAuthAccount) (*Service, error) {
 		client:       gmailService,
 		oauthAccount: oauthAccount,
 		userEmail:    oauthAccount.Email,
+		db:           db,
 	}, nil
+}
+
+// persistingTokenSource 會在取到新 token（refresh）後，將新 token 回寫到資料庫
+type persistingTokenSource struct {
+	base    oauth2.TokenSource
+	db      *gorm.DB
+	account *models.OAuthAccount
+}
+
+func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
+	t, err := p.base.Token()
+	if err != nil {
+		return nil, err
+	}
+
+	// 若 token 沒有變更（ReuseTokenSource 可能回傳相同實例），略過
+	// 這裡以 Expiry 是否晚於資料庫紀錄來判斷；也可比對 AccessToken 是否不同
+	if t == nil || t.AccessToken == "" {
+		return t, nil
+	}
+
+	// 回寫資料庫（加密後儲存）
+	encryptedAccessToken, encErr := utils.Encrypt(t.AccessToken)
+	if encErr != nil {
+		// 不阻塞流程，僅回傳 token 並記錄資料庫不更新
+		return t, nil
+	}
+
+	updates := map[string]interface{}{
+		"access_token": encryptedAccessToken,
+		"token_expiry": t.Expiry,
+		"sync_status":  models.SyncStatusActive,
+		"sync_error":   nil,
+	}
+
+	// 如果 refresh token 存在且非空，更新之
+	if t.RefreshToken != "" {
+		if encRT, rtErr := utils.Encrypt(t.RefreshToken); rtErr == nil {
+			updates["refresh_token"] = encRT
+		}
+	}
+
+	_ = p.db.Model(&models.OAuthAccount{}).
+		Where("id = ?", p.account.ID).
+		Updates(updates).Error
+
+	// 同步更新記憶體中的到期時間，避免後續判斷落差
+	p.account.TokenExpiry = t.Expiry
+
+	return t, nil
 }
 
 // ListMessages 列出郵件
