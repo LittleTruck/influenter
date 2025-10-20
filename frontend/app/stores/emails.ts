@@ -247,10 +247,10 @@ export const useEmailsStore = defineStore('emails', () => {
         }
       })
 
-      // 等待一下再重新獲取狀態
-      setTimeout(() => {
-        fetchGmailStatus()
-      }, 2000)
+      // 維持同步中狀態直到後續資料刷新完成
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      await fetchGmailStatus()
+      await fetchEmails() // 自動刷新郵件列表
 
       return data
     } catch (e: any) {

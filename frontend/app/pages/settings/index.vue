@@ -29,17 +29,23 @@ const connectGmail = () => {
 const triggerFirstSync = async () => {
   try {
     await emailsStore.triggerSync()
+    alert('同步成功')
     toast.add({
-      title: '開始同步郵件',
-      description: '這可能需要幾分鐘，請稍候',
+      title: '同步成功',
+      description: '郵件已成功同步，正在更新列表...',
       color: 'success'
     })
     // 導航到郵件頁面
     setTimeout(() => {
       router.push('/emails')
     }, 1500)
-  } catch (e) {
-    // error 已在 store 處理
+  } catch (e: any) {
+    alert(`同步失敗: ${e?.message || ''}`)
+    toast.add({
+      title: '同步失敗',
+      description: e.message || '同步過程中發生錯誤，請稍後再試',
+      color: 'error'
+    })
   }
 }
 
