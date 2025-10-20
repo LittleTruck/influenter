@@ -132,8 +132,9 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 		return
 	}
 
-	// 建立同步服務
-	syncService, err := gmail.NewSyncService(h.db, &oauthAccount)
+	// 檢查冷卻時間（不檢查 token 過期，因為 OAuth2 會自動刷新）
+	// 只需要建立一個臨時的 syncService 來檢查冷卻
+	tempSyncService, err := gmail.NewSyncService(h.db, &oauthAccount)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create sync service")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -144,7 +145,7 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 	}
 
 	// 檢查是否可以同步（1 分鐘冷卻時間）
-	canSync, remaining, err := syncService.CanSync(1)
+	canSync, remaining, err := tempSyncService.CanSync(1)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to check sync cooldown")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -163,13 +164,24 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 		return
 	}
 
+	// 如果 token 已過期，記錄但繼續執行（讓 OAuth2 client 嘗試刷新）
+	if oauthAccount.IsTokenExpired() {
+		logger.Info().Msg("Token expired, will attempt to refresh during sync")
+	}
+
 	// 執行同步（使用 goroutine 以免阻塞 API）
 	go func() {
 		ctx := context.Background()
 
+		// 重新建立 syncService（在 goroutine 中）
+		syncService, syncErr := gmail.NewSyncService(h.db, &oauthAccount)
+		if syncErr != nil {
+			logger.Error().Err(syncErr).Msg("Failed to create sync service in goroutine")
+			return
+		}
+
 		// 首次同步或增量同步
 		var syncResult *gmail.SyncResult
-		var syncErr error
 
 		if oauthAccount.LastSyncAt == nil {
 			syncResult, syncErr = syncService.InitialSync(ctx)

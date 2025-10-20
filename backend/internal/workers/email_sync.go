@@ -100,14 +100,21 @@ func HandleEmailSyncTask(ctx context.Context, t *asynq.Task, db *gorm.DB) error 
 		return nil // 不重試
 	}
 
-	// 檢查帳號狀態
-	if !oauthAccount.CanSync() {
+	// 檢查帳號狀態（只檢查 sync_status，不檢查 token 過期）
+	// Token 過期時會由 OAuth2 client 自動刷新
+	if oauthAccount.SyncStatus != models.SyncStatusActive {
 		log.Warn().
 			Str("oauth_account_id", payload.OAuthAccountID).
 			Str("sync_status", string(oauthAccount.SyncStatus)).
-			Bool("token_expired", oauthAccount.IsTokenExpired()).
-			Msg("Account cannot sync")
+			Msg("Account sync is not active")
 		return nil // 不重試
+	}
+
+	// 如果 token 已過期，記錄但繼續執行（讓 OAuth2 client 嘗試刷新）
+	if oauthAccount.IsTokenExpired() {
+		log.Info().
+			Str("oauth_account_id", payload.OAuthAccountID).
+			Msg("Token expired, will attempt to refresh during sync")
 	}
 
 	// 建立同步服務

@@ -89,7 +89,9 @@ func (oa *OAuthAccount) IsOutlook() bool {
 	return oa.Provider == OAuthProviderOutlook
 }
 
-// CanSync 檢查是否可以同步
+// CanSync 檢查是否可以同步（包含 token 狀態檢查）
+// 注意：這個方法主要用於前端顯示狀態
+// 實際同步時即使 token 過期也會嘗試（OAuth2 會自動刷新）
 func (oa *OAuthAccount) CanSync() bool {
 	return oa.SyncStatus == SyncStatusActive && !oa.IsTokenExpired()
 }

@@ -24,6 +24,27 @@ onMounted(async () => {
   if (emailsStore.emails.length > 0) {
     await selectEmail(emailsStore.emails[0].id)
   }
+  
+  // 自動同步：如果 token 過期，自動觸發同步來刷新 token
+  if (emailsStore.gmailStatus?.connected && emailsStore.gmailStatus?.token_expired) {
+    try {
+      console.log('Token expired, triggering auto-sync to refresh token...')
+      // triggerSync 會自動刷新郵件列表和狀態
+      await emailsStore.triggerSync()
+      
+      toast.add({
+        title: 'Token 已刷新',
+        description: '郵件同步已完成',
+        color: 'success'
+      })
+    } catch (error: any) {
+      // 靜默失敗，不顯示錯誤通知（避免打擾使用者）
+      // 如果是冷卻期間，也不顯示錯誤
+      if (!error.message?.includes('cooldown')) {
+        console.warn('Auto-sync failed:', error)
+      }
+    }
+  }
 })
 
 // 選擇郵件

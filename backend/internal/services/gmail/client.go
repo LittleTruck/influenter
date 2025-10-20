@@ -73,9 +73,11 @@ func NewService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*Service, error
 
 	// 包一層寫回資料庫的 TokenSource
 	wrappedSource := oauth2.ReuseTokenSource(token, &persistingTokenSource{
-		base:    baseSource,
-		db:      db,
-		account: oauthAccount,
+		base:            baseSource,
+		db:              db,
+		account:         oauthAccount,
+		lastAccessToken: accessToken,
+		lastExpiry:      token.Expiry,
 	})
 
 	// 建立具備自動 refresh 的 HTTP client
@@ -97,9 +99,11 @@ func NewService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*Service, error
 
 // persistingTokenSource 會在取到新 token（refresh）後，將新 token 回寫到資料庫
 type persistingTokenSource struct {
-	base    oauth2.TokenSource
-	db      *gorm.DB
-	account *models.OAuthAccount
+	base            oauth2.TokenSource
+	db              *gorm.DB
+	account         *models.OAuthAccount
+	lastExpiry      time.Time
+	lastAccessToken string
 }
 
 func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
@@ -108,16 +112,24 @@ func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
 		return nil, err
 	}
 
-	// 若 token 沒有變更（ReuseTokenSource 可能回傳相同實例），略過
-	// 這裡以 Expiry 是否晚於資料庫紀錄來判斷；也可比對 AccessToken 是否不同
+	// 若 token 為空，直接返回
 	if t == nil || t.AccessToken == "" {
 		return t, nil
 	}
 
-	// 回寫資料庫（加密後儲存）
+	// 檢查 token 是否已更新（比較 access token 和 expiry 時間）
+	tokenUpdated := (t.AccessToken != p.lastAccessToken) || !t.Expiry.Equal(p.lastExpiry)
+
+	// 如果 token 沒有更新，直接返回（避免不必要的資料庫寫入）
+	if !tokenUpdated && p.lastAccessToken != "" {
+		return t, nil
+	}
+
+	// Token 已更新，回寫到資料庫（加密後儲存）
 	encryptedAccessToken, encErr := utils.Encrypt(t.AccessToken)
 	if encErr != nil {
-		// 不阻塞流程，僅回傳 token 並記錄資料庫不更新
+		// 加密失敗時，記錄錯誤但不阻塞流程
+		// 允許 API 呼叫繼續執行，只是 token 不會被持久化
 		return t, nil
 	}
 
@@ -135,11 +147,17 @@ func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
 		}
 	}
 
-	_ = p.db.Model(&models.OAuthAccount{}).
+	// 更新資料庫
+	if dbErr := p.db.Model(&models.OAuthAccount{}).
 		Where("id = ?", p.account.ID).
-		Updates(updates).Error
+		Updates(updates).Error; dbErr != nil {
+		// 記錄錯誤但不阻塞流程
+		// Token 已刷新，只是沒有成功寫入資料庫
+	}
 
-	// 同步更新記憶體中的到期時間，避免後續判斷落差
+	// 更新記憶體中的值，避免重複寫入
+	p.lastAccessToken = t.AccessToken
+	p.lastExpiry = t.Expiry
 	p.account.TokenExpiry = t.Expiry
 
 	return t, nil
