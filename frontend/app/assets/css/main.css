@@ -1,3 +1,37 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+@layer utilities {
+  /* 語義化顏色類別 */
+  .text-muted {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+  
+  .text-highlighted {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  
+  .bg-elevated {
+    @apply bg-white dark:bg-gray-900;
+  }
+  
+  .border-default {
+    @apply border-gray-200 dark:border-gray-800;
+  }
+  
+  .text-primary {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+  
+  .text-success {
+    @apply text-green-600 dark:text-green-400;
+  }
+  
+  .text-warning {
+    @apply text-yellow-600 dark:text-yellow-400;
+  }
+  
+  .text-error {
+    @apply text-red-600 dark:text-red-400;
+  }
+}

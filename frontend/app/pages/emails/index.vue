@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
-import type { Email } from '~/stores/emails'
+import type { Email, EmailDetail } from '~/stores/emails'
 
 definePageMeta({
   middleware: 'auth'
 })
 
-const UBadge = resolveComponent('UBadge')
-const UButton = resolveComponent('UButton')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UCheckbox = resolveComponent('UCheckbox')
-
 const emailsStore = useEmailsStore()
-const router = useRouter()
 const toast = useToast()
+
+// 當前選中的郵件
+const selectedEmailId = ref<string | null>(null)
+const selectedEmail = ref<EmailDetail | null>(null)
+const loadingDetail = ref(false)
 
 // 載入郵件和 Gmail 狀態
 onMounted(async () => {
@@ -22,214 +19,78 @@ onMounted(async () => {
     emailsStore.fetchEmails(),
     emailsStore.fetchGmailStatus()
   ])
+  
+  // 如果有郵件，自動選中第一封
+  if (emailsStore.emails.length > 0) {
+    await selectEmail(emailsStore.emails[0].id)
+  }
 })
 
-// Table columns 定義
-const columns: TableColumn<Email>[] = [{
-  id: 'select',
-  header: ({ table }) => h(UCheckbox, {
-    'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
-    'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
-    'aria-label': 'Select all'
-  }),
-  cell: ({ row }) => h(UCheckbox, {
-    'modelValue': row.getIsSelected(),
-    'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-    'aria-label': 'Select row'
-  }),
-  enableSorting: false,
-  enableHiding: false
-}, {
-  accessorKey: 'from_name',
-  header: '寄件者',
-  cell: ({ row }) => {
-    const fromName = row.original.from_name || row.original.from_email
-    const isUnread = !row.original.is_read
+// 選擇郵件
+const selectEmail = async (emailId: string) => {
+  selectedEmailId.value = emailId
+  loadingDetail.value = true
+  
+  try {
+    await emailsStore.fetchEmail(emailId)
+    selectedEmail.value = emailsStore.currentEmail
     
-    return h('div', { class: 'flex items-center gap-2' }, [
-      h('div', { class: 'flex flex-col' }, [
-        h('span', { 
-          class: isUnread ? 'font-semibold text-highlighted' : 'text-muted'
-        }, fromName),
-        h('span', { class: 'text-sm text-muted' }, row.original.from_email)
-      ])
-    ])
-  }
-}, {
-  accessorKey: 'subject',
-  header: '主旨',
-  cell: ({ row }) => {
-    const subject = row.original.subject || '(無主旨)'
-    const snippet = row.original.snippet || ''
-    const isUnread = !row.original.is_read
-    
-    return h('div', { class: 'flex flex-col gap-1 max-w-md' }, [
-      h('span', { 
-        class: isUnread ? 'font-semibold text-highlighted' : 'text-muted',
-      }, subject),
-      h('span', { 
-        class: 'text-sm text-muted truncate'
-      }, snippet)
-    ])
-  }
-}, {
-  accessorKey: 'received_at',
-  header: '時間',
-  cell: ({ row }) => {
-    const date = new Date(row.getValue('received_at'))
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-    
-    let formatted = ''
-    if (diffDays === 0) {
-      formatted = date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
-    } else if (diffDays < 7) {
-      formatted = date.toLocaleDateString('zh-TW', { weekday: 'short' })
-    } else {
-      formatted = date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
+    // 標記為已讀
+    if (selectedEmail.value && !selectedEmail.value.is_read) {
+      await emailsStore.markAsRead(emailId, true)
     }
-    
-    return h('span', { class: 'text-sm text-muted' }, formatted)
+  } catch (e: any) {
+    toast.add({
+      title: '載入郵件失敗',
+      description: e.message,
+      color: 'error'
+    })
+  } finally {
+    loadingDetail.value = false
   }
-}, {
-  id: 'labels',
-  header: '標籤',
-  cell: ({ row }) => {
-    const labels = row.original.labels || []
-    const displayLabels = labels.filter(l => 
-      !['INBOX', 'UNREAD', 'IMPORTANT', 'STARRED'].includes(l) &&
-      !l.startsWith('CATEGORY_')
-    ).slice(0, 2)
-    
-    if (displayLabels.length === 0) return null
-    
-    return h('div', { class: 'flex gap-1' }, 
-      displayLabels.map(label => 
-        h(UBadge, { 
-          size: 'xs',
-          variant: 'subtle',
-          color: 'neutral'
-        }, () => label)
-      )
-    )
-  }
-}, {
-  id: 'status',
-  header: '狀態',
-  cell: ({ row }) => {
-    const badges = []
-    
-    if (row.original.has_attachments) {
-      badges.push(h(UBadge, {
-        size: 'xs',
-        variant: 'subtle',
-        color: 'neutral',
-        icon: 'i-lucide-paperclip'
-      }))
-    }
-    
-    if (row.original.labels?.includes('STARRED')) {
-      badges.push(h(UBadge, {
-        size: 'xs',
-        variant: 'subtle',
-        color: 'warning',
-        icon: 'i-lucide-star'
-      }))
-    }
-    
-    if (row.original.case_id) {
-      badges.push(h(UBadge, {
-        size: 'xs',
-        variant: 'subtle',
-        color: 'primary'
-      }, () => '已關聯案件'))
-    }
-    
-    if (row.original.ai_analyzed) {
-      badges.push(h(UBadge, {
-        size: 'xs',
-        variant: 'subtle',
-        color: 'success',
-        icon: 'i-lucide-sparkles'
-      }))
-    }
-    
-    return h('div', { class: 'flex gap-1' }, badges)
-  }
-}, {
-  id: 'actions',
-  enableHiding: false,
-  cell: ({ row }) => {
-    const items = [{
-      type: 'label' as const,
-      label: '操作'
-    }, {
-      label: row.original.is_read ? '標記為未讀' : '標記為已讀',
-      icon: row.original.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open',
-      async onSelect() {
-        try {
-          await emailsStore.markAsRead(row.original.id, !row.original.is_read)
-          toast.add({
-            title: row.original.is_read ? '已標記為未讀' : '已標記為已讀',
-            color: 'success'
-          })
-        } catch (e) {
-          toast.add({
-            title: '操作失敗',
-            color: 'error'
-          })
-        }
-      }
-    }, {
-      label: '查看詳情',
-      icon: 'i-lucide-eye',
-      onSelect() {
-        router.push(`/emails/${row.original.id}`)
-      }
-    }, {
-      type: 'separator' as const
-    }, {
-      label: '關聯到案件',
-      icon: 'i-lucide-link',
-      onSelect() {
-        selectedEmailForLink.value = row.original
-        showLinkDialog.value = true
-      }
-    }]
+}
 
-    return h('div', { class: 'text-right' }, h(UDropdownMenu, {
-      'content': { align: 'end' },
-      items,
-      'aria-label': 'Actions dropdown'
-    }, () => h(UButton, {
-      'icon': 'i-lucide-ellipsis-vertical',
-      'color': 'neutral',
-      'variant': 'ghost',
-      'class': 'ml-auto',
-      'aria-label': 'Actions dropdown'
-    })))
+// 格式化時間
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) {
+    return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString('zh-TW', { weekday: 'short' })
+  } else {
+    return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
   }
-}]
+}
 
-const table = useTemplateRef('table')
-const rowSelection = ref<Record<string, boolean>>({})
+// 格式化完整日期
+const formatFullDate = (dateStr: string) => {
+  const date = new Date(dateStr)
+  return date.toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 顯示內容
+const displayContent = computed(() => {
+  if (!selectedEmail.value) return ''
+  return selectedEmail.value.body_html || selectedEmail.value.body_text || selectedEmail.value.snippet || ''
+})
+
+const contentType = computed(() => {
+  if (!selectedEmail.value) return 'text'
+  return selectedEmail.value.body_html ? 'html' : 'text'
+})
 
 // 篩選相關
 const filterIsRead = ref<'all' | 'read' | 'unread'>('all')
 const searchQuery = ref('')
-
-// 關聯案件對話框
-const showLinkDialog = ref(false)
-const selectedEmailForLink = ref<Email | null>(null)
-
-const handleLinked = async (caseId: string) => {
-  // 重新載入郵件列表
-  await emailsStore.fetchEmails()
-  toast.add({
-    title: '案件關聯成功',
-    color: 'success'
-  })
-}
 
 // 監聽篩選變更
 watch([filterIsRead, searchQuery], async () => {
@@ -244,6 +105,14 @@ watch([filterIsRead, searchQuery], async () => {
   }
   
   await emailsStore.fetchEmails(params)
+  
+  // 重新選中第一封郵件
+  if (emailsStore.emails.length > 0) {
+    await selectEmail(emailsStore.emails[0].id)
+  } else {
+    selectedEmail.value = null
+    selectedEmailId.value = null
+  }
 })
 
 // 刷新郵件列表
@@ -252,16 +121,12 @@ const refreshEmails = async () => {
   refreshing.value = true
   try {
     await emailsStore.fetchEmails()
-    // todo：改用 toast 取代 alert
-    alert('郵件列表已更新')
     toast.add({
       title: '郵件列表已更新',
       color: 'success',
       icon: 'i-lucide-check-circle'
     })
   } catch (e: any) {
-    // todo：改用 toast 取代 alert
-    alert('更新失敗')
     toast.add({
       title: '更新失敗',
       description: e.message || '無法載入郵件列表',
@@ -277,28 +142,42 @@ const refreshEmails = async () => {
 const handleSync = async () => {
   try {
     await emailsStore.triggerSync()
-    // todo：改用 toast 取代 alert
-    alert('同步成功')
     toast.add({
       title: '同步成功',
       description: '郵件已成功同步，列表已更新',
-      color: 'success'
+      color: 'success',
+      icon: 'i-lucide-check-circle'
     })
   } catch (e: any) {
-    // todo：改用 toast 取代 alert
-    alert(`同步失敗: ${e?.message || ''}`)
     toast.add({
       title: '同步失敗',
       description: e.message || '同步過程中發生錯誤，請稍後再試',
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  }
+}
+
+// 標記已讀/未讀
+const toggleRead = async (email: EmailDetail, isRead: boolean) => {
+  try {
+    await emailsStore.markAsRead(email.id, isRead)
+    if (selectedEmail.value) {
+      selectedEmail.value.is_read = isRead
+    }
+    toast.add({
+      title: isRead ? '已標記為已讀' : '已標記為未讀',
+      color: 'success',
+      icon: 'i-lucide-check-circle'
+    })
+  } catch (e: any) {
+    toast.add({
+      title: '操作失敗',
       color: 'error'
     })
   }
 }
 
-// 點擊郵件行
-function onSelectRow(e: Event, row: any) {
-  router.push(`/emails/${row.original.id}`)
-}
 </script>
 
 <template>
@@ -324,6 +203,11 @@ function onSelectRow(e: Event, row: any) {
           </template>
           {{ emailsStore.gmailStatus?.email }}
         </UBadge>
+        
+        <!-- 統計資訊 -->
+        <div class="text-sm text-muted">
+          <span class="font-semibold text-highlighted">{{ emailsStore.unreadCount }}</span> 未讀
+        </div>
       </div>
 
       <div class="flex items-center gap-2">
@@ -333,6 +217,7 @@ function onSelectRow(e: Event, row: any) {
           icon="i-lucide-refresh-cw"
           color="neutral"
           variant="outline"
+          size="sm"
           :loading="emailsStore.syncing"
           :disabled="!emailsStore.canSync"
           @click="handleSync"
@@ -344,6 +229,7 @@ function onSelectRow(e: Event, row: any) {
         <UButton
           color="neutral"
           variant="ghost"
+          size="sm"
           :loading="refreshing"
           :disabled="refreshing"
           @click="refreshEmails"
@@ -359,109 +245,329 @@ function onSelectRow(e: Event, row: any) {
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="flex items-center gap-2 px-6 py-3 border-b border-default bg-elevated/50">
-      <!-- 搜尋框 -->
-      <UInput
-        v-model="searchQuery"
-        icon="i-lucide-search"
-        placeholder="搜尋主旨..."
-        class="max-w-sm"
-      />
+    <!-- Split View Container -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Left Side: Email List -->
+      <div class="w-96 flex flex-col border-r border-default">
+        <!-- Filters -->
+        <div class="flex items-center gap-2 p-4 border-b border-default bg-elevated/50">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="搜尋主旨..."
+            size="sm"
+            class="flex-1"
+          />
+          
+          <USelectMenu
+            v-model="filterIsRead"
+            :options="[
+              { value: 'all', label: '全部' },
+              { value: 'unread', label: '未讀' },
+              { value: 'read', label: '已讀' }
+            ]"
+            value-attribute="value"
+            option-attribute="label"
+            size="sm"
+            class="w-24"
+          />
+        </div>
 
-      <!-- 已讀/未讀篩選 -->
-      <USelectMenu
-        v-model="filterIsRead"
-        :options="[
-          { value: 'all', label: '全部' },
-          { value: 'unread', label: '未讀' },
-          { value: 'read', label: '已讀' }
-        ]"
-        value-attribute="value"
-        option-attribute="label"
-        class="w-32"
-      />
+        <!-- Email List -->
+        <div class="flex-1 overflow-y-auto">
+          <!-- Loading State -->
+          <div v-if="emailsStore.loading" class="flex items-center justify-center py-12">
+            <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary" />
+          </div>
 
-      <!-- 統計資訊 -->
-      <div class="ml-auto text-sm text-muted">
-        未讀: <span class="font-semibold text-highlighted">{{ emailsStore.unreadCount }}</span> / 
-        總計: <span class="font-semibold text-highlighted">{{ emailsStore.pagination.total }}</span>
+          <!-- Empty State -->
+          <div 
+            v-else-if="emailsStore.emails.length === 0"
+            class="flex flex-col items-center justify-center py-12 px-4 text-center"
+          >
+            <UIcon name="i-lucide-inbox" class="w-12 h-12 mb-3 text-muted" />
+            <h3 class="text-sm font-semibold text-highlighted mb-1">
+              {{ emailsStore.isConnected ? '目前沒有郵件' : '尚未連接 Gmail' }}
+            </h3>
+            <p class="text-xs text-muted">
+              {{ emailsStore.isConnected 
+                ? '嘗試同步郵件或調整篩選條件' 
+                : '請先在設定中連接您的 Gmail 帳號' 
+              }}
+            </p>
+          </div>
+
+          <!-- Email Items -->
+          <div v-else class="divide-y divide-default">
+            <div
+              v-for="email in emailsStore.emails"
+              :key="email.id"
+              class="p-4 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              :class="{
+                'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-primary': selectedEmailId === email.id
+              }"
+              @click="selectEmail(email.id)"
+            >
+              <div class="flex items-start gap-3">
+                <UAvatar
+                  :alt="email.from_name || email.from_email"
+                  size="sm"
+                />
+                
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span 
+                      class="text-sm truncate"
+                      :class="email.is_read ? 'text-muted font-normal' : 'text-highlighted font-semibold'"
+                    >
+                      {{ email.from_name || email.from_email }}
+                    </span>
+                    <span class="text-xs text-muted shrink-0">
+                      {{ formatTime(email.received_at) }}
+                    </span>
+                  </div>
+                  
+                  <div 
+                    class="text-sm mb-1 truncate"
+                    :class="email.is_read ? 'text-muted' : 'text-highlighted font-medium'"
+                  >
+                    {{ email.subject || '(無主旨)' }}
+                  </div>
+                  
+                  <div class="text-xs text-muted truncate">
+                    {{ email.snippet }}
+                  </div>
+
+                  <!-- Badges -->
+                  <div class="flex items-center gap-1 mt-2">
+                    <UBadge
+                      v-if="!email.is_read"
+                      size="xs"
+                      color="primary"
+                      variant="subtle"
+                    >
+                      未讀
+                    </UBadge>
+                    <UBadge
+                      v-if="email.has_attachments"
+                      size="xs"
+                      color="neutral"
+                      variant="subtle"
+                      icon="i-lucide-paperclip"
+                    />
+                    <UBadge
+                      v-if="email.labels?.includes('STARRED')"
+                      size="xs"
+                      color="warning"
+                      variant="subtle"
+                      icon="i-lucide-star"
+                    />
+                    <UBadge
+                      v-if="email.case_id"
+                      size="xs"
+                      color="primary"
+                      variant="subtle"
+                    >
+                      已關聯
+                    </UBadge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div 
+          v-if="emailsStore.pagination.total_pages > 1" 
+          class="p-3 border-t border-default flex justify-center"
+        >
+          <UPagination
+            :model-value="emailsStore.pagination.page"
+            :items-per-page="emailsStore.pagination.page_size"
+            :total="emailsStore.pagination.total"
+            size="sm"
+            @update:model-value="(page: number) => emailsStore.fetchEmails({ page })"
+          />
+        </div>
+      </div>
+
+      <!-- Right Side: Email Detail -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Loading State -->
+        <div v-if="loadingDetail" class="flex items-center justify-center h-full">
+          <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary" />
+        </div>
+
+        <!-- Empty State -->
+        <div 
+          v-else-if="!selectedEmail"
+          class="flex flex-col items-center justify-center h-full text-center px-4"
+        >
+          <UIcon name="i-lucide-mail" class="w-16 h-16 mb-4 text-muted" />
+          <h3 class="text-lg font-semibold text-highlighted mb-2">選擇一封郵件</h3>
+          <p class="text-muted">從左側列表選擇郵件以查看內容</p>
+        </div>
+
+        <!-- Email Detail -->
+        <div v-else class="flex-1 flex flex-col overflow-hidden">
+          <!-- Detail Header -->
+          <div class="p-6 border-b border-default">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-bold text-highlighted flex-1">
+                {{ selectedEmail.subject || '(無主旨)' }}
+              </h2>
+
+              <div class="flex items-center gap-2">
+                <UButton
+                  :icon="selectedEmail.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="toggleRead(selectedEmail, !selectedEmail.is_read)"
+                >
+                  {{ selectedEmail.is_read ? '標記未讀' : '標記已讀' }}
+                </UButton>
+
+                <UDropdownMenu
+                  :items="[[
+                    {
+                      label: '產生回覆',
+                      icon: 'i-lucide-reply',
+                      onSelect: () => {
+                        toast.add({ title: '功能開發中', color: 'info' })
+                      }
+                    }
+                  ]]"
+                >
+                  <UButton
+                    icon="i-lucide-ellipsis-vertical"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                  />
+                </UDropdownMenu>
+              </div>
+            </div>
+
+            <!-- Sender Info -->
+            <div class="flex items-start gap-3">
+              <UAvatar
+                :alt="selectedEmail.from_name || selectedEmail.from_email"
+                size="lg"
+              />
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold text-highlighted">
+                    {{ selectedEmail.from_name || selectedEmail.from_email }}
+                  </span>
+                  <UBadge
+                    v-if="!selectedEmail.is_read"
+                    size="xs"
+                    color="primary"
+                  >
+                    未讀
+                  </UBadge>
+                </div>
+                <div class="text-sm text-muted">{{ selectedEmail.from_email }}</div>
+                <div class="text-xs text-muted mt-1">
+                  {{ formatFullDate(selectedEmail.received_at) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Labels -->
+            <div 
+              v-if="selectedEmail.labels && selectedEmail.labels.length > 0" 
+              class="flex flex-wrap gap-2 mt-4"
+            >
+              <UBadge
+                v-for="label in selectedEmail.labels"
+                :key="label"
+                size="sm"
+                variant="subtle"
+                color="neutral"
+              >
+                {{ label }}
+              </UBadge>
+            </div>
+
+            <!-- Badges -->
+            <div class="flex items-center gap-2 mt-4">
+              <UBadge
+                v-if="selectedEmail.has_attachments"
+                icon="i-lucide-paperclip"
+                variant="subtle"
+                color="neutral"
+                size="sm"
+              >
+                有附件
+              </UBadge>
+              <UBadge
+                v-if="selectedEmail.ai_analyzed"
+                icon="i-lucide-sparkles"
+                variant="subtle"
+                color="success"
+                size="sm"
+              >
+                已AI分析
+              </UBadge>
+            </div>
+          </div>
+
+          <!-- Detail Content -->
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="max-w-4xl mx-auto">
+              <div class="prose prose-sm max-w-none dark:prose-invert">
+                <!-- HTML Content -->
+                <div
+                  v-if="contentType === 'html'"
+                  v-html="displayContent"
+                  class="email-content"
+                />
+                
+                <!-- Plain Text Content -->
+                <pre
+                  v-else
+                  class="whitespace-pre-wrap font-sans text-sm text-muted"
+                >{{ displayContent }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <!-- Table -->
-    <div class="flex-1 overflow-hidden">
-      <UTable
-        ref="table"
-        v-model:row-selection="rowSelection"
-        :data="emailsStore.emails"
-        :columns="columns"
-        :loading="emailsStore.loading"
-        sticky
-        class="h-full"
-        @select="onSelectRow"
-      />
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="emailsStore.pagination.total_pages > 1" 
-      class="flex justify-center px-6 py-4 border-t border-default"
-    >
-      <UPagination
-        :model-value="emailsStore.pagination.page"
-        :items-per-page="emailsStore.pagination.page_size"
-        :total="emailsStore.pagination.total"
-        @update:model-value="(page) => emailsStore.fetchEmails({ page })"
-      />
-    </div>
-
-    <!-- Empty state -->
-    <div 
-      v-if="!emailsStore.loading && emailsStore.emails.length === 0" 
-      class="flex flex-col items-center justify-center h-full py-12"
-    >
-      <div class="text-center">
-        <UIcon name="i-lucide-inbox" class="w-16 h-16 mx-auto mb-4 text-muted" />
-        
-        <h3 class="text-lg font-semibold text-highlighted mb-2">
-          {{ emailsStore.isConnected ? '目前沒有郵件' : '尚未連接 Gmail' }}
-        </h3>
-        
-        <p class="text-muted mb-4">
-          {{ emailsStore.isConnected 
-            ? '嘗試同步郵件或調整篩選條件' 
-            : '請先在設定中連接您的 Gmail 帳號' 
-          }}
-        </p>
-        
-        <UButton
-          v-if="emailsStore.isConnected"
-          icon="i-lucide-refresh-cw"
-          color="primary"
-          @click="handleSync"
-        >
-          立即同步
-        </UButton>
-        
-        <UButton
-          v-else
-          icon="i-lucide-settings"
-          color="primary"
-          to="/settings"
-        >
-          前往設定
-        </UButton>
-      </div>
-    </div>
-
-    <!-- Link to Case Dialog -->
-    <EmailLinkToCaseDialog
-      v-if="selectedEmailForLink"
-      :email-id="selectedEmailForLink.id"
-      :open="showLinkDialog"
-      @close="showLinkDialog = false"
-      @linked="handleLinked"
-    />
   </div>
 </template>
 
+<style scoped>
+.email-content :deep(a) {
+  color: rgb(37 99 235);
+  text-decoration: none;
+}
+
+.email-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.email-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.email-content :deep(blockquote) {
+  border-left-width: 4px;
+  padding-left: 1rem;
+  font-style: italic;
+  border-color: rgb(229 231 235);
+}
+
+:deep(.dark) .email-content :deep(a) {
+  color: rgb(96 165 250);
+}
+
+:deep(.dark) .email-content :deep(blockquote) {
+  border-color: rgb(31 41 55);
+}
+</style>

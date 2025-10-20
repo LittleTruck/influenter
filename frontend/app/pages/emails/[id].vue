@@ -273,20 +273,34 @@ const handleLinked = async (caseId: string) => {
 </template>
 
 <style scoped>
-.email-content {
-  @apply text-muted;
+.email-content :deep(a) {
+  color: rgb(37 99 235);
+  text-decoration: none;
 }
 
-.email-content :deep(a) {
-  @apply text-primary hover:underline;
+.email-content :deep(a:hover) {
+  text-decoration: underline;
 }
 
 .email-content :deep(img) {
-  @apply max-w-full h-auto rounded-lg;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
 }
 
 .email-content :deep(blockquote) {
-  @apply border-l-4 border-default pl-4 italic;
+  border-left-width: 4px;
+  padding-left: 1rem;
+  font-style: italic;
+  border-color: rgb(229 231 235);
+}
+
+:deep(.dark) .email-content :deep(a) {
+  color: rgb(96 165 250);
+}
+
+:deep(.dark) .email-content :deep(blockquote) {
+  border-color: rgb(31 41 55);
 }
 </style>
 
