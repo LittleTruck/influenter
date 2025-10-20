@@ -65,7 +65,20 @@ export default defineNuxtConfig({
   devServer: {
     port: 3000,
     host: '0.0.0.0'
-  }
+  },
+
+  // Vite configuration for Docker development environment
+  // 生產環境會直接 build 靜態文件，不需要 hot reload
+  ...(process.env.NODE_ENV === 'development' && {
+    vite: {
+      server: {
+        watch: {
+          usePolling: true,  // 啟用 polling 模式（Docker 環境必需）
+          interval: 1000,    // 每秒檢查一次變化
+        }
+      }
+    }
+  })
 })
 
 
