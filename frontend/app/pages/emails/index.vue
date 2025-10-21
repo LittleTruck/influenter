@@ -15,10 +15,14 @@ const loadingDetail = ref(false)
 
 // 載入郵件和 Gmail 狀態
 onMounted(async () => {
-  await Promise.all([
-    emailsStore.fetchEmails(),
-    emailsStore.fetchGmailStatus()
-  ])
+  // 先載入 Gmail 狀態
+  await emailsStore.fetchGmailStatus()
+  
+  // 再載入郵件列表
+  await emailsStore.fetchEmails()
+  
+  // 重新載入 Gmail 狀態以獲取最新的統計資料
+  await emailsStore.fetchGmailStatus()
   
   // 如果有郵件，自動選中第一封
   if (emailsStore.emails.length > 0) {
@@ -65,10 +69,8 @@ const paginationPages = computed(() => {
 
 // 處理分頁變更
 const handlePageChange = async (page: number) => {
-  console.log('handlePageChange called with page:', page)
   try {
     await emailsStore.fetchEmails({ page })
-    console.log('Emails fetched successfully')
     
     // 切換頁面後滾動到列表頂部
     if (emailListRef.value) {
@@ -265,31 +267,17 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
   <div class="flex flex-col h-full">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-default">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <h1 class="text-2xl font-bold text-highlighted">郵件</h1>
         
-        <!-- Gmail 狀態指示器 -->
-        <UBadge 
-          v-if="emailsStore.isConnected"
-          :color="emailsStore.gmailStatus?.sync_status === 'active' ? 'success' : 'warning'"
-          variant="subtle"
+        <!-- 未讀數量標記 (參考 template) -->
+        <UBadge
           size="sm"
+          :color="emailsStore.unreadCount > 0 ? 'primary' : 'neutral'"
+          variant="solid"
         >
-          <template #leading>
-            <span class="w-2 h-2 rounded-full" 
-              :class="{
-                'bg-green-500 animate-pulse': emailsStore.gmailStatus?.sync_status === 'active',
-                'bg-amber-500': emailsStore.gmailStatus?.sync_status !== 'active'
-              }"
-            />
-          </template>
-          {{ emailsStore.gmailStatus?.email }}
+          {{ emailsStore.unreadCount }}
         </UBadge>
-        
-        <!-- 統計資訊 -->
-        <div class="text-sm text-muted">
-          <span class="font-semibold text-highlighted">{{ emailsStore.unreadCount }}</span> 未讀
-        </div>
       </div>
 
       <div class="flex items-center gap-2">
@@ -331,28 +319,37 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
     <div class="flex flex-1 overflow-hidden">
       <!-- Left Side: Email List -->
       <div class="w-96 flex flex-col border-r border-default">
-        <!-- Filters -->
-        <div class="flex items-center gap-2 p-4 border-b border-default bg-elevated/50">
-          <UInput
-            v-model="searchQuery"
-            icon="i-lucide-search"
-            placeholder="搜尋主旨..."
-            size="sm"
-            class="flex-1"
-          />
-          
-          <USelectMenu
-            v-model="filterIsRead"
-            :options="[
-              { value: 'all', label: '全部' },
-              { value: 'unread', label: '未讀' },
-              { value: 'read', label: '已讀' }
-            ]"
-            value-attribute="value"
-            option-attribute="label"
-            size="sm"
-            class="w-24"
-          />
+        <!-- Search & Filters -->
+        <div class="p-4 border-b border-default bg-elevated/50">
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="searchQuery"
+              icon="i-lucide-search"
+              placeholder="搜尋主旨..."
+              size="sm"
+              class="flex-1"
+            />
+            
+            <!-- All/Unread 切換 (參考 template) -->
+            <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              <UButton
+                :variant="filterIsRead === 'all' ? 'solid' : 'ghost'"
+                :color="filterIsRead === 'all' ? 'primary' : 'neutral'"
+                size="sm"
+                @click="filterIsRead = 'all'"
+              >
+                全部
+              </UButton>
+              <UButton
+                :variant="filterIsRead === 'unread' ? 'solid' : 'ghost'"
+                :color="filterIsRead === 'unread' ? 'primary' : 'neutral'"
+                size="sm"
+                @click="filterIsRead = 'unread'"
+              >
+                未讀
+              </UButton>
+            </div>
+          </div>
         </div>
 
         <!-- Email List -->
@@ -391,10 +388,18 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               @click="selectEmail(email.id)"
             >
               <div class="flex items-start gap-3">
-                <UAvatar
-                  :alt="email.from_name || email.from_email"
-                  size="sm"
-                />
+                <!-- 未讀指示器 (小綠點，參考 template) -->
+                <div class="relative">
+                  <UAvatar
+                    :alt="email.from_name || email.from_email"
+                    size="sm"
+                  />
+                  <!-- 未讀小綠點 -->
+                  <span 
+                    v-if="!email.is_read"
+                    class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary-500 rounded-full border-2 border-white dark:border-gray-900"
+                  />
+                </div>
                 
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
@@ -421,30 +426,26 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                   </div>
 
                   <!-- Badges -->
-                  <div class="flex items-center gap-1 mt-2">
-                    <UBadge
-                      v-if="!email.is_read"
-                      size="xs"
-                      color="primary"
-                    >
-                      未讀
-                    </UBadge>
+                  <div v-if="email.has_attachments || email.labels?.includes('STARRED') || email.case_id" class="flex items-center gap-1 mt-2">
                     <UBadge
                       v-if="email.has_attachments"
                       size="xs"
                       color="neutral"
+                      variant="subtle"
                       icon="i-lucide-paperclip"
                     />
                     <UBadge
                       v-if="email.labels?.includes('STARRED')"
                       size="xs"
                       color="warning"
+                      variant="subtle"
                       icon="i-lucide-star"
                     />
                     <UBadge
                       v-if="email.case_id"
                       size="xs"
                       color="info"
+                      variant="subtle"
                     >
                       已關聯
                     </UBadge>

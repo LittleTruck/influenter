@@ -174,6 +174,9 @@ export const useEmailsStore = defineStore('emails', () => {
         currentEmail.value.is_read = isRead
       }
 
+      // 重新載入 Gmail status 以更新統計資料
+      await fetchGmailStatus()
+
       return data
     } catch (e: any) {
       error.value = e.message
@@ -229,6 +232,17 @@ export const useEmailsStore = defineStore('emails', () => {
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to fetch Gmail status:', e)
+      // 設置預設值，確保 gmailStatus 不會是 null
+      gmailStatus.value = {
+        connected: false,
+        stats: {
+          total_messages: 0,
+          unread_messages: 0,
+          starred_messages: 0,
+          important_messages: 0,
+          category_counts: {}
+        }
+      }
     }
   }
 
@@ -287,7 +301,13 @@ export const useEmailsStore = defineStore('emails', () => {
 
   // Getters
   const unreadCount = computed(() => {
-    return emails.value.filter(e => !e.is_read).length
+    // 只使用 Gmail status 中的統計資料（全部未讀數量）
+    // 後端使用 PascalCase: UnreadMessages
+    if (gmailStatus.value?.stats?.UnreadMessages !== undefined) {
+      return gmailStatus.value.stats.UnreadMessages
+    }
+    // 如果還沒有載入，返回 0
+    return 0
   })
 
   const hasEmails = computed(() => {
