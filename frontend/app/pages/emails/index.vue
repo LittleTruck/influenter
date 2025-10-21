@@ -49,6 +49,39 @@ onMounted(async () => {
 // 郵件列表容器 ref
 const emailListRef = ref<HTMLElement | null>(null)
 
+// 計算要顯示的分頁頁碼
+const paginationPages = computed(() => {
+  const current = emailsStore.pagination.page
+  const total = emailsStore.pagination.total_pages
+  const delta = 2 // 當前頁前後各顯示幾頁
+  
+  const pages: number[] = []
+  for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++) {
+    pages.push(i)
+  }
+  
+  return pages
+})
+
+// 處理分頁變更
+const handlePageChange = async (page: number) => {
+  console.log('handlePageChange called with page:', page)
+  try {
+    await emailsStore.fetchEmails({ page })
+    console.log('Emails fetched successfully')
+    
+    // 切換頁面後滾動到列表頂部
+    if (emailListRef.value) {
+      emailListRef.value.scrollTop = 0
+    }
+    // 清空選中的郵件
+    selectedEmailId.value = null
+    selectedEmail.value = null
+  } catch (e) {
+    console.error('Failed to change page:', e)
+  }
+}
+
 // 選擇郵件
 const selectEmail = async (emailId: string) => {
   // 保存當前滾動位置
@@ -425,14 +458,55 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         <!-- Pagination -->
         <div 
           v-if="emailsStore.pagination.total_pages > 1" 
-          class="p-3 border-t border-default flex justify-center"
+          class="p-3 border-t border-default flex justify-center gap-1"
         >
-          <UPagination
-            :model-value="emailsStore.pagination.page"
-            :items-per-page="emailsStore.pagination.page_size"
-            :total="emailsStore.pagination.total"
+          <UButton
+            icon="i-lucide-chevrons-left"
             size="sm"
-            @update:model-value="(page: number) => emailsStore.fetchEmails({ page })"
+            color="neutral"
+            variant="ghost"
+            :disabled="emailsStore.pagination.page === 1"
+            @click="handlePageChange(1)"
+            aria-label="第一頁"
+          />
+          <UButton
+            icon="i-lucide-chevron-left"
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            :disabled="emailsStore.pagination.page === 1"
+            @click="handlePageChange(emailsStore.pagination.page - 1)"
+            aria-label="上一頁"
+          />
+          
+          <template v-for="page in paginationPages" :key="page">
+            <UButton
+              size="sm"
+              :color="page === emailsStore.pagination.page ? 'primary' : 'neutral'"
+              :variant="page === emailsStore.pagination.page ? 'solid' : 'ghost'"
+              @click="handlePageChange(page)"
+            >
+              {{ page }}
+            </UButton>
+          </template>
+          
+          <UButton
+            icon="i-lucide-chevron-right"
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            :disabled="emailsStore.pagination.page === emailsStore.pagination.total_pages"
+            @click="handlePageChange(emailsStore.pagination.page + 1)"
+            aria-label="下一頁"
+          />
+          <UButton
+            icon="i-lucide-chevrons-right"
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            :disabled="emailsStore.pagination.page === emailsStore.pagination.total_pages"
+            @click="handlePageChange(emailsStore.pagination.total_pages)"
+            aria-label="最後一頁"
           />
         </div>
       </div>
