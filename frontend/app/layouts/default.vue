@@ -3,10 +3,10 @@
     <UDashboardSidebar collapsible resizable>
       <template #header="{ collapsed }">
         <div v-if="!collapsed" class="flex items-center gap-2">
-          <UIcon name="i-lucide-sparkles" class="w-6 h-6 text-primary" />
+          <UIcon name="i-lucide-sparkles" class="w-6 h-6" />
           <span class="font-bold text-lg">Influenter</span>
         </div>
-        <UIcon v-else name="i-lucide-sparkles" class="w-6 h-6 text-primary mx-auto" />
+        <UIcon v-else name="i-lucide-sparkles" class="w-6 h-6 mx-auto" />
       </template>
 
       <template #default="{ collapsed }">
@@ -42,8 +42,7 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const navigationItems: NavigationMenuItem[][] = [[{
   label: '首頁',
   icon: 'i-lucide-house',
-  to: '/',
-  active: true
+  to: '/'
 }, {
   label: '案件管理',
   icon: 'i-lucide-briefcase',

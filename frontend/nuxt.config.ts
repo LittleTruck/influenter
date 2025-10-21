@@ -50,10 +50,8 @@ export default defineNuxtConfig({
   },
 
   // Nuxt UI Configuration
-  ui: {
-    colorMode: {
-      preference: 'light'
-    }
+  colorMode: {
+    preference: 'light'
   },
 
   // Nitro

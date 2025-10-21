@@ -34,8 +34,7 @@ onMounted(async () => {
       
       toast.add({
         title: 'Token 已刷新',
-        description: '郵件同步已完成',
-        color: 'success'
+        description: '郵件同步已完成'
       })
     } catch (error: any) {
       // 靜默失敗，不顯示錯誤通知（避免打擾使用者）
@@ -144,7 +143,6 @@ const refreshEmails = async () => {
     await emailsStore.fetchEmails()
     toast.add({
       title: '郵件列表已更新',
-      color: 'success',
       icon: 'i-lucide-check-circle'
     })
   } catch (e: any) {
@@ -166,7 +164,6 @@ const handleSync = async () => {
     toast.add({
       title: '同步成功',
       description: '郵件已成功同步，列表已更新',
-      color: 'success',
       icon: 'i-lucide-check-circle'
     })
   } catch (e: any) {
@@ -213,12 +210,13 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           v-if="emailsStore.isConnected"
           :color="emailsStore.gmailStatus?.sync_status === 'active' ? 'success' : 'warning'"
           variant="subtle"
+          size="sm"
         >
           <template #leading>
             <span class="w-2 h-2 rounded-full" 
               :class="{
-                'bg-success animate-pulse': emailsStore.gmailStatus?.sync_status === 'active',
-                'bg-warning': emailsStore.gmailStatus?.sync_status !== 'active'
+                'bg-green-500 animate-pulse': emailsStore.gmailStatus?.sync_status === 'active',
+                'bg-amber-500': emailsStore.gmailStatus?.sync_status !== 'active'
               }"
             />
           </template>
@@ -325,7 +323,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               :key="email.id"
               class="p-4 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
               :class="{
-                'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-primary': selectedEmailId === email.id
+                'bg-primary-50 dark:bg-primary-900/20 border-l-2 border-l-primary-500': selectedEmailId === email.id
               }"
               @click="selectEmail(email.id)"
             >
@@ -365,7 +363,6 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                       v-if="!email.is_read"
                       size="xs"
                       color="primary"
-                      variant="subtle"
                     >
                       未讀
                     </UBadge>
@@ -373,21 +370,18 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                       v-if="email.has_attachments"
                       size="xs"
                       color="neutral"
-                      variant="subtle"
                       icon="i-lucide-paperclip"
                     />
                     <UBadge
                       v-if="email.labels?.includes('STARRED')"
                       size="xs"
                       color="warning"
-                      variant="subtle"
                       icon="i-lucide-star"
                     />
                     <UBadge
                       v-if="email.case_id"
                       size="xs"
-                      color="primary"
-                      variant="subtle"
+                      color="info"
                     >
                       已關聯
                     </UBadge>
@@ -506,7 +500,6 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                 v-for="label in selectedEmail.labels"
                 :key="label"
                 size="sm"
-                variant="subtle"
                 color="neutral"
               >
                 {{ label }}
@@ -518,7 +511,6 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               <UBadge
                 v-if="selectedEmail.has_attachments"
                 icon="i-lucide-paperclip"
-                variant="subtle"
                 color="neutral"
                 size="sm"
               >
@@ -527,7 +519,6 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               <UBadge
                 v-if="selectedEmail.ai_analyzed"
                 icon="i-lucide-sparkles"
-                variant="subtle"
                 color="success"
                 size="sm"
               >

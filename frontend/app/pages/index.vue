@@ -36,7 +36,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">總案件數</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
               </div>
-              <UIcon name="i-lucide-briefcase" class="w-8 h-8 text-blue-500" />
+              <UIcon name="i-lucide-briefcase" class="w-8 h-8 text-primary" />
             </div>
           </UCard>
 
@@ -46,7 +46,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">未讀郵件</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
               </div>
-              <UIcon name="i-lucide-mail" class="w-8 h-8 text-green-500" />
+              <UIcon name="i-lucide-mail" class="w-8 h-8 text-primary" />
             </div>
           </UCard>
 
@@ -56,7 +56,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">本月收入</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">NT$ 0</p>
               </div>
-              <UIcon name="i-lucide-dollar-sign" class="w-8 h-8 text-yellow-500" />
+              <UIcon name="i-lucide-dollar-sign" class="w-8 h-8 text-primary" />
             </div>
           </UCard>
         </div>

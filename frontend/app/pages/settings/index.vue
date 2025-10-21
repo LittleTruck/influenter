@@ -32,8 +32,7 @@ const triggerFirstSync = async () => {
     alert('同步成功')
     toast.add({
       title: '同步成功',
-      description: '郵件已成功同步，正在更新列表...',
-      color: 'success'
+      description: '郵件已成功同步，正在更新列表...'
     })
     // 導航到郵件頁面
     setTimeout(() => {
@@ -54,8 +53,7 @@ const disconnectGmail = async () => {
   try {
     await emailsStore.disconnectGmail()
     toast.add({
-      title: 'Gmail 已斷開連接',
-      color: 'success'
+      title: 'Gmail 已斷開連接'
     })
   } catch (e) {
     // error 已在 store 處理
@@ -132,12 +130,12 @@ const syncStatusColor = computed(() => {
               <div class="flex items-center gap-3">
                 <div 
                   class="w-10 h-10 rounded-full flex items-center justify-center"
-                  :class="emailsStore.isConnected ? 'bg-success/10' : 'bg-muted/10'"
+                  :class="emailsStore.isConnected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-gray-100 dark:bg-gray-800'"
                 >
                   <UIcon 
                     :name="emailsStore.isConnected ? 'i-lucide-check-circle' : 'i-lucide-circle'"
                     class="w-5 h-5"
-                    :class="emailsStore.isConnected ? 'text-success' : 'text-muted'"
+                    :class="emailsStore.isConnected ? 'text-primary' : 'text-gray-400'"
                   />
                 </div>
                 <div>
@@ -173,9 +171,9 @@ const syncStatusColor = computed(() => {
 
             <!-- 未連接提示 -->
             <div v-else-if="!emailsStore.isConnected && emailsStore.gmailStatus" class="space-y-4">
-              <div class="p-4 rounded-lg border border-info/20 bg-info/5">
+              <div class="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                 <div class="flex items-start gap-3">
-                  <UIcon name="i-lucide-info" class="w-5 h-5 text-info mt-0.5" />
+                  <UIcon name="i-lucide-info" class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5" />
                   <div class="flex-1">
                     <h4 class="font-medium text-highlighted mb-1">Gmail 尚未連接</h4>
                     <p class="text-sm text-muted mb-3">
@@ -246,12 +244,12 @@ const syncStatusColor = computed(() => {
 
               <!-- 同步錯誤（如果有） -->
               <div v-if="emailsStore.gmailStatus?.sync_error" 
-                class="p-4 rounded-lg border border-error/20 bg-error/5"
+                class="p-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
               >
                 <div class="flex items-start gap-3">
-                  <UIcon name="i-lucide-alert-circle" class="w-5 h-5 text-error mt-0.5" />
+                  <UIcon name="i-lucide-alert-circle" class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
                   <div class="flex-1">
-                    <h4 class="font-medium text-error mb-1">同步錯誤</h4>
+                    <h4 class="font-medium text-red-600 dark:text-red-400 mb-1">同步錯誤</h4>
                     <p class="text-sm text-muted">
                       {{ emailsStore.gmailStatus.sync_error }}
                     </p>
@@ -295,7 +293,7 @@ const syncStatusColor = computed(() => {
               />
               <div
                 v-else
-                class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center"
+                class="w-16 h-16 rounded-full bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center"
               >
                 <UIcon name="i-lucide-user" class="w-8 h-8 text-primary" />
               </div>
