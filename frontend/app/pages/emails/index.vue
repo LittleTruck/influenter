@@ -46,8 +46,21 @@ onMounted(async () => {
   }
 })
 
+// 郵件列表容器 ref
+const emailListRef = ref<HTMLElement | null>(null)
+
 // 選擇郵件
 const selectEmail = async (emailId: string) => {
+  // 保存當前滾動位置
+  const scrollPosition = emailListRef.value?.scrollTop || 0
+  
+  // 恢復滾動位置的函數
+  const restoreScroll = () => {
+    if (emailListRef.value) {
+      emailListRef.value.scrollTop = scrollPosition
+    }
+  }
+  
   selectedEmailId.value = emailId
   loadingDetail.value = true
   
@@ -55,10 +68,17 @@ const selectEmail = async (emailId: string) => {
     await emailsStore.fetchEmail(emailId)
     selectedEmail.value = emailsStore.currentEmail
     
-    // 標記為已讀
+    // 標記為已讀（只對未讀郵件）
     if (selectedEmail.value && !selectedEmail.value.is_read) {
+      // 立即恢復滾動位置
+      restoreScroll()
+      
       await emailsStore.markAsRead(emailId, true)
     }
+    
+    // 無論是否標記已讀，都要恢復滾動位置
+    await nextTick()
+    restoreScroll()
   } catch (e: any) {
     toast.add({
       title: '載入郵件失敗',
@@ -303,7 +323,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         </div>
 
         <!-- Email List -->
-        <div class="flex-1 overflow-y-auto">
+        <div ref="emailListRef" class="flex-1 overflow-y-auto">
           <!-- Loading State -->
           <div v-if="emailsStore.loading" class="flex items-center justify-center py-12">
             <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary" />
