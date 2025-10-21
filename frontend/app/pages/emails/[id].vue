@@ -48,10 +48,20 @@ const formatDate = (dateStr: string) => {
   })
 }
 
+// 使用郵件清理 composable
+const { sanitizeHtml } = useEmailSanitizer()
+
 // 顯示 HTML 或文字內容
 const displayContent = computed(() => {
   if (!email.value) return ''
-  return email.value.body_html || email.value.body_text || email.value.snippet || ''
+  const content = email.value.body_html || email.value.body_text || email.value.snippet || ''
+  
+  // 如果是 HTML 內容，進行清理
+  if (email.value.body_html) {
+    return sanitizeHtml(content)
+  }
+  
+  return content
 })
 
 const contentType = computed(() => {
@@ -225,7 +235,7 @@ const handleLinked = async (caseId: string) => {
             <div
               v-if="contentType === 'html'"
               v-html="displayContent"
-              class="email-content"
+              class="email-content isolate"
             />
             
             <!-- 純文字內容 -->
@@ -273,28 +283,115 @@ const handleLinked = async (caseId: string) => {
 </template>
 
 <style scoped>
+/* 郵件內容隔離樣式 */
+.email-content {
+  /* 重置所有可能影響外部的樣式 */
+  all: initial;
+  display: block;
+  font-family: inherit;
+  line-height: 1.6;
+  color: inherit;
+  
+  /* 確保隔離 */
+  contain: style layout;
+  isolation: isolate;
+}
+
+/* 重置郵件內容內的所有元素 */
+.email-content :deep(*) {
+  all: unset;
+  display: revert;
+  box-sizing: border-box;
+}
+
+.email-content :deep(body) {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+}
+
+.email-content :deep(html) {
+  margin: 0;
+  padding: 0;
+}
+
+/* 恢復必要的文字樣式 */
+.email-content :deep(p),
+.email-content :deep(div),
+.email-content :deep(span) {
+  display: block;
+  margin: 0 0 1rem 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.email-content :deep(p:last-child),
+.email-content :deep(div:last-child) {
+  margin-bottom: 0;
+}
+
+/* 連結樣式 */
 .email-content :deep(a) {
   color: rgb(37 99 235);
   text-decoration: none;
+  display: inline;
 }
 
 .email-content :deep(a:hover) {
   text-decoration: underline;
 }
 
+/* 圖片樣式 */
 .email-content :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: 0.5rem;
+  display: block;
+  margin: 1rem 0;
 }
 
+/* 引用樣式 */
 .email-content :deep(blockquote) {
-  border-left-width: 4px;
+  border-left: 4px solid rgb(229 231 235);
   padding-left: 1rem;
+  margin: 1rem 0;
   font-style: italic;
-  border-color: rgb(229 231 235);
+  display: block;
 }
 
+/* 標題樣式 */
+.email-content :deep(h1),
+.email-content :deep(h2),
+.email-content :deep(h3),
+.email-content :deep(h4),
+.email-content :deep(h5),
+.email-content :deep(h6) {
+  font-weight: bold;
+  margin: 1.5rem 0 1rem 0;
+  color: inherit;
+  display: block;
+}
+
+.email-content :deep(h1) { font-size: 1.5rem; }
+.email-content :deep(h2) { font-size: 1.25rem; }
+.email-content :deep(h3) { font-size: 1.125rem; }
+
+/* 列表樣式 */
+.email-content :deep(ul),
+.email-content :deep(ol) {
+  margin: 1rem 0;
+  padding-left: 2rem;
+  display: block;
+}
+
+.email-content :deep(li) {
+  display: list-item;
+  margin: 0.5rem 0;
+}
+
+/* Dark mode */
 :deep(.dark) .email-content :deep(a) {
   color: rgb(96 165 250);
 }
