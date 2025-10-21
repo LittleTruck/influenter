@@ -180,15 +180,21 @@ const searchQuery = ref('')
 // 監聽篩選變更
 watch([filterIsRead, searchQuery], async () => {
   const params: any = {}
+  
+  // 根據篩選狀態設定 is_read 參數
   if (filterIsRead.value === 'unread') {
     params.is_read = false
   } else if (filterIsRead.value === 'all') {
-    params.is_read = true
+    // 明確設定為 undefined 以清除之前的篩選
+    params.is_read = undefined
   }
   
   if (searchQuery.value) {
     params.subject = searchQuery.value
   }
+  
+  // 重置到第一頁
+  params.page = 1
   
   await emailsStore.fetchEmails(params)
   

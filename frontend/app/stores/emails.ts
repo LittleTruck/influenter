@@ -105,8 +105,17 @@ export const useEmailsStore = defineStore('emails', () => {
       const config = useRuntimeConfig()
       const authStore = useAuthStore()
       
-      // 合併篩選參數
-      const queryParams = { ...filters.value, ...params }
+      // 合併篩選參數，並過濾掉 undefined 值
+      const mergedParams = { ...filters.value, ...params }
+      
+      // 移除 undefined 值，這樣可以清除之前的篩選
+      const queryParams: any = {}
+      Object.keys(mergedParams).forEach(key => {
+        const value = mergedParams[key as keyof EmailQueryParams]
+        if (value !== undefined) {
+          queryParams[key] = value
+        }
+      })
       
       const data = await $fetch<EmailListResponse>(`${config.public.apiBase}/api/v1/emails`, {
         method: 'GET',
