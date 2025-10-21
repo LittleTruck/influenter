@@ -24,10 +24,10 @@ onMounted(async () => {
   // 重新載入 Gmail 狀態以獲取最新的統計資料
   await emailsStore.fetchGmailStatus()
   
-  // 如果有郵件，自動選中第一封
-  if (emailsStore.emails.length > 0) {
-    await selectEmail(emailsStore.emails[0].id)
-  }
+  // // 如果有郵件，自動選中第一封
+  // if (emailsStore.emails.length > 0) {
+  //   await selectEmail(emailsStore.emails[0].id)
+  // }
   
   // 自動同步：如果 token 過期，自動觸發同步來刷新 token
   if (emailsStore.gmailStatus?.connected && emailsStore.gmailStatus?.token_expired) {
@@ -180,9 +180,10 @@ const searchQuery = ref('')
 // 監聽篩選變更
 watch([filterIsRead, searchQuery], async () => {
   const params: any = {}
-  
-  if (filterIsRead.value !== 'all') {
-    params.is_read = filterIsRead.value === 'read'
+  if (filterIsRead.value === 'unread') {
+    params.is_read = false
+  } else if (filterIsRead.value === 'all') {
+    params.is_read = true
   }
   
   if (searchQuery.value) {
@@ -191,13 +192,13 @@ watch([filterIsRead, searchQuery], async () => {
   
   await emailsStore.fetchEmails(params)
   
-  // 重新選中第一封郵件
-  if (emailsStore.emails.length > 0) {
-    await selectEmail(emailsStore.emails[0].id)
-  } else {
-    selectedEmail.value = null
-    selectedEmailId.value = null
-  }
+  // // 重新選中第一封郵件
+  // if (emailsStore.emails.length > 0) {
+  //   await selectEmail(emailsStore.emails[0].id)
+  // } else {
+  //   selectedEmail.value = null
+  //   selectedEmailId.value = null
+  // }
 })
 
 // 刷新郵件列表
