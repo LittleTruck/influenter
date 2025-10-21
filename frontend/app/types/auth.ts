@@ -4,7 +4,7 @@ export interface User {
   id: string
   email: string
   name: string
-  avatarUrl?: string
+  profile_picture_url?: string
   googleId?: string
   aiReplyTone?: string
   timezone?: string

@@ -6,9 +6,9 @@
   >
     <UButton
       :avatar="{
-        src: user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Influenter'}`
+        src: authStore.user?.profile_picture_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authStore.user?.email || 'Influenter'}`
       }"
-      :label="collapsed ? undefined : (user?.name || user?.email || '使用者')"
+      :label="collapsed ? undefined : (authStore.user?.name || authStore.user?.email || '使用者')"
       color="neutral"
       variant="ghost"
       class="w-full"
@@ -24,7 +24,8 @@ defineProps<{
   collapsed?: boolean
 }>()
 
-const { user, logout } = useAuth()
+const authStore = useAuthStore()
+const { logout } = useAuth()
 
 const handleLogout = async () => {
   await logout()
