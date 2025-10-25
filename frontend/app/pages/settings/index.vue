@@ -96,7 +96,7 @@ const syncStatusColor = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
+  <div class="flex flex-col flex-1 h-full">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-default">
       <div class="flex items-center gap-4">

@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import type { Ref } from 'vue'
 
 // Email 類型定義
 export interface Email {

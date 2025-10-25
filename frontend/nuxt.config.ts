@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxt/fonts',
     '@pinia/nuxt',
+    '@vueuse/nuxt',
   ],
 
   // App config
@@ -48,6 +49,9 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: false
   },
+
+  // SSR Configuration - 修復 toast 問題
+  ssr: true,
 
   // Nuxt UI Configuration
   colorMode: {
