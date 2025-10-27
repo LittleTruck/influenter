@@ -261,17 +261,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("DB_NAME is required")
 	}
 
-	// Google OAuth 必要欄位（開發環境可選）
-	if c.IsProduction() {
-		if c.Google.ClientID == "" {
-			return fmt.Errorf("GOOGLE_CLIENT_ID is required in production")
-		}
-		if c.Google.ClientSecret == "" {
-			return fmt.Errorf("GOOGLE_CLIENT_SECRET is required in production")
-		}
-		if c.Google.RedirectURL == "" {
-			return fmt.Errorf("GOOGLE_REDIRECT_URL is required in production")
-		}
+	// Google OAuth 必要欄位
+	if c.Google.ClientID == "" {
+		return fmt.Errorf("GOOGLE_CLIENT_ID is required")
+	}
+	if c.Google.ClientSecret == "" {
+		return fmt.Errorf("GOOGLE_CLIENT_SECRET is required")
+	}
+	if c.Google.RedirectURL == "" {
+		return fmt.Errorf("GOOGLE_REDIRECT_URL is required")
 	}
 
 	// JWT 必要欄位
@@ -285,6 +283,10 @@ func (c *Config) Validate() error {
 	// 加密金鑰必要欄位（開發環境可選，但建議設定）
 	if c.IsProduction() && c.EncryptionKey == "" {
 		return fmt.Errorf("ENCRYPTION_KEY is required in production")
+	}
+	// 如果設定了 ENCRYPTION_KEY，驗證其長度
+	if c.EncryptionKey != "" && len(c.EncryptionKey) != 32 {
+		return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters")
 	}
 
 	// OpenAI API Key (在開發環境可選，但生產環境建議要有)

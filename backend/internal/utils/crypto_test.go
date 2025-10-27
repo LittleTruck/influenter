@@ -148,6 +148,23 @@ func TestDecryptInvalidCiphertext(t *testing.T) {
 }
 
 func TestInitCryptoErrors(t *testing.T) {
+	// 儲存原始的 ENV 值
+	originalEnv := os.Getenv("ENV")
+
+	// 設定為 production 環境以觸發嚴格的驗證
+	os.Setenv("ENV", "production")
+	defer func() {
+		// 恢復原始的 ENV 值
+		if originalEnv != "" {
+			os.Setenv("ENV", originalEnv)
+		} else {
+			os.Unsetenv("ENV")
+		}
+	}()
+
+	// 重置 encryptionKey
+	encryptionKey = nil
+
 	// 測試未設定環境變數
 	os.Unsetenv("ENCRYPTION_KEY")
 	err := InitCrypto()
@@ -157,7 +174,6 @@ func TestInitCryptoErrors(t *testing.T) {
 
 	// 測試無效的 base64
 	os.Setenv("ENCRYPTION_KEY", "invalid base64!!!")
-	defer os.Unsetenv("ENCRYPTION_KEY")
 	err = InitCrypto()
 	if err == nil {
 		t.Fatal("Expected error for invalid base64")
