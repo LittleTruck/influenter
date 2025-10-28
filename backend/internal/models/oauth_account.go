@@ -29,8 +29,8 @@ const (
 // OAuthAccount 第三方 OAuth 帳號模型
 // 用途：儲存使用者連結的第三方帳號（如 Gmail、Outlook 等）的 OAuth tokens（加密）
 type OAuthAccount struct {
-	ID     uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	UserID uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	ID     uuid.UUID `gorm:"primary_key" json:"id"`
+	UserID uuid.UUID `gorm:"not null;index" json:"user_id"`
 
 	// OAuth 提供商資訊
 	Provider   OAuthProvider `gorm:"type:varchar(50);not null;index" json:"provider"` // google, outlook, apple

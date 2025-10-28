@@ -11,8 +11,8 @@ import (
 // Email 郵件模型
 // 用途：儲存從第三方帳號（如 Gmail）同步的郵件
 type Email struct {
-	ID             uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	OAuthAccountID uuid.UUID `gorm:"column:oauth_account_id;type:uuid;not null;index" json:"oauth_account_id"`
+	ID             uuid.UUID `gorm:"primary_key" json:"id"`
+	OAuthAccountID uuid.UUID `gorm:"column:oauth_account_id;not null;index" json:"oauth_account_id"`
 
 	// 郵件提供商原始資訊
 	ProviderMessageID string  `gorm:"type:varchar(255);not null;uniqueIndex" json:"provider_message_id"` // Gmail message ID 或其他提供商的 message ID
@@ -35,10 +35,10 @@ type Email struct {
 
 	// AI 分析狀態
 	AIAnalyzed   bool       `gorm:"default:false;index:idx_emails_ai_analyzed,where:ai_analyzed = false" json:"ai_analyzed"` // 是否已 AI 分析
-	AIAnalysisID *uuid.UUID `gorm:"type:uuid" json:"ai_analysis_id,omitempty"`                                               // AI 分析結果 ID
+	AIAnalysisID *uuid.UUID `gorm:"index" json:"ai_analysis_id,omitempty"`                                                   // AI 分析結果 ID
 
 	// 案件關聯
-	CaseID *uuid.UUID `gorm:"type:uuid;index" json:"case_id,omitempty"` // 關聯的案件 ID
+	CaseID *uuid.UUID `gorm:"index" json:"case_id,omitempty"` // 關聯的案件 ID
 
 	// 系統欄位
 	CreatedAt time.Time      `json:"created_at"`

@@ -9,7 +9,7 @@ import (
 
 // User 使用者模型
 type User struct {
-	ID                uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID                uuid.UUID      `gorm:"primary_key" json:"id"`
 	Email             string         `gorm:"uniqueIndex;not null" json:"email"`
 	Name              string         `gorm:"not null" json:"name"`
 	ProfilePictureURL *string        `json:"profile_picture_url,omitempty"`
