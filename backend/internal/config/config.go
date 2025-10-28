@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -284,9 +285,22 @@ func (c *Config) Validate() error {
 	if c.IsProduction() && c.EncryptionKey == "" {
 		return fmt.Errorf("ENCRYPTION_KEY is required in production")
 	}
-	// 如果設定了 ENCRYPTION_KEY，驗證其長度
-	if c.EncryptionKey != "" && len(c.EncryptionKey) != 32 {
-		return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters")
+	// 如果設定了 ENCRYPTION_KEY，驗證其長度（應該是 base64 編碼）
+	// 如果是 base64 編碼，解碼後應為 32 bytes
+	if c.EncryptionKey != "" {
+		// 嘗試解碼 base64
+		keyBytes, err := base64.StdEncoding.DecodeString(c.EncryptionKey)
+		if err == nil {
+			// 成功解碼，檢查解碼後的長度應為 32 bytes
+			if len(keyBytes) != 32 {
+				return fmt.Errorf("ENCRYPTION_KEY decoded length must be exactly 32 bytes")
+			}
+		} else {
+			// 不是 base64，檢查原始字串長度應為 32 characters
+			if len(c.EncryptionKey) != 32 {
+				return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters or a valid base64 encoded 32-byte key")
+			}
+		}
 	}
 
 	// OpenAI API Key (在開發環境可選，但生產環境建議要有)

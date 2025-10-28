@@ -388,21 +388,16 @@ func (s *SyncService) GetSyncStats() (*GmailStats, error) {
 		return nil, err
 	}
 
-	// 星號郵件數（透過 labels 檢查）
+	// 為了跨資料庫相容，我們先取得所有郵件，然後在應用層進行統計
+	// 這對於測試環境是可行的（因為數據量小），在生產環境可能需要優化
+	var emails []models.Email
 	if err := s.db.Model(&models.Email{}).
-		Where("oauth_account_id = ? AND ? = ANY(labels)", s.oauthAccount.ID, LabelStarred).
-		Count(&stats.StarredMessages).Error; err != nil {
+		Where("oauth_account_id = ?", s.oauthAccount.ID).
+		Find(&emails).Error; err != nil {
 		return nil, err
 	}
 
-	// 重要郵件數
-	if err := s.db.Model(&models.Email{}).
-		Where("oauth_account_id = ? AND ? = ANY(labels)", s.oauthAccount.ID, LabelImportant).
-		Count(&stats.ImportantMessages).Error; err != nil {
-		return nil, err
-	}
-
-	// Gmail 分類統計
+	// 統計星號郵件和重要郵件
 	categories := []string{
 		LabelCategoryPersonal,
 		LabelCategorySocial,
@@ -411,14 +406,19 @@ func (s *SyncService) GetSyncStats() (*GmailStats, error) {
 		LabelCategoryForums,
 	}
 
-	for _, category := range categories {
-		var count int64
-		if err := s.db.Model(&models.Email{}).
-			Where("oauth_account_id = ? AND ? = ANY(labels)", s.oauthAccount.ID, category).
-			Count(&count).Error; err != nil {
-			return nil, err
+	for _, email := range emails {
+		if contains(email.Labels, LabelStarred) {
+			stats.StarredMessages++
 		}
-		stats.CategoryCounts[category] = count
+		if contains(email.Labels, LabelImportant) {
+			stats.ImportantMessages++
+		}
+		// Gmail 分類統計
+		for _, category := range categories {
+			if contains(email.Labels, category) {
+				stats.CategoryCounts[category]++
+			}
+		}
 	}
 
 	return stats, nil
