@@ -83,8 +83,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
       JWT_EXPIRY: ${JWT_EXPIRY:-168h}
       
-      # Encryption (32 bytes)
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-12345678901234567890123456789012}
+      # Encryption (32 bytes, base64 encoded)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uGqHOTtMeyJg4KQJwhIF0aapcFZesVENxPy3kvy8DY8=}
       
       # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -140,7 +140,7 @@ services:
       
       # Security
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-min-32-chars}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-12345678901234567890123456789012}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uGqHOTtMeyJg4KQJwhIF0aapcFZesVENxPy3kvy8DY8=}
       
       # Google OAuth（開發環境可選）
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

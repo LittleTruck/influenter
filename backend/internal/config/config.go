@@ -293,12 +293,12 @@ func (c *Config) Validate() error {
 		if err == nil {
 			// 成功解碼，檢查解碼後的長度應為 32 bytes
 			if len(keyBytes) != 32 {
-				return fmt.Errorf("ENCRYPTION_KEY decoded length must be exactly 32 bytes")
+				return fmt.Errorf("ENCRYPTION_KEY decoded length must be exactly 32 bytes (got %d bytes). To generate a new key, run: go run cmd/generate-key/main.go", len(keyBytes))
 			}
 		} else {
 			// 不是 base64，檢查原始字串長度應為 32 characters
 			if len(c.EncryptionKey) != 32 {
-				return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters or a valid base64 encoded 32-byte key")
+				return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 characters or a valid base64 encoded 32-byte key (got %d characters). To generate a new key, run: go run cmd/generate-key/main.go", len(c.EncryptionKey))
 			}
 		}
 	}
