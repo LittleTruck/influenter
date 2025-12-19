@@ -47,7 +47,16 @@ const navigationItems: NavigationMenuItem[][] = [[{
   label: '案件管理',
   icon: 'i-lucide-briefcase',
   to: '/cases',
-  badge: '即將推出'
+  type: 'trigger',
+  defaultOpen: false,
+  children: [{
+    label: '案件列表',
+    to: '/cases',
+    exact: true
+  }, {
+    label: '合作項目',
+    to: '/cases/collaboration-items'
+  }]
 }, {
   label: '郵件',
   icon: 'i-lucide-mail',

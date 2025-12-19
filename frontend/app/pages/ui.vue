@@ -138,7 +138,7 @@ const selectItem = (item: any) => {
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">USelect 變體</label>
                 <div class="space-y-2">
                   <USelect 
-                    :options="[
+                    :items="[
                       { label: '選項 1', value: '1' },
                       { label: '選項 2', value: '2' },
                       { label: '選項 3', value: '3' }
@@ -146,7 +146,7 @@ const selectItem = (item: any) => {
                     placeholder="預設選擇器"
                   />
                   <USelect 
-                    :options="[
+                    :items="[
                       { label: '錯誤選項 1', value: '1' },
                       { label: '錯誤選項 2', value: '2' }
                     ]"

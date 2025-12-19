@@ -77,3 +77,6 @@ secrets/
 
 *.md
 .cursor/
+
+#reference
+reference/

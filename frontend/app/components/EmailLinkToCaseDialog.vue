@@ -119,7 +119,7 @@ watch(() => props.open, (isOpen) => {
           
           <USelectMenu
             v-model="selectedCaseId"
-            :options="cases"
+            :items="cases"
             value-attribute="id"
             option-attribute="title"
             placeholder="選擇案件..."
