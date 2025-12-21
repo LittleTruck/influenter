@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Case } from '~/types/cases'
 import type { TableColumn } from '@nuxt/ui'
+import { BaseTable, BaseButton, BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
 import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
 
@@ -55,95 +56,45 @@ const handleTableClick = (event: MouseEvent) => {
   }
 }
 
-// 解析組件以便在 h() 中使用
-const UIcon = resolveComponent('UIcon')
-const UButton = resolveComponent('UButton')
-
 const columns: TableColumn<Case>[] = [
   {
     accessorKey: 'title',
-    header: '案件標題',
-    cell: ({ row }) => {
-      return h('div', { class: 'flex flex-col' }, [
-        h('p', { class: 'font-medium text-gray-900 dark:text-white' }, row.original.title),
-        h('p', { class: 'text-sm text-gray-500 dark:text-gray-400' }, row.original.brand_name)
-      ])
-    }
+    header: '案件標題'
   },
   {
     accessorKey: 'status',
-    header: '狀態',
-    cell: ({ row }) => {
-      return h(CaseStatusBadge, { status: row.original.status })
-    }
+    header: '狀態'
   },
   {
     accessorKey: 'quoted_amount',
-    header: '報價金額',
-    cell: ({ row }) => {
-      return row.original.quoted_amount
-        ? formatAmount(row.original.quoted_amount, row.original.currency)
-        : '-'
-    }
+    header: '報價金額'
   },
   {
     accessorKey: 'deadline_date',
-    header: '截止日期',
-    cell: ({ row }) => {
-      if (!row.original.deadline_date) return '-'
-      
-      const isUrgent = isDeadlineUrgent(row.original.deadline_date)
-      return h('div', { class: 'flex items-center gap-1' }, [
-        h(UIcon as any, {
-          name: 'i-lucide-calendar',
-          class: isUrgent ? 'w-4 h-4 text-red-500' : 'w-4 h-4 text-gray-400'
-        }),
-        h('span', {
-          class: isUrgent ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-600 dark:text-gray-400'
-        }, formatRelativeDate(row.original.deadline_date))
-      ])
-    }
+    header: '截止日期'
   },
   {
     accessorKey: 'email_count',
-    header: '郵件',
-    cell: ({ row }) => row.original.email_count || 0
+    header: '郵件'
   },
   {
     accessorKey: 'task_count',
-    header: '任務',
-    cell: ({ row }) => {
-      const completed = row.original.completed_task_count || 0
-      const total = row.original.task_count || 0
-      return total > 0 ? `${completed}/${total}` : '-'
-    }
+    header: '任務'
   },
   {
     accessorKey: 'updated_at',
-    header: '更新時間',
-    cell: ({ row }) => formatRelativeDate(row.original.updated_at)
+    header: '更新時間'
   },
   {
     id: 'actions',
-    header: '',
-    cell: ({ row }) => {
-      return h(UButton as any, {
-        icon: 'i-lucide-chevron-right',
-        variant: 'ghost',
-        size: 'sm',
-        onClick: (e: MouseEvent) => {
-          e.stopPropagation()
-          handleRowClick(row.original.id)
-        }
-      })
-    }
+    header: ''
   }
 ]
 </script>
 
 <template>
   <div class="case-table" @click="handleTableClick">
-    <UTable
+    <BaseTable
       :data="cases"
       :columns="columns"
       :loading="loading"
@@ -151,7 +102,67 @@ const columns: TableColumn<Case>[] = [
         tbody: '[&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr:hover]:bg-gray-50 dark:[&>tr:hover]:bg-gray-800/50',
         td: 'cursor-pointer'
       }"
-    />
+    >
+      <!-- 案件標題列 -->
+      <template #title-data="{ row }">
+        <div class="flex flex-col">
+          <p class="font-medium text-gray-900 dark:text-white">{{ row.title }}</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{ row.brand_name }}</p>
+        </div>
+      </template>
+
+      <!-- 狀態列 -->
+      <template #status-data="{ row }">
+        <CaseStatusBadge :status="row.status" />
+      </template>
+
+      <!-- 報價金額列 -->
+      <template #quoted_amount-data="{ row }">
+        {{ row.quoted_amount ? formatAmount(row.quoted_amount, row.currency) : '-' }}
+      </template>
+
+      <!-- 截止日期列 -->
+      <template #deadline_date-data="{ row }">
+        <div v-if="row.deadline_date" class="flex items-center gap-1">
+          <BaseIcon
+            name="i-lucide-calendar"
+            :class="isDeadlineUrgent(row.deadline_date) ? 'w-4 h-4 text-red-500' : 'w-4 h-4 text-gray-400'"
+          />
+          <span :class="isDeadlineUrgent(row.deadline_date) ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-600 dark:text-gray-400'">
+            {{ formatRelativeDate(row.deadline_date) }}
+          </span>
+        </div>
+        <span v-else>-</span>
+      </template>
+
+      <!-- 郵件列 -->
+      <template #email_count-data="{ row }">
+        {{ row.email_count || 0 }}
+      </template>
+
+      <!-- 任務列 -->
+      <template #task_count-data="{ row }">
+        <span v-if="(row.task_count || 0) > 0">
+          {{ row.completed_task_count || 0 }}/{{ row.task_count || 0 }}
+        </span>
+        <span v-else>-</span>
+      </template>
+
+      <!-- 更新時間列 -->
+      <template #updated_at-data="{ row }">
+        {{ formatRelativeDate(row.updated_at) }}
+      </template>
+
+      <!-- 操作列 -->
+      <template #actions-data="{ row }">
+        <BaseButton
+          icon="i-lucide-chevron-right"
+          variant="ghost"
+          size="sm"
+          @click.stop="handleRowClick(row.id)"
+        />
+      </template>
+    </BaseTable>
   </div>
 </template>
 

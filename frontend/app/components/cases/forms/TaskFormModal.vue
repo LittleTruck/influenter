@@ -2,6 +2,7 @@
 import type { Task, CreateTaskRequest, UpdateTaskRequest } from '~/types/cases'
 import { useCases } from '~/composables/useCases'
 import { useFormModal } from '~/composables/useFormModal'
+import { BaseModal, BaseButton, BaseInput, BaseTextarea, BaseFormGroup } from '~/components/base'
 
 interface Props {
   /** 是否顯示 */
@@ -89,66 +90,65 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <UModal 
-    v-model:open="isOpen" 
+  <BaseModal 
+    v-model="isOpen" 
     :title="isEditMode ? '編輯任務' : '建立任務'"
-    :ui="{ width: 'max-w-lg' }"
+    size="md"
   >
     <template #body>
       <div class="space-y-4">
-        <UFormGroup label="任務標題" required>
-          <UInput
+        <BaseFormGroup label="任務標題" required>
+          <BaseInput
             v-model="formData.title"
             placeholder="請輸入任務標題"
             required
           />
-        </UFormGroup>
+        </BaseFormGroup>
 
-        <UFormGroup label="描述">
-          <UTextarea
+        <BaseFormGroup label="描述">
+          <BaseTextarea
             v-model="formData.description"
             placeholder="請輸入任務描述"
             :rows="3"
           />
-        </UFormGroup>
+        </BaseFormGroup>
 
         <div class="grid grid-cols-2 gap-4">
-          <UFormGroup label="截止日期">
-            <UInput
+          <BaseFormGroup label="截止日期">
+            <BaseInput
               v-model="formData.due_date"
               type="date"
             />
-          </UFormGroup>
+          </BaseFormGroup>
 
-          <UFormGroup label="截止時間">
-            <UInput
+          <BaseFormGroup label="截止時間">
+            <BaseInput
               v-model="formData.due_time"
               type="time"
             />
-          </UFormGroup>
+          </BaseFormGroup>
         </div>
 
-        <UFormGroup label="提醒天數">
-          <UInput
+        <BaseFormGroup label="提醒天數">
+          <BaseInput
             v-model.number="formData.reminder_days"
             type="number"
-            min="0"
           />
-        </UFormGroup>
+        </BaseFormGroup>
       </div>
     </template>
 
     <template #footer>
       <div class="flex items-center justify-end gap-2">
-        <UButton variant="ghost" @click="handleCancel">取消</UButton>
-        <UButton
+        <BaseButton variant="ghost" @click="handleCancel">取消</BaseButton>
+        <BaseButton
           :loading="isSubmitting"
           @click="handleSubmit"
         >
           {{ isEditMode ? '更新' : '建立' }}
-        </UButton>
+        </BaseButton>
       </div>
     </template>
-  </UModal>
+  </BaseModal>
 </template>
 

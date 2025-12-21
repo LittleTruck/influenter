@@ -3,6 +3,7 @@ import type { CollaborationItem } from '~/types/collaborationItems'
 import { formatAmount } from '~/utils/formatters'
 import draggable from 'vuedraggable'
 import type { DragChangeEvent } from '~/types/dragEvents'
+import { BaseButton, BaseIcon, BaseBadge } from '~/components/base'
 
 interface Props {
   /** 項目資料 */
@@ -38,16 +39,20 @@ const localChildren = computed({
   }
 })
 
-// 拖曳選項
-const dragOptions = {
+// 拖曳選項 - 禁止跨層級拖曳
+const dragOptions = computed(() => ({
   animation: 200,
-  group: `items-level-${props.level}`,
+  group: {
+    name: `items-level-${props.level}`,
+    pull: false,
+    put: false
+  },
   disabled: false,
   ghostClass: 'sortable-ghost',
   chosenClass: 'sortable-chosen',
   dragClass: 'sortable-drag',
   handle: '.drag-handle'
-}
+}))
 
 // 處理拖曳變更
 const handleChange = (evt: DragChangeEvent<CollaborationItem>) => {
@@ -83,7 +88,7 @@ watch(() => props.expanded, (newValue) => {
     >
       <div class="flex items-center flex-1 min-w-0 gap-2">
         <!-- 展開/收起按鈕 -->
-        <UButton
+        <BaseButton
           v-if="item.children && item.children.length > 0"
           :icon="isExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
           variant="ghost"
@@ -95,7 +100,7 @@ watch(() => props.expanded, (newValue) => {
 
         <!-- 拖曳手柄 -->
         <div class="drag-handle cursor-grab active:cursor-grabbing flex-shrink-0">
-          <UIcon
+          <BaseIcon
             name="i-lucide-grip-vertical"
             class="w-4 h-4 text-gray-400"
           />
@@ -107,9 +112,9 @@ watch(() => props.expanded, (newValue) => {
             <h4 class="font-medium text-gray-900 dark:text-white truncate">
               {{ item.title }}
             </h4>
-            <UBadge color="primary" variant="subtle" size="xs">
+            <BaseBadge color="primary" variant="subtle" size="xs">
               {{ formatAmount(item.price) }}
-            </UBadge>
+            </BaseBadge>
           </div>
           <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
             {{ item.description }}
@@ -119,21 +124,21 @@ watch(() => props.expanded, (newValue) => {
 
       <!-- 操作按鈕 -->
       <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
-        <UButton
+        <BaseButton
           icon="i-lucide-plus"
           variant="ghost"
           size="xs"
           @click="emit('add-item', item.id)"
         >
           子項目
-        </UButton>
-        <UButton
+        </BaseButton>
+        <BaseButton
           icon="i-lucide-edit"
           variant="ghost"
           size="xs"
           @click="emit('edit-item', item)"
         />
-        <UButton
+        <BaseButton
           icon="i-lucide-trash-2"
           variant="ghost"
           size="xs"
@@ -200,4 +205,7 @@ watch(() => props.expanded, (newValue) => {
   z-index: 1000;
 }
 </style>
+
+
+
 

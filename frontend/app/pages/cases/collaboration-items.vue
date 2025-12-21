@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
 import CollaborationItemTree from '~/components/settings/collaboration-items/CollaborationItemTree.vue'
 import CollaborationItemFormModal from '~/components/settings/collaboration-items/CollaborationItemFormModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
@@ -67,29 +68,29 @@ const handleFormSubmit = () => {
 </script>
 
 <template>
-  <UDashboardPanel>
+  <BaseDashboardPanel>
     <template #header>
-      <UDashboardNavbar title="合作項目管理">
+      <BaseDashboardNavbar title="合作項目管理">
         <template #leading>
-          <UDashboardSidebarCollapse />
+          <BaseDashboardSidebarCollapse />
         </template>
 
         <template #trailing>
-          <UButton
+          <BaseButton
             icon="i-lucide-arrow-left"
             variant="ghost"
             @click="navigateTo('/cases')"
           >
             返回案件列表
-          </UButton>
-          <UButton
+          </BaseButton>
+          <BaseButton
             icon="i-lucide-plus"
             @click="handleAddItem()"
           >
             新增項目
-          </UButton>
+          </BaseButton>
         </template>
-      </UDashboardNavbar>
+      </BaseDashboardNavbar>
     </template>
 
     <template #body>
@@ -121,6 +122,9 @@ const handleFormSubmit = () => {
         @submit="handleFormSubmit"
       />
     </template>
-  </UDashboardPanel>
+  </BaseDashboardPanel>
 </template>
+
+
+
 

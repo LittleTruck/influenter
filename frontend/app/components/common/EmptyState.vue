@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BaseIcon, BaseButton } from '~/components/base'
+
 interface Props {
   /** 圖示名稱 */
   icon?: string
@@ -32,9 +34,9 @@ const handleAction = () => {
       v-if="showIconBackground"
       class="mb-4 p-6 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20"
     >
-      <UIcon :name="icon" class="w-16 h-16 text-primary-500" />
+      <BaseIcon :name="icon" class="w-16 h-16 text-primary-500" />
     </div>
-    <UIcon v-else :name="icon" class="w-12 h-12 mb-3 text-gray-400 dark:text-gray-500" />
+    <BaseIcon v-else :name="icon" class="w-12 h-12 mb-3 text-gray-400 dark:text-gray-500" />
     
     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
       {{ title }}
@@ -42,15 +44,18 @@ const handleAction = () => {
     <p v-if="description" class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
       {{ description }}
     </p>
-    <UButton
+    <BaseButton
       v-if="actionLabel"
       icon="i-lucide-plus"
       @click="handleAction"
     >
       {{ actionLabel }}
-    </UButton>
+    </BaseButton>
   </div>
 </template>
+
+
+
 
 
 

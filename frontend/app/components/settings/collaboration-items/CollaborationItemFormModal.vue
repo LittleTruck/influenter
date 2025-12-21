@@ -3,6 +3,7 @@ import type { CollaborationItem, CreateCollaborationItemRequest, UpdateCollabora
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useFormModal } from '~/composables/useFormModal'
 import { useErrorHandler } from '~/composables/useErrorHandler'
+import { BaseModal, BaseButton, BaseInput, BaseTextarea, BaseFormField, BaseIcon } from '~/components/base'
 
 interface Props {
   /** 是否顯示 */
@@ -64,12 +65,12 @@ const initForm = () => {
   }
 }
 
-// 監聽 props 變化
-watch([() => props.item, () => props.parentId, () => props.modelValue], () => {
-  if (props.modelValue) {
+// 監聽 modal 打開時初始化表單
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
     initForm()
   }
-}, { immediate: true })
+})
 
 // 取得父項目名稱（用於顯示）
 const parentItemName = computed(() => {
@@ -132,68 +133,66 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <UModal
-    v-model:open="isOpen"
+  <BaseModal
+    v-model="isOpen"
     :title="isEditMode ? '編輯合作項目' : isAddingChild ? '新增子項目' : '新增合作項目'"
-    :ui="{ width: 'max-w-lg' }"
+    size="md"
   >
     <template #body>
-      <UForm :state="formData" class="space-y-4" @submit.prevent="handleSubmit">
+      <form class="space-y-4" @submit.prevent="handleSubmit">
         <!-- 父項目提示（新增子項目時） -->
         <div v-if="isAddingChild && parentItemName" class="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-info" class="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+            <BaseIcon name="i-lucide-info" class="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" />
             <p class="text-sm text-primary-800 dark:text-primary-200">
               將新增為 <span class="font-semibold">{{ parentItemName }}</span> 的子項目
             </p>
           </div>
         </div>
 
-        <UFormField label="項目名稱" name="title" required>
-          <UInput
+        <BaseFormField label="項目名稱" name="title" required>
+          <BaseInput
             v-model="formData.title"
             placeholder="請輸入項目名稱"
             class="w-full"
           />
-        </UFormField>
+        </BaseFormField>
 
-        <UFormField label="描述" name="description">
-          <UTextarea
+        <BaseFormField label="描述" name="description">
+          <BaseTextarea
             v-model="formData.description"
             placeholder="請輸入項目描述（選填）"
             :rows="3"
             class="w-full"
           />
-        </UFormField>
+        </BaseFormField>
 
-        <UFormField label="價格" name="price" required>
-          <UInput
+        <BaseFormField label="價格" name="price" required>
+          <BaseInput
             v-model.number="formData.price"
             type="number"
-            min="0"
-            step="0.01"
             placeholder="0"
             class="w-full"
           />
-        </UFormField>
+        </BaseFormField>
 
         <div class="flex items-center justify-end gap-2 pt-2">
-          <UButton
+          <BaseButton
             color="neutral"
             variant="ghost"
             @click="handleCancel"
           >
             取消
-          </UButton>
-          <UButton
+          </BaseButton>
+          <BaseButton
             type="submit"
             :loading="isSubmitting"
           >
             {{ isEditMode ? '更新' : '建立' }}
-          </UButton>
+          </BaseButton>
         </div>
-      </UForm>
+      </form>
     </template>
-  </UModal>
+  </BaseModal>
 </template>
 

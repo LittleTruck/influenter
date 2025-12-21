@@ -5,6 +5,7 @@ import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
+import { BaseButton } from '~/components/base'
 import CollaborationItemsEditor from '~/components/cases/fields/CollaborationItemsEditor.vue'
 
 interface Props {
@@ -142,14 +143,14 @@ const totalPrice = computed(() => {
 
       <!-- 編輯按鈕 -->
       <div v-if="editable" class="flex justify-end pt-2">
-        <UButton
+        <BaseButton
           icon="i-lucide-edit"
           variant="outline"
           size="sm"
           @click="isEditing = true"
         >
           編輯
-        </UButton>
+        </BaseButton>
       </div>
     </div>
 

@@ -1,16 +1,16 @@
 <template>
-  <UDashboardGroup>
-    <UDashboardSidebar collapsible resizable>
+  <BaseDashboardGroup>
+    <BaseDashboardSidebar collapsible resizable>
       <template #header="{ collapsed }">
         <div v-if="!collapsed" class="flex items-center gap-2">
-          <UIcon name="i-lucide-sparkles" class="w-6 h-6" />
+          <BaseIcon name="i-lucide-sparkles" class="w-6 h-6" />
           <span class="font-bold text-lg">Influenter</span>
         </div>
-        <UIcon v-else name="i-lucide-sparkles" class="w-6 h-6 mx-auto" />
+        <BaseIcon v-else name="i-lucide-sparkles" class="w-6 h-6 mx-auto" />
       </template>
 
       <template #default="{ collapsed }">
-        <UButton
+        <BaseButton
           :label="collapsed ? undefined : '搜尋...'"
           icon="i-lucide-search"
           color="neutral"
@@ -20,7 +20,7 @@
           class="mb-4"
         />
 
-        <UNavigationMenu
+        <BaseNavigationMenu
           :collapsed="collapsed"
           :items="navigationItems"
           orientation="vertical"
@@ -30,14 +30,15 @@
       <template #footer="{ collapsed }">
         <UserDropdown :collapsed="collapsed" />
       </template>
-    </UDashboardSidebar>
+    </BaseDashboardSidebar>
 
     <slot />
-  </UDashboardGroup>
+  </BaseDashboardGroup>
 </template>
 
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { BaseButton, BaseIcon, BaseDashboardGroup, BaseDashboardSidebar, BaseNavigationMenu } from '~/components/base'
 
 const navigationItems: NavigationMenuItem[][] = [[{
   label: '首頁',

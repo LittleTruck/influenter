@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { BaseCard, BaseButton, BaseIcon, BaseBadge } from '~/components/base'
+import AppSection from '~/components/ui/AppSection.vue'
+
 definePageMeta({
   middleware: 'auth'
 })
@@ -100,7 +103,7 @@ const syncStatusColor = computed(() => {
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-default">
       <div class="flex items-center gap-4">
-        <UButton
+        <BaseButton
           icon="i-lucide-arrow-left"
           color="neutral"
           variant="ghost"
@@ -116,10 +119,10 @@ const syncStatusColor = computed(() => {
       <div class="max-w-4xl mx-auto space-y-6">
         
         <!-- Gmail 整合 -->
-        <UCard>
+        <AppSection>
           <template #header>
             <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-mail" class="w-5 h-5 text-primary" />
+              <BaseIcon name="i-lucide-mail" class="w-5 h-5 text-primary" />
               <h2 class="text-lg font-semibold text-highlighted">Gmail 整合</h2>
             </div>
           </template>
@@ -132,7 +135,7 @@ const syncStatusColor = computed(() => {
                   class="w-10 h-10 rounded-full flex items-center justify-center"
                   :class="emailsStore.isConnected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-gray-100 dark:bg-gray-800'"
                 >
-                  <UIcon 
+                  <BaseIcon 
                     :name="emailsStore.isConnected ? 'i-lucide-check-circle' : 'i-lucide-circle'"
                     class="w-5 h-5"
                     :class="emailsStore.isConnected ? 'text-primary' : 'text-gray-400'"
@@ -148,7 +151,7 @@ const syncStatusColor = computed(() => {
                 </div>
               </div>
 
-              <UButton
+              <BaseButton
                 v-if="emailsStore.isConnected"
                 color="error"
                 variant="outline"
@@ -156,13 +159,13 @@ const syncStatusColor = computed(() => {
                 @click="disconnectGmail"
               >
                 斷開連接
-              </UButton>
+              </BaseButton>
             </div>
 
             <!-- 載入中 -->
             <div v-if="!emailsStore.isConnected && !emailsStore.gmailStatus" class="p-4 rounded-lg bg-elevated/50">
               <div class="flex items-center gap-3">
-                <UIcon name="i-lucide-loader-2" class="w-5 h-5 text-primary animate-spin" />
+                <BaseIcon name="i-lucide-loader-2" class="w-5 h-5 text-primary animate-spin" />
                 <div>
                   <p class="text-sm text-muted">正在檢查 Gmail 連接狀態...</p>
                 </div>
@@ -173,19 +176,19 @@ const syncStatusColor = computed(() => {
             <div v-else-if="!emailsStore.isConnected && emailsStore.gmailStatus" class="space-y-4">
               <div class="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                 <div class="flex items-start gap-3">
-                  <UIcon name="i-lucide-info" class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5" />
+                  <BaseIcon name="i-lucide-info" class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5" />
                   <div class="flex-1">
                     <h4 class="font-medium text-highlighted mb-1">Gmail 尚未連接</h4>
                     <p class="text-sm text-muted mb-3">
                       您已使用 Google 帳號登入，但需要重新授權以獲取 Gmail 存取權限。
                     </p>
-                    <UButton
+                    <BaseButton
                       icon="i-lucide-mail"
                       color="primary"
                       @click="router.push('/auth/login')"
                     >
                       重新授權 Gmail
-                    </UButton>
+                    </BaseButton>
                   </div>
                 </div>
               </div>
@@ -197,9 +200,9 @@ const syncStatusColor = computed(() => {
                 <!-- 同步狀態 -->
                 <div class="p-3 rounded-lg bg-elevated/50">
                   <div class="text-sm text-muted mb-1">同步狀態</div>
-                  <UBadge :color="syncStatusColor" variant="subtle">
+                  <BaseBadge :color="syncStatusColor" variant="subtle">
                     {{ syncStatusText }}
-                  </UBadge>
+                  </BaseBadge>
                 </div>
 
                 <!-- 最後同步 -->
@@ -247,7 +250,7 @@ const syncStatusColor = computed(() => {
                 class="p-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
               >
                 <div class="flex items-start gap-3">
-                  <UIcon name="i-lucide-alert-circle" class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                  <BaseIcon name="i-lucide-alert-circle" class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
                   <div class="flex-1">
                     <h4 class="font-medium text-red-600 dark:text-red-400 mb-1">同步錯誤</h4>
                     <p class="text-sm text-muted">
@@ -259,7 +262,7 @@ const syncStatusColor = computed(() => {
 
               <!-- 手動同步按鈕 -->
               <div class="flex justify-end">
-                <UButton
+                <BaseButton
                   icon="i-lucide-refresh-cw"
                   color="primary"
                   variant="outline"
@@ -268,17 +271,17 @@ const syncStatusColor = computed(() => {
                   @click="triggerFirstSync"
                 >
                   {{ emailsStore.syncing ? '同步中...' : '手動同步' }}
-                </UButton>
+                </BaseButton>
               </div>
             </div>
           </div>
-        </UCard>
+        </AppSection>
 
         <!-- 帳號資訊 -->
-        <UCard>
+        <AppSection>
           <template #header>
             <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-user" class="w-5 h-5 text-primary" />
+              <BaseIcon name="i-lucide-user" class="w-5 h-5 text-primary" />
               <h2 class="text-lg font-semibold text-highlighted">帳號資訊</h2>
             </div>
           </template>
@@ -295,7 +298,7 @@ const syncStatusColor = computed(() => {
                 v-else
                 class="w-16 h-16 rounded-full bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center"
               >
-                <UIcon name="i-lucide-user" class="w-8 h-8 text-primary" />
+                <BaseIcon name="i-lucide-user" class="w-8 h-8 text-primary" />
               </div>
               
               <div class="flex-1">
@@ -319,19 +322,19 @@ const syncStatusColor = computed(() => {
               </div>
             </div>
           </div>
-        </UCard>
+        </AppSection>
 
         <!-- 快速操作 -->
-        <UCard>
+        <AppSection>
           <template #header>
             <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-zap" class="w-5 h-5 text-primary" />
+              <BaseIcon name="i-lucide-zap" class="w-5 h-5 text-primary" />
               <h2 class="text-lg font-semibold text-highlighted">快速操作</h2>
             </div>
           </template>
 
           <div class="space-y-2">
-            <UButton
+            <BaseButton
               block
               color="neutral"
               variant="outline"
@@ -339,9 +342,9 @@ const syncStatusColor = computed(() => {
               to="/emails"
             >
               前往郵件管理
-            </UButton>
+            </BaseButton>
             
-            <UButton
+            <BaseButton
               block
               color="neutral"
               variant="outline"
@@ -349,12 +352,11 @@ const syncStatusColor = computed(() => {
               to="/cases"
             >
               前往案件管理
-            </UButton>
+            </BaseButton>
           </div>
-        </UCard>
+        </AppSection>
 
       </div>
     </div>
   </div>
 </template>
-

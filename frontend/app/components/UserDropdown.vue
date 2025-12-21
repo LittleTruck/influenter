@@ -1,23 +1,5 @@
-<template>
-  <UDropdownMenu
-    :items="items"
-    :popper="{ strategy: 'absolute', placement: 'top' }"
-    class="w-full"
-  >
-    <UButton
-      :avatar="{
-        src: authStore.user?.profile_picture_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authStore.user?.email || 'Influenter'}`
-      }"
-      :label="collapsed ? undefined : (authStore.user?.name || authStore.user?.email || '使用者')"
-      color="neutral"
-      variant="ghost"
-      class="w-full"
-      :block="collapsed"
-    />
-  </UDropdownMenu>
-</template>
-
 <script setup lang="ts">
+import { BaseDropdownMenu, BaseButton } from '~/components/base'
 defineProps<{
   collapsed?: boolean
 }>()
@@ -45,4 +27,23 @@ const items = computed(() => [
   }]
 ])
 </script>
+
+<template>
+  <BaseDropdownMenu
+    :items="items"
+    :popper="{ strategy: 'absolute', placement: 'top' }"
+    class="w-full"
+  >
+    <BaseButton
+      :avatar="{
+        src: authStore.user?.profile_picture_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authStore.user?.email || 'Influenter'}`
+      }"
+      :label="collapsed ? undefined : (authStore.user?.name || authStore.user?.email || '使用者')"
+      color="neutral"
+      variant="ghost"
+      class="w-full"
+      :block="collapsed"
+    />
+  </BaseDropdownMenu>
+</template>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CaseField } from '~/types/fields'
 import { useCaseFields } from '~/composables/useCaseFields'
-
+import { BaseInput, BaseTextarea, BaseSelect, BaseBadge, BaseIcon, BaseCheckbox } from '~/components/base'
 import type { FieldValue } from '~/types/fields'
 
 interface Props {
@@ -66,121 +66,112 @@ const selectItems = computed(() => {
     </label>
 
     <!-- 文字輸入 -->
-    <UInput
+    <BaseInput
       v-if="field.type === 'text' && editable"
       v-model="localValue"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'text'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
     </div>
 
     <!-- Email 輸入 -->
-    <UInput
+    <BaseInput
       v-else-if="field.type === 'email' && editable"
       v-model="localValue"
       type="email"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'email'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
     </div>
 
     <!-- 電話輸入 -->
-    <UInput
+    <BaseInput
       v-else-if="field.type === 'phone' && editable"
       v-model="localValue"
       type="tel"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'phone'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
     </div>
 
     <!-- URL 輸入 -->
-    <UInput
+    <BaseInput
       v-else-if="field.type === 'url' && editable"
       v-model="localValue"
       type="url"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'url'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
     </div>
 
     <!-- 數字輸入 -->
-    <UInput
+    <BaseInput
       v-else-if="field.type === 'number' && editable"
       v-model.number="localValue"
       type="number"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'number'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
     </div>
 
     <!-- 日期輸入 -->
-    <UInput
+    <BaseInput
       v-else-if="field.type === 'date' && editable"
       v-model="localValue"
       type="date"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'date'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue ? new Date(localValue).toLocaleDateString('zh-TW') : '-' }}
     </div>
 
     <!-- 多行文字 -->
-    <UTextarea
+    <BaseTextarea
       v-else-if="field.type === 'textarea' && editable"
       v-model="localValue"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :rows="3"
       :required="field.is_required"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'textarea'" class="text-sm text-gray-900 dark:text-white py-2 whitespace-pre-wrap">
       {{ localValue || '-' }}
     </div>
 
     <!-- 單選下拉 -->
-    <USelect
+    <BaseSelect
       v-else-if="field.type === 'select' && editable"
       v-model="localValue"
       :items="selectItems"
       :placeholder="field.placeholder || `請選擇${field.label}`"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'select'" class="text-sm text-gray-900 dark:text-white py-2">
-      <UBadge v-if="localValue" color="primary" variant="subtle" size="sm">
+      <BaseBadge v-if="localValue" color="primary" variant="subtle" size="sm">
         {{ getOptionLabel(localValue) }}
-      </UBadge>
+      </BaseBadge>
       <span v-else class="text-gray-400">-</span>
     </div>
 
     <!-- 多選 -->
-    <USelect
+    <BaseSelect
       v-else-if="field.type === 'multiselect' && editable"
       v-model="localValue"
       :items="selectItems"
       multiple
       :placeholder="field.placeholder || `請選擇${field.label}`"
-      :error="hasError"
     />
     <div v-else-if="field.type === 'multiselect'" class="text-sm py-2">
       <div v-if="Array.isArray(localValue) && localValue.length > 0" class="flex flex-wrap gap-1">
-        <UBadge
+        <BaseBadge
           v-for="(item, index) in localValue"
           :key="index"
           color="primary"
@@ -188,20 +179,20 @@ const selectItems = computed(() => {
           size="sm"
         >
           {{ getOptionLabel(item) }}
-        </UBadge>
+        </BaseBadge>
       </div>
       <span v-else class="text-gray-400">-</span>
     </div>
 
     <!-- 複選框 -->
-    <UCheckbox
+    <BaseCheckbox
       v-else-if="field.type === 'checkbox' && editable"
       v-model="localValue"
       :label="field.label"
       :required="field.is_required"
     />
     <div v-else-if="field.type === 'checkbox'" class="text-sm py-2">
-      <UIcon
+      <BaseIcon
         :name="localValue ? 'i-lucide-check-circle' : 'i-lucide-circle'"
         :class="localValue ? 'text-green-500' : 'text-gray-400'"
         class="w-4 h-4"

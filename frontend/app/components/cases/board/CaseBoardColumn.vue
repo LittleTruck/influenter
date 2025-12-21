@@ -2,6 +2,7 @@
 import type { Case, CaseStatus } from '~/types/cases'
 import type { DragChangeEvent } from '~/types/dragEvents'
 import draggable from 'vuedraggable'
+import { BaseBadge } from '~/components/base'
 import CaseBoardCard from './CaseBoardCard.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
 
@@ -41,9 +42,9 @@ const dragOptions = {
   easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
   group: 'case-cards',
   disabled: false,
-  ghostClass: 'sortable-ghost',
-  chosenClass: 'sortable-chosen',
-  dragClass: 'sortable-drag',
+  ghostClass: 'drag-ghost',
+  chosenClass: 'drag-chosen',
+  dragClass: 'drag-dragging',
   swapThreshold: 0.65,
   invertSwap: true,
   delay: 0,
@@ -84,9 +85,9 @@ const handleCardClick = (caseId: string) => {
         <span class="font-semibold text-sm text-gray-700 dark:text-gray-300">
           {{ label }}
         </span>
-        <UBadge color="neutral" variant="subtle" size="xs" class="ml-auto">
+        <BaseBadge color="neutral" variant="subtle" size="xs" class="ml-auto">
           {{ cases.length }}
-        </UBadge>
+        </BaseBadge>
       </div>
 
       <!-- Cards 區域 -->
@@ -175,21 +176,17 @@ const handleCardClick = (caseId: string) => {
   }
 }
 
-/* 拖曳時的視覺效果 */
-:deep(.sortable-ghost) {
-  opacity: 0.5;
-  transform: rotate(2deg);
+/* 卡片項目的 hover 效果 */
+.case-card-item {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+  will-change: transform, box-shadow;
 }
 
-:deep(.sortable-chosen) {
-  transform: scale(1.02);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-}
-
-:deep(.sortable-drag) {
-  cursor: grabbing !important;
-  z-index: 1000;
+.case-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1),
+              0 2px 6px -2px rgba(0, 0, 0, 0.05);
 }
 </style>
 

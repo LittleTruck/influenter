@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Email, EmailDetail } from '~/stores/emails'
+import { BaseButton, BaseInput, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu } from '~/components/base'
 
 definePageMeta({
   middleware: 'auth'
@@ -278,18 +279,18 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         <h1 class="text-2xl font-bold text-highlighted">郵件</h1>
         
         <!-- 未讀數量標記 (參考 template) -->
-        <UBadge
+        <BaseBadge
           size="sm"
           :color="emailsStore.unreadCount > 0 ? 'primary' : 'neutral'"
           variant="solid"
         >
           {{ emailsStore.unreadCount }}
-        </UBadge>
+        </BaseBadge>
       </div>
 
       <div class="flex items-center gap-2">
         <!-- 同步按鈕 -->
-        <UButton
+        <BaseButton
           v-if="emailsStore.isConnected"
           icon="i-lucide-refresh-cw"
           color="neutral"
@@ -300,10 +301,10 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           @click="handleSync"
         >
           {{ emailsStore.syncing ? '同步中...' : '同步郵件' }}
-        </UButton>
+        </BaseButton>
 
         <!-- 重新整理 -->
-        <UButton
+        <BaseButton
           color="neutral"
           variant="ghost"
           size="sm"
@@ -313,12 +314,12 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           aria-label="重新整理"
         >
           <template #leading>
-            <UIcon 
+            <BaseIcon 
               name="i-lucide-rotate-cw" 
               :class="{ 'animate-spin': refreshing }"
             />
           </template>
-        </UButton>
+        </BaseButton>
       </div>
     </div>
 
@@ -329,7 +330,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         <!-- Search & Filters -->
         <div class="p-4 border-b border-default bg-elevated/50">
           <div class="flex items-center gap-2">
-            <UInput
+            <BaseInput
               v-model="searchQuery"
               icon="i-lucide-search"
               placeholder="搜尋主旨..."
@@ -339,22 +340,22 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             
             <!-- All/Unread 切換 (參考 template) -->
             <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
-              <UButton
+              <BaseButton
                 :variant="filterIsRead === 'all' ? 'solid' : 'ghost'"
                 :color="filterIsRead === 'all' ? 'primary' : 'neutral'"
                 size="sm"
                 @click="filterIsRead = 'all'"
               >
                 全部
-              </UButton>
-              <UButton
+              </BaseButton>
+              <BaseButton
                 :variant="filterIsRead === 'unread' ? 'solid' : 'ghost'"
                 :color="filterIsRead === 'unread' ? 'primary' : 'neutral'"
                 size="sm"
                 @click="filterIsRead = 'unread'"
               >
                 未讀
-              </UButton>
+              </BaseButton>
             </div>
           </div>
         </div>
@@ -363,7 +364,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         <div ref="emailListRef" class="flex-1 overflow-y-auto">
           <!-- Loading State -->
           <div v-if="emailsStore.loading" class="flex items-center justify-center py-12">
-            <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary" />
+            <BaseIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary" />
           </div>
 
           <!-- Empty State -->
@@ -371,7 +372,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             v-else-if="emailsStore.emails.length === 0"
             class="flex flex-col items-center justify-center py-12 px-4 text-center"
           >
-            <UIcon name="i-lucide-inbox" class="w-12 h-12 mb-3 text-muted" />
+            <BaseIcon name="i-lucide-inbox" class="w-12 h-12 mb-3 text-muted" />
             <h3 class="text-sm font-semibold text-highlighted mb-1">
               {{ emailsStore.isConnected ? '目前沒有郵件' : '尚未連接 Gmail' }}
             </h3>
@@ -397,7 +398,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               <div class="flex items-start gap-3">
                 <!-- 未讀指示器 (小綠點，參考 template) -->
                 <div class="relative">
-                  <UAvatar
+                  <BaseAvatar
                     :alt="email.from_name || email.from_email"
                     size="sm"
                   />
@@ -434,28 +435,28 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
 
                   <!-- Badges -->
                   <div v-if="email.has_attachments || email.labels?.includes('STARRED') || email.case_id" class="flex items-center gap-1 mt-2">
-                    <UBadge
+                    <BaseBadge
                       v-if="email.has_attachments"
                       size="xs"
                       color="neutral"
                       variant="subtle"
                       icon="i-lucide-paperclip"
                     />
-                    <UBadge
+                    <BaseBadge
                       v-if="email.labels?.includes('STARRED')"
                       size="xs"
                       color="warning"
                       variant="subtle"
                       icon="i-lucide-star"
                     />
-                    <UBadge
+                    <BaseBadge
                       v-if="email.case_id"
                       size="xs"
                       color="info"
                       variant="subtle"
                     >
                       已關聯
-                    </UBadge>
+                    </BaseBadge>
                   </div>
                 </div>
               </div>
@@ -468,7 +469,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           v-if="emailsStore.pagination.total_pages > 1" 
           class="p-3 border-t border-default flex justify-center gap-1"
         >
-          <UButton
+          <BaseButton
             icon="i-lucide-chevrons-left"
             size="sm"
             color="neutral"
@@ -477,7 +478,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             @click="handlePageChange(1)"
             aria-label="第一頁"
           />
-          <UButton
+          <BaseButton
             icon="i-lucide-chevron-left"
             size="sm"
             color="neutral"
@@ -488,17 +489,17 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           />
           
           <template v-for="page in paginationPages" :key="page">
-            <UButton
+            <BaseButton
               size="sm"
               :color="page === emailsStore.pagination.page ? 'primary' : 'neutral'"
               :variant="page === emailsStore.pagination.page ? 'solid' : 'ghost'"
               @click="handlePageChange(page)"
             >
               {{ page }}
-            </UButton>
+            </BaseButton>
           </template>
           
-          <UButton
+          <BaseButton
             icon="i-lucide-chevron-right"
             size="sm"
             color="neutral"
@@ -507,7 +508,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             @click="handlePageChange(emailsStore.pagination.page + 1)"
             aria-label="下一頁"
           />
-          <UButton
+          <BaseButton
             icon="i-lucide-chevrons-right"
             size="sm"
             color="neutral"
@@ -523,7 +524,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Loading State -->
         <div v-if="loadingDetail" class="flex items-center justify-center h-full">
-          <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary" />
+          <BaseIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary" />
         </div>
 
         <!-- Empty State -->
@@ -531,7 +532,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
           v-else-if="!selectedEmail"
           class="flex flex-col items-center justify-center h-full text-center px-4"
         >
-          <UIcon name="i-lucide-mail" class="w-16 h-16 mb-4 text-muted" />
+          <BaseIcon name="i-lucide-mail" class="w-16 h-16 mb-4 text-muted" />
           <h3 class="text-lg font-semibold text-highlighted mb-2">選擇一封郵件</h3>
           <p class="text-muted">從左側列表選擇郵件以查看內容</p>
         </div>
@@ -546,7 +547,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               </h2>
 
               <div class="flex items-center gap-2">
-                <UButton
+                <BaseButton
                   :icon="selectedEmail.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
                   color="neutral"
                   variant="ghost"
@@ -554,9 +555,9 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                   @click="toggleRead(selectedEmail, !selectedEmail.is_read)"
                 >
                   {{ selectedEmail.is_read ? '標記未讀' : '標記已讀' }}
-                </UButton>
+                </BaseButton>
 
-                <UDropdownMenu
+                <BaseDropdownMenu
                   :items="[[
                     {
                       label: '產生回覆',
@@ -567,19 +568,19 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                     }
                   ]]"
                 >
-                  <UButton
+                  <BaseButton
                     icon="i-lucide-ellipsis-vertical"
                     color="neutral"
                     variant="ghost"
                     size="sm"
                   />
-                </UDropdownMenu>
+                </BaseDropdownMenu>
               </div>
             </div>
 
             <!-- Sender Info -->
             <div class="flex items-start gap-3">
-              <UAvatar
+              <BaseAvatar
                 :alt="selectedEmail.from_name || selectedEmail.from_email"
                 size="lg"
               />
@@ -588,13 +589,13 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                   <span class="font-semibold text-highlighted">
                     {{ selectedEmail.from_name || selectedEmail.from_email }}
                   </span>
-                  <UBadge
+                  <BaseBadge
                     v-if="!selectedEmail.is_read"
                     size="xs"
                     color="primary"
                   >
                     未讀
-                  </UBadge>
+                  </BaseBadge>
                 </div>
                 <div class="text-sm text-muted">{{ selectedEmail.from_email }}</div>
                 <div class="text-xs text-muted mt-1">
@@ -608,34 +609,34 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               v-if="selectedEmail.labels && selectedEmail.labels.length > 0" 
               class="flex flex-wrap gap-2 mt-4"
             >
-              <UBadge
+              <BaseBadge
                 v-for="label in selectedEmail.labels"
                 :key="label"
                 size="sm"
                 color="neutral"
               >
                 {{ label }}
-              </UBadge>
+              </BaseBadge>
             </div>
 
             <!-- Badges -->
             <div class="flex items-center gap-2 mt-4">
-              <UBadge
+              <BaseBadge
                 v-if="selectedEmail.has_attachments"
                 icon="i-lucide-paperclip"
                 color="neutral"
                 size="sm"
               >
                 有附件
-              </UBadge>
-              <UBadge
+              </BaseBadge>
+              <BaseBadge
                 v-if="selectedEmail.ai_analyzed"
                 icon="i-lucide-sparkles"
                 color="success"
                 size="sm"
               >
                 已AI分析
-              </UBadge>
+              </BaseBadge>
             </div>
           </div>
 

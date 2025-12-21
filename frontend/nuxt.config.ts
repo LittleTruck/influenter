@@ -18,6 +18,7 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
   ],
 
+
   // App config
   app: {
     head: {
@@ -36,7 +37,7 @@ export default defineNuxtConfig({
   // Runtime config
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5000',
       googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',
     }
   },
@@ -70,17 +71,22 @@ export default defineNuxtConfig({
   },
 
   // Vite configuration for Docker development environment
-  // 生產環境會直接 build 靜態文件，不需要 hot reload
-  ...(process.env.NODE_ENV === 'development' && {
-    vite: {
-      server: {
-        watch: {
-          usePolling: true,  // 啟用 polling 模式（Docker 環境必需）
-          interval: 1000,    // 每秒檢查一次變化
-        }
+  vite: {
+    optimizeDeps: {
+      include: ['vuedraggable']
+    },
+    resolve: {
+      alias: {
+        'vuedraggable': 'vuedraggable/dist/vuedraggable.umd.js'
       }
-    }
-  })
+    },
+    server: process.env.NODE_ENV === 'development' ? {
+      watch: {
+        usePolling: true,  // 啟用 polling 模式（Docker 環境必需）
+        interval: 1000,    // 每秒檢查一次變化
+      }
+    } : undefined
+  }
 })
 
 

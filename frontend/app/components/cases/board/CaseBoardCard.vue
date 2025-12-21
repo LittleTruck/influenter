@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Case } from '~/types/cases'
 import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
+import { BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
 
 interface Props {
@@ -73,7 +74,7 @@ const avatarText = computed(() => {
 
     <!-- 截止日期 -->
     <div v-if="caseData.deadline_date" class="mb-2 flex items-center gap-1">
-      <UIcon
+      <BaseIcon
         name="i-lucide-calendar"
         :class="[
           'w-3.5 h-3.5',
@@ -97,14 +98,14 @@ const avatarText = computed(() => {
     <!-- 統計資訊 -->
     <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
       <div v-if="caseData.email_count" class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-        <UIcon name="i-lucide-mail" class="w-3.5 h-3.5" />
+        <BaseIcon name="i-lucide-mail" class="w-3.5 h-3.5" />
         <span>{{ caseData.email_count }}</span>
       </div>
       <div
         v-if="caseData.task_count !== undefined"
         class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
       >
-        <UIcon name="i-lucide-check-square" class="w-3.5 h-3.5" />
+        <BaseIcon name="i-lucide-check-square" class="w-3.5 h-3.5" />
         <span>
           {{ caseData.completed_task_count || 0 }}/{{ caseData.task_count }}
         </span>

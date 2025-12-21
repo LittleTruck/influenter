@@ -4,6 +4,7 @@ import { useCaseFields } from '~/composables/useCaseFields'
 import { useCases } from '~/composables/useCases'
 import { useCaseForm } from '~/composables/useCaseForm'
 import { useFormModal } from '~/composables/useFormModal'
+import { BaseModal, BaseButton, BaseFormField } from '~/components/base'
 import FieldInput from '~/components/cases/fields/FieldInput.vue'
 import CollaborationItemsSelector from '~/components/cases/fields/CollaborationItemsSelector.vue'
 
@@ -154,10 +155,10 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <UModal 
-    v-model:open="isOpen" 
+  <BaseModal 
+    v-model="isOpen" 
     :title="isEditMode ? '編輯案件' : '建立案件'"
-    :ui="{ width: 'max-w-2xl' }"
+    size="lg"
   >
     <template #body>
       <div class="space-y-4">
@@ -173,26 +174,26 @@ const handleCancel = () => {
         />
 
         <!-- 合作項目選擇器 -->
-        <UFormField label="合作項目" name="collaboration_items">
+        <BaseFormField label="合作項目" name="collaboration_items">
           <CollaborationItemsSelector
             v-model="formData.collaboration_items"
             class="w-full"
           />
-        </UFormField>
+        </BaseFormField>
       </div>
     </template>
 
     <template #footer>
       <div class="flex items-center justify-end gap-2">
-        <UButton variant="ghost" @click="handleCancel">取消</UButton>
-        <UButton
+        <BaseButton variant="ghost" @click="handleCancel">取消</BaseButton>
+        <BaseButton
           :loading="isSubmitting"
           @click="handleSubmit"
         >
           {{ isEditMode ? '更新' : '建立' }}
-        </UButton>
+        </BaseButton>
       </div>
     </template>
-  </UModal>
+  </BaseModal>
 </template>
 

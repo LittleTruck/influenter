@@ -3,6 +3,8 @@ import type { CaseDetail } from '~/types/cases'
 import { useCases } from '~/composables/useCases'
 import { useCaseFields } from '~/composables/useCaseFields'
 import { useErrorHandler } from '~/composables/useErrorHandler'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton, BaseCard } from '~/components/base'
+import AppSection from '~/components/ui/AppSection.vue'
 import CasePropertiesPanel from '~/components/cases/detail/CasePropertiesPanel.vue'
 import CaseTasksList from '~/components/cases/detail/CaseTasksList.vue'
 import CaseEmailsTimeline from '~/components/cases/detail/CaseEmailsTimeline.vue'
@@ -59,23 +61,23 @@ const handleTaskUpdate = () => {
 </script>
 
 <template>
-  <UDashboardPanel>
+  <BaseDashboardPanel>
     <template #header>
-      <UDashboardNavbar :title="currentCase?.title || '案件詳情'">
+      <BaseDashboardNavbar :title="currentCase?.title || '案件詳情'">
         <template #leading>
-          <UDashboardSidebarCollapse />
+          <BaseDashboardSidebarCollapse />
         </template>
 
         <template #trailing>
-          <UButton
+          <BaseButton
             icon="i-lucide-arrow-left"
             variant="ghost"
             @click="navigateTo('/cases')"
           >
             返回列表
-          </UButton>
+          </BaseButton>
         </template>
-      </UDashboardNavbar>
+      </BaseDashboardNavbar>
     </template>
 
     <template #body>
@@ -93,7 +95,7 @@ const handleTaskUpdate = () => {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- 左側：屬性面板和合作項目 -->
           <div class="lg:col-span-2 space-y-6">
-            <UCard>
+            <AppSection>
               <template #header>
                 <h2 class="text-lg font-semibold">屬性</h2>
               </template>
@@ -104,10 +106,10 @@ const handleTaskUpdate = () => {
                 @field-update="handleFieldUpdate"
                 @field-delete="handleFieldDelete"
               />
-            </UCard>
+            </AppSection>
 
             <!-- 合作項目 -->
-            <UCard>
+            <AppSection>
               <template #header>
                 <h2 class="text-lg font-semibold">合作項目</h2>
               </template>
@@ -116,13 +118,13 @@ const handleTaskUpdate = () => {
                 :editable="true"
                 @update="fetchCase(caseId)"
               />
-            </UCard>
+            </AppSection>
           </div>
 
           <!-- 右側：任務和郵件 -->
           <div class="space-y-6">
             <!-- 任務列表 -->
-            <UCard>
+            <AppSection>
               <template #header>
                 <h2 class="text-lg font-semibold">任務</h2>
               </template>
@@ -131,15 +133,15 @@ const handleTaskUpdate = () => {
                 :tasks="currentCase.tasks || []"
                 @task-update="handleTaskUpdate"
               />
-            </UCard>
+            </AppSection>
 
             <!-- 郵件時間軸 -->
-            <UCard>
+            <AppSection>
               <template #header>
                 <h2 class="text-lg font-semibold">郵件</h2>
               </template>
               <CaseEmailsTimeline :emails="currentCase.emails || []" />
-            </UCard>
+            </AppSection>
           </div>
         </div>
       </div>
@@ -147,6 +149,6 @@ const handleTaskUpdate = () => {
       <!-- 錯誤狀態 -->
       <ErrorState v-else title="無法載入案件詳情" message="請重新整理頁面或返回列表" />
     </template>
-  </UDashboardPanel>
+  </BaseDashboardPanel>
 </template>
 

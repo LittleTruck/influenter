@@ -2,6 +2,7 @@
 import type { CollaborationItem } from '~/types/collaborationItems'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { formatAmount } from '~/utils/formatters'
+import { BaseButton, BaseModal, BaseFormField, BaseInput, BaseTextarea } from '~/components/base'
 import CollaborationItemOption from './CollaborationItemOption.vue'
 
 interface CollaborationItemInput {
@@ -14,10 +15,12 @@ interface CollaborationItemInput {
 
 interface Props {
   /** 選中的項目 ID 列表或完整項目列表 */
-  modelValue: string[] | CollaborationItemInput[]
+  modelValue?: string[] | CollaborationItemInput[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  modelValue: () => []
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[] | CollaborationItemInput[]]
@@ -32,18 +35,28 @@ onMounted(async () => {
 
 // 判斷是否為完整項目列表（包含自訂項目）
 const isFullItemList = computed(() => {
-  return Array.isArray(props.modelValue) && props.modelValue.length > 0 && typeof props.modelValue[0] === 'object' && 'title' in props.modelValue[0]
+  return Array.isArray(props.modelValue) && props.modelValue.length > 0 && typeof props.modelValue[0] === 'object' && props.modelValue[0] !== null && 'title' in props.modelValue[0]
 })
 
 // 選中的項目（統一為完整項目格式）
 const selectedItems = computed({
   get: () => {
+    // 確保 modelValue 存在且為數組
+    if (!props.modelValue || !Array.isArray(props.modelValue)) {
+      return []
+    }
+    
     if (isFullItemList.value) {
       return props.modelValue as CollaborationItemInput[]
     }
     
     // 將 ID 列表轉換為完整項目
     const ids = props.modelValue as string[]
+    // 確保 flatItems.value 是數組
+    if (!flatItems.value || !Array.isArray(flatItems.value)) {
+      return []
+    }
+    
     return ids.map(id => {
       const item = flatItems.value.find(i => i.id === id)
       if (item) {
@@ -70,6 +83,10 @@ const selectedItems = computed({
 
 // 切換預設項目選中狀態
 const toggleItem = (itemId: string) => {
+  if (!flatItems.value || !Array.isArray(flatItems.value)) {
+    return
+  }
+  
   const index = selectedItems.value.findIndex(item => item.id === itemId && !item.isCustom)
   if (index > -1) {
     // 取消選中
@@ -119,11 +136,17 @@ const handleAddCustom = () => {
 
 // 移除項目
 const removeItem = (index: number) => {
+  if (!selectedItems.value || !Array.isArray(selectedItems.value) || index < 0) {
+    return
+  }
   selectedItems.value = selectedItems.value.filter((_, i) => i !== index)
 }
 
 // 計算總價
 const totalPrice = computed(() => {
+  if (!selectedItems.value || !Array.isArray(selectedItems.value)) {
+    return 0
+  }
   return selectedItems.value.reduce((sum, item) => sum + (item.price || 0), 0)
 })
 </script>
@@ -141,15 +164,15 @@ const totalPrice = computed(() => {
         <div v-if="loading" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
           載入中...
         </div>
-        <div v-else-if="items.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+        <div v-else-if="!items || items.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
           <p class="mb-2">還沒有合作項目</p>
-          <UButton
+          <BaseButton
             size="xs"
             variant="outline"
             to="/cases/collaboration-items"
           >
             前往建立
-          </UButton>
+          </BaseButton>
         </div>
         <template v-else>
           <CollaborationItemOption
@@ -157,7 +180,7 @@ const totalPrice = computed(() => {
             :key="item.id"
             :item="item"
             :level="0"
-            :selected-ids="selectedItems.filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
+            :selected-ids="(selectedItems || []).filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
             @toggle="toggleItem"
           />
         </template>
@@ -170,23 +193,23 @@ const totalPrice = computed(() => {
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
           自訂項目
         </label>
-        <UButton
+        <BaseButton
           icon="i-lucide-plus"
           size="xs"
           variant="outline"
           @click="showCustomForm = true"
         >
           新增自訂項目
-        </UButton>
+        </BaseButton>
       </div>
       
-      <div v-if="selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div v-if="!selectedItems || selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
         尚未添加自訂項目
       </div>
       
       <div v-else class="space-y-2">
         <div
-          v-for="(item, index) in selectedItems.filter(i => i.isCustom)"
+          v-for="(item, index) in (selectedItems || []).filter(i => i.isCustom)"
           :key="index"
           class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
         >
@@ -204,61 +227,59 @@ const totalPrice = computed(() => {
               {{ formatAmount(item.price) }}
             </span>
           </div>
-          <UButton
+          <BaseButton
             icon="i-lucide-trash"
             size="xs"
             variant="ghost"
             color="error"
-            @click="removeItem(selectedItems.findIndex(i => i === item))"
+            @click="removeItem((selectedItems || []).findIndex(i => i === item))"
           />
         </div>
       </div>
     </div>
 
     <!-- 自訂項目表單 Modal -->
-    <UModal v-model:open="showCustomForm" title="新增自訂項目">
+    <BaseModal v-model="showCustomForm" title="新增自訂項目" size="md">
       <template #body>
         <div class="space-y-4">
-          <UFormField label="項目名稱" name="title" required>
-            <UInput
+          <BaseFormField label="項目名稱" name="title" required>
+            <BaseInput
               v-model="customItem.title"
               placeholder="請輸入項目名稱"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
 
-          <UFormField label="描述" name="description">
-            <UTextarea
+          <BaseFormField label="描述" name="description">
+            <BaseTextarea
               v-model="customItem.description"
               placeholder="請輸入項目描述（選填）"
               :rows="3"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
 
-          <UFormField label="價格" name="price" required>
-            <UInput
+          <BaseFormField label="價格" name="price" required>
+            <BaseInput
               v-model.number="customItem.price"
               type="number"
-              min="0"
-              step="0.01"
               placeholder="0"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
         </div>
       </template>
 
       <template #footer>
         <div class="flex items-center justify-end gap-2">
-          <UButton variant="ghost" @click="showCustomForm = false">取消</UButton>
-          <UButton @click="handleAddCustom">確定</UButton>
+          <BaseButton variant="ghost" @click="showCustomForm = false">取消</BaseButton>
+          <BaseButton @click="handleAddCustom">確定</BaseButton>
         </div>
       </template>
-    </UModal>
+    </BaseModal>
 
     <!-- 總價顯示 -->
-    <div v-if="selectedItems.length > 0" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+    <div v-if="selectedItems && selectedItems.length > 0" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
           已選 {{ selectedItems.length }} 個項目

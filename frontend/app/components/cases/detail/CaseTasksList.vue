@@ -3,6 +3,7 @@ import type { Task } from '~/types/cases'
 import draggable from 'vuedraggable'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
+import { BaseButton, BaseIcon, BaseCheckbox } from '~/components/base'
 import TaskFormModal from '~/components/cases/forms/TaskFormModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
@@ -165,18 +166,18 @@ const formatDate = (dateStr?: string) => {
         <div class="text-xs text-gray-500 dark:text-gray-400">進度追蹤</div>
       </div>
 
-      <UButton
+      <BaseButton
         icon="i-lucide-plus"
         size="sm"
         @click="handleAddTask"
       >
         新增任務
-      </UButton>
+      </BaseButton>
     </div>
 
     <!-- 任務列表 -->
     <div v-if="loading" class="flex items-center justify-center py-8">
-      <UIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary-500" />
+      <BaseIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary-500" />
     </div>
 
     <EmptyState
@@ -203,13 +204,13 @@ const formatDate = (dateStr?: string) => {
           ]"
         >
           <!-- 拖曳把手 -->
-          <UIcon
+          <BaseIcon
             name="i-lucide-grip-vertical"
             class="drag-handle w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
           />
 
           <!-- 完成狀態 -->
-          <UCheckbox
+          <BaseCheckbox
             :model-value="task.status === 'completed'"
             @update:model-value="
               task.status === 'completed' ? null : handleCompleteTask(task.id)
@@ -233,20 +234,20 @@ const formatDate = (dateStr?: string) => {
               {{ task.description }}
             </div>
             <div v-if="task.due_date" class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-              <UIcon name="i-lucide-calendar" class="w-3 h-3" />
+              <BaseIcon name="i-lucide-calendar" class="w-3 h-3" />
               {{ formatDate(task.due_date) }}
             </div>
           </div>
 
           <!-- 操作按鈕 -->
           <div class="flex items-center gap-1 flex-shrink-0">
-            <UButton
+            <BaseButton
               icon="i-lucide-edit"
               variant="ghost"
               size="xs"
               @click="handleEditTask(task)"
             />
-            <UButton
+            <BaseButton
               icon="i-lucide-trash-2"
               variant="ghost"
               size="xs"

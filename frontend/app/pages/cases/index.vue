@@ -2,6 +2,7 @@
 import type { Case, ViewType } from '~/types/cases'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
 import CaseBoardView from '~/components/cases/board/CaseBoardView.vue'
 import CaseTable from '~/components/cases/list/CaseTable.vue'
 import CaseFormModal from '~/components/cases/forms/CaseFormModal.vue'
@@ -62,25 +63,25 @@ const handleFormSubmit = () => {
 </script>
 
 <template>
-  <UDashboardPanel>
+  <BaseDashboardPanel>
     <template #header>
-      <UDashboardNavbar title="案件管理">
+      <BaseDashboardNavbar title="案件管理">
         <template #leading>
-          <UDashboardSidebarCollapse />
+          <BaseDashboardSidebarCollapse />
         </template>
 
         <template #trailing>
           <div class="flex items-center gap-3">
             <ViewToggle :model-value="currentView" @update:model-value="handleViewChange" />
-            <UButton
+            <BaseButton
               icon="i-lucide-plus"
               @click="handleAddCase"
             >
               建立案件
-            </UButton>
+            </BaseButton>
           </div>
         </template>
-      </UDashboardNavbar>
+      </BaseDashboardNavbar>
     </template>
 
     <template #body>
@@ -119,6 +120,6 @@ const handleFormSubmit = () => {
         @submit="handleFormSubmit"
       />
     </template>
-  </UDashboardPanel>
+  </BaseDashboardPanel>
 </template>
 

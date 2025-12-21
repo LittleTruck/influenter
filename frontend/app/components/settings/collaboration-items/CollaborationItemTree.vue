@@ -31,14 +31,18 @@ const localItems = computed({
   }
 })
 
-// 拖曳選項
+// 拖曳選項 - 禁止跨層級拖曳
 const dragOptions = {
   animation: 200,
-  group: 'items-level-0',
+  group: {
+    name: 'items-level-0',
+    pull: false,
+    put: false
+  },
   disabled: false,
-  ghostClass: 'sortable-ghost',
-  chosenClass: 'sortable-chosen',
-  dragClass: 'sortable-drag',
+  ghostClass: 'drag-ghost',
+  chosenClass: 'drag-chosen',
+  dragClass: 'drag-dragging',
   handle: '.drag-handle'
 }
 
@@ -83,23 +87,6 @@ const handleToggleExpand = (item: CollaborationItem) => {
 <style scoped>
 .collaboration-item-tree {
   min-height: 100px;
-}
-
-/* 拖曳效果 */
-:deep(.sortable-ghost) {
-  opacity: 0.5;
-  background: rgba(var(--color-primary-500) / 0.1);
-}
-
-:deep(.sortable-chosen) {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-:deep(.sortable-drag) {
-  cursor: grabbing !important;
-  z-index: 1000;
 }
 </style>
 

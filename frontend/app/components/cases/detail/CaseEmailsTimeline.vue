@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CaseEmail } from '~/types/cases'
+import { BaseCard, BaseIcon } from '~/components/base'
 import EmptyState from '~/components/common/EmptyState.vue'
 import { format } from 'date-fns'
 
@@ -53,11 +54,11 @@ const formatTime = (dateStr: string) => {
       <div
         class="absolute left-0 w-8 h-8 rounded-full bg-primary-500 border-4 border-white dark:border-gray-900 flex items-center justify-center z-10"
       >
-        <UIcon :name="getEmailIcon(email.email_type)" class="w-4 h-4 text-white" />
+        <BaseIcon :name="getEmailIcon(email.email_type)" class="w-4 h-4 text-white" />
       </div>
 
       <!-- 郵件卡片（可展開） -->
-      <UCard
+      <BaseCard
         class="email-card cursor-pointer transition-all duration-200 hover:shadow-md"
         @click="toggleEmail(email.id)"
       >
@@ -88,7 +89,7 @@ const formatTime = (dateStr: string) => {
             </div>
           </div>
         </Transition>
-      </UCard>
+      </BaseCard>
     </div>
 
     <!-- 空狀態 -->

@@ -1,6 +1,45 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* ============================================
+   全局拖拉樣式 - 適用於所有使用 vuedraggable 的組件
+   這些樣式會自動套用到所有使用 ghost-class="drag-ghost" 等屬性的 draggable 組件
+   ============================================ */
+
+/* 拖拉時的半透明占位符樣式 */
+.drag-ghost,
+.sortable-ghost {
+  opacity: 0.4;
+  background: rgba(147, 197, 253, 0.15);
+  border: 2px dashed rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+  transform: scale(0.96);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 選中時的樣式（開始拖拉時） */
+.drag-chosen,
+.sortable-chosen {
+  cursor: grabbing !important;
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 
+              0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 拖拉中的樣式 */
+.drag-dragging,
+.sortable-drag {
+  opacity: 0.9;
+  transform: rotate(2deg) scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 
+              0 10px 10px -5px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1000;
+  cursor: grabbing !important;
+}
+
 @layer utilities {
   /* 語義化顏色類別 */
   .text-muted {

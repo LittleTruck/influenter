@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CaseDetail } from '~/types/cases'
 import type { CaseField } from '~/types/fields'
+import { BaseButton, BaseIcon } from '~/components/base'
 import FieldInput from '~/components/cases/fields/FieldInput.vue'
 
 interface Props {
@@ -65,7 +66,7 @@ const sortedFields = computed(() => {
     >
       <!-- 左側：屬性名稱 -->
       <div class="property-label flex items-center gap-2 min-w-[150px] flex-shrink-0">
-        <UIcon
+        <BaseIcon
           v-if="field.is_system"
           name="i-lucide-lock"
           class="w-4 h-4 text-gray-400 flex-shrink-0"
@@ -86,7 +87,7 @@ const sortedFields = computed(() => {
       </div>
 
       <!-- 刪除按鈕（僅自定義屬性，hover 時顯示） -->
-      <UButton
+      <BaseButton
         v-if="!field.is_system && editable"
         icon="i-lucide-trash-2"
         variant="ghost"

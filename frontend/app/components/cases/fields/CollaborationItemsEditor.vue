@@ -2,6 +2,7 @@
 import type { CollaborationItem } from '~/types/collaborationItems'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { formatAmount } from '~/utils/formatters'
+import { BaseButton, BaseModal, BaseFormField, BaseInput, BaseTextarea } from '~/components/base'
 import CollaborationItemOption from './CollaborationItemOption.vue'
 
 interface CollaborationItemInput {
@@ -180,14 +181,14 @@ const handleCancel = () => {
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
           自訂項目
         </label>
-        <UButton
+        <BaseButton
           icon="i-lucide-plus"
           size="xs"
           variant="outline"
           @click="showCustomForm = true"
         >
           新增自訂項目
-        </UButton>
+        </BaseButton>
       </div>
       
       <div v-if="selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -215,13 +216,13 @@ const handleCancel = () => {
             </span>
           </div>
           <div class="flex items-center gap-2 ml-4">
-            <UButton
+            <BaseButton
               icon="i-lucide-edit"
               size="xs"
               variant="ghost"
               @click="editCustomItem(selectedItems.findIndex(i => i === item))"
             />
-            <UButton
+            <BaseButton
               icon="i-lucide-trash"
               size="xs"
               variant="ghost"
@@ -234,46 +235,44 @@ const handleCancel = () => {
     </div>
 
     <!-- 自訂項目表單 Modal -->
-    <UModal v-model:open="showCustomForm" title="新增自訂項目">
+    <BaseModal v-model="showCustomForm" title="新增自訂項目" size="md">
       <template #body>
         <div class="space-y-4">
-          <UFormField label="項目名稱" name="title" required>
-            <UInput
+          <BaseFormField label="項目名稱" name="title" required>
+            <BaseInput
               v-model="customItem.title"
               placeholder="請輸入項目名稱"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
 
-          <UFormField label="描述" name="description">
-            <UTextarea
+          <BaseFormField label="描述" name="description">
+            <BaseTextarea
               v-model="customItem.description"
               placeholder="請輸入項目描述（選填）"
               :rows="3"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
 
-          <UFormField label="價格" name="price" required>
-            <UInput
+          <BaseFormField label="價格" name="price" required>
+            <BaseInput
               v-model.number="customItem.price"
               type="number"
-              min="0"
-              step="0.01"
               placeholder="0"
               class="w-full"
             />
-          </UFormField>
+          </BaseFormField>
         </div>
       </template>
 
       <template #footer>
         <div class="flex items-center justify-end gap-2">
-          <UButton variant="ghost" @click="showCustomForm = false">取消</UButton>
-          <UButton @click="handleSaveCustom">確定</UButton>
+          <BaseButton variant="ghost" @click="showCustomForm = false">取消</BaseButton>
+          <BaseButton @click="handleSaveCustom">確定</BaseButton>
         </div>
       </template>
-    </UModal>
+    </BaseModal>
 
     <!-- 總價顯示 -->
     <div v-if="selectedItems.length > 0" class="pt-3 border-t border-gray-200 dark:border-gray-700">
@@ -289,9 +288,12 @@ const handleCancel = () => {
 
     <!-- 操作按鈕 -->
     <div class="flex items-center justify-end gap-2 pt-2">
-      <UButton variant="ghost" @click="handleCancel">取消</UButton>
-      <UButton @click="handleSave">儲存</UButton>
+      <BaseButton variant="ghost" @click="handleCancel">取消</BaseButton>
+      <BaseButton @click="handleSave">儲存</BaseButton>
     </div>
   </div>
 </template>
+
+
+
 

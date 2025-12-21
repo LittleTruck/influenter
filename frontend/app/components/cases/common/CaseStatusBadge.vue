@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CaseStatus } from '~/types/cases'
 import { getStatusColor, getStatusLabel } from '~/utils/caseStatus'
+import { BaseBadge, BaseIcon } from '~/components/base'
 
 interface Props {
   /** 案件狀態 */
@@ -31,14 +32,14 @@ const statusIcon = computed(() => {
 </script>
 
 <template>
-  <UBadge
+  <BaseBadge
     :color="color"
     variant="subtle"
     :size="size"
-    :ui="{ base: 'inline-flex items-center gap-1' }"
+    :class="'inline-flex items-center gap-1'"
   >
-    <UIcon v-if="showIcon" :name="statusIcon" class="w-3 h-3" />
+    <BaseIcon v-if="showIcon" :name="statusIcon" class="w-3 h-3" />
     {{ label }}
-  </UBadge>
+  </BaseBadge>
 </template>
 

@@ -53,7 +53,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: influenter-backend-api
     ports:
-      - "8080:8080"
+      - "5000:8080"
     environment:
       # Database
       DB_HOST: postgres
@@ -180,7 +180,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:5000}
       NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       NODE_ENV: development
     volumes:
@@ -198,7 +198,7 @@ services:
     image: hibiken/asynqmon:latest
     container_name: influenter-asynqmon
     ports:
-      - "8081:8080"
+      - "8180:8080"
     environment:
       REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD}

@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { BaseModal, BaseButton, BaseInput, BaseTextarea, BaseSelect, BaseIcon } from '~/components/base'
+
 const props = defineProps<{
   emailId: string
-  open: boolean
+  modelValue: boolean
 }>()
 
 const emit = defineEmits<{
-  close: []
+  'update:modelValue': [value: boolean]
   linked: [caseId: string]
 }>()
+
+const isOpen = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value)
+})
 
 const emailsStore = useEmailsStore()
 const toast = useToast()
@@ -45,7 +52,7 @@ const linkToExistingCase = async () => {
       color: 'success'
     })
     emit('linked', selectedCaseId.value)
-    emit('close')
+    isOpen.value = false
   } catch (e) {
     toast.add({
       title: '關聯失敗',
@@ -84,9 +91,9 @@ const createAndLink = async () => {
   }
 }
 
-// 監聽 open 變化
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
+// 監聽 modelValue 變化
+watch(() => props.modelValue, (open) => {
+  if (open) {
     // TODO: 載入案件列表
     // fetchCases()
   }
@@ -94,22 +101,8 @@ watch(() => props.open, (isOpen) => {
 </script>
 
 <template>
-  <UModal :open="open" @close="emit('close')">
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-lg text-highlighted">關聯郵件到案件</h3>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="emit('close')"
-            aria-label="關閉"
-          />
-        </div>
-      </template>
-
+  <BaseModal v-model="isOpen" title="關聯郵件到案件" size="md">
+    <template #body>
       <div class="space-y-6">
         <!-- 關聯到現有案件 -->
         <div v-if="!showCreateForm">
@@ -117,11 +110,10 @@ watch(() => props.open, (isOpen) => {
             選擇現有案件
           </label>
           
-          <USelectMenu
+          <BaseSelect
             v-model="selectedCaseId"
             :items="cases"
-            value-attribute="id"
-            option-attribute="title"
+            value-key="id"
             placeholder="選擇案件..."
             class="mb-4"
           >
@@ -140,10 +132,10 @@ watch(() => props.open, (isOpen) => {
                 <span class="text-sm text-muted">{{ option.brand_name }}</span>
               </div>
             </template>
-          </USelectMenu>
+          </BaseSelect>
 
           <div class="flex gap-2">
-            <UButton
+            <BaseButton
               color="primary"
               :loading="loading"
               :disabled="!selectedCaseId"
@@ -151,16 +143,16 @@ watch(() => props.open, (isOpen) => {
               block
             >
               關聯
-            </UButton>
+            </BaseButton>
             
-            <UButton
+            <BaseButton
               color="neutral"
               variant="outline"
               @click="showCreateForm = true"
               block
             >
               或建立新案件
-            </UButton>
+            </BaseButton>
           </div>
         </div>
 
@@ -171,7 +163,7 @@ watch(() => props.open, (isOpen) => {
               <label class="block text-sm font-medium text-highlighted mb-2">
                 案件名稱 *
               </label>
-              <UInput
+              <BaseInput
                 v-model="newCase.title"
                 placeholder="例如：Nike 球鞋業配"
               />
@@ -181,7 +173,7 @@ watch(() => props.open, (isOpen) => {
               <label class="block text-sm font-medium text-highlighted mb-2">
                 品牌名稱 *
               </label>
-              <UInput
+              <BaseInput
                 v-model="newCase.brand_name"
                 placeholder="例如：Nike"
               />
@@ -191,7 +183,7 @@ watch(() => props.open, (isOpen) => {
               <label class="block text-sm font-medium text-highlighted mb-2">
                 案件描述
               </label>
-              <UTextarea
+              <BaseTextarea
                 v-model="newCase.description"
                 placeholder="案件的詳細描述..."
                 :rows="3"
@@ -199,41 +191,40 @@ watch(() => props.open, (isOpen) => {
             </div>
 
             <div class="flex gap-2">
-              <UButton
+              <BaseButton
                 color="primary"
                 :loading="creating"
                 @click="createAndLink"
                 block
               >
                 建立並關聯
-              </UButton>
+              </BaseButton>
               
-              <UButton
+              <BaseButton
                 color="neutral"
                 variant="outline"
                 @click="showCreateForm = false"
                 block
               >
                 返回
-              </UButton>
+              </BaseButton>
             </div>
           </div>
         </div>
 
         <!-- 空狀態 -->
         <div v-if="!showCreateForm && cases.length === 0" class="text-center py-8">
-          <UIcon name="i-lucide-inbox" class="w-12 h-12 mx-auto mb-3 text-muted" />
+          <BaseIcon name="i-lucide-inbox" class="w-12 h-12 mx-auto mb-3 text-muted" />
           <p class="text-muted mb-4">目前沒有案件</p>
-          <UButton
+          <BaseButton
             color="primary"
             variant="outline"
             @click="showCreateForm = true"
           >
             建立第一個案件
-          </UButton>
+          </BaseButton>
         </div>
       </div>
-    </UCard>
-  </UModal>
+    </template>
+  </BaseModal>
 </template>
-

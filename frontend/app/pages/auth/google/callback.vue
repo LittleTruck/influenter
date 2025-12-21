@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BaseCard, BaseIcon } from '~/components/base'
+
 definePageMeta({
   middleware: [],
   layout: false
@@ -78,11 +80,11 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-elevated">
-    <UCard class="max-w-md w-full">
+    <BaseCard class="max-w-md w-full">
       <div class="text-center py-8">
         <!-- Loading -->
         <div v-if="loading" class="space-y-4">
-          <UIcon 
+          <BaseIcon 
             name="i-lucide-loader-2" 
             class="w-12 h-12 mx-auto text-primary animate-spin"
           />
@@ -92,7 +94,7 @@ onMounted(async () => {
         
         <!-- Error -->
         <div v-else-if="error" class="space-y-4">
-          <UIcon 
+          <BaseIcon 
             name="i-lucide-x-circle" 
             class="w-12 h-12 mx-auto text-error"
           />
@@ -103,7 +105,7 @@ onMounted(async () => {
         
         <!-- Success -->
         <div v-else class="space-y-4">
-          <UIcon 
+          <BaseIcon 
             name="i-lucide-check-circle" 
             class="w-12 h-12 mx-auto text-success"
           />
@@ -111,7 +113,7 @@ onMounted(async () => {
           <p class="text-sm text-muted">正在跳轉...</p>
         </div>
       </div>
-    </UCard>
+    </BaseCard>
   </div>
 </template>
 

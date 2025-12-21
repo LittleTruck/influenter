@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ViewType } from '~/types/cases'
+import { BaseButton } from '~/components/base'
 
 interface Props {
   modelValue: ViewType
@@ -18,7 +19,7 @@ const handleViewChange = (view: ViewType) => {
 
 <template>
   <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-    <UButton
+    <BaseButton
       :color="props.modelValue === 'board' ? 'primary' : 'neutral'"
       :variant="props.modelValue === 'board' ? 'solid' : 'ghost'"
       size="xs"
@@ -26,8 +27,8 @@ const handleViewChange = (view: ViewType) => {
       @click="handleViewChange('board')"
     >
       看板
-    </UButton>
-    <UButton
+    </BaseButton>
+    <BaseButton
       :color="props.modelValue === 'list' ? 'primary' : 'neutral'"
       :variant="props.modelValue === 'list' ? 'solid' : 'ghost'"
       size="xs"
@@ -35,7 +36,7 @@ const handleViewChange = (view: ViewType) => {
       @click="handleViewChange('list')"
     >
       列表
-    </UButton>
+    </BaseButton>
   </div>
 </template>
 

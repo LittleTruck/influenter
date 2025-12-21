@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CaseField } from '~/types/fields'
 import { useCaseFields } from '~/composables/useCaseFields'
+import { BaseBadge, BaseIcon } from '~/components/base'
 
 interface Props {
   /** 屬性定義 */
@@ -95,16 +96,16 @@ const getSelectLabel = (value: string | number | boolean): string => {
 
     <!-- 單選類型 -->
     <div v-else-if="field.type === 'select'" class="text-sm">
-      <UBadge v-if="value" color="primary" variant="subtle" size="sm">
+      <BaseBadge v-if="value" color="primary" variant="subtle" size="sm">
         {{ getSelectLabel(value) }}
-      </UBadge>
+      </BaseBadge>
       <span v-else class="text-gray-400">-</span>
     </div>
 
     <!-- 多選類型 -->
     <div v-else-if="field.type === 'multiselect'" class="text-sm">
       <div v-if="Array.isArray(value) && value.length > 0" class="flex flex-wrap gap-1">
-        <UBadge
+        <BaseBadge
           v-for="(item, index) in value"
           :key="index"
           color="primary"
@@ -112,14 +113,14 @@ const getSelectLabel = (value: string | number | boolean): string => {
           size="sm"
         >
           {{ getSelectLabel(item) }}
-        </UBadge>
+        </BaseBadge>
       </div>
       <span v-else class="text-gray-400">-</span>
     </div>
 
     <!-- 複選框類型 -->
     <div v-else-if="field.type === 'checkbox'" class="text-sm">
-      <UIcon
+      <BaseIcon
         :name="value ? 'i-lucide-check-circle' : 'i-lucide-circle'"
         :class="value ? 'text-green-500' : 'text-gray-400'"
         class="w-4 h-4"

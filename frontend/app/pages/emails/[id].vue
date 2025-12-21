@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseCard } from '~/components/base'
+import AppSection from '~/components/ui/AppSection.vue'
+
 definePageMeta({
   middleware: 'auth'
 })
@@ -86,7 +89,7 @@ const handleLinked = async (caseId: string) => {
   <div class="flex flex-col flex-1 h-full">
     <!-- Header -->
     <div class="flex items-center gap-4 px-6 py-4 border-b border-default">
-      <UButton
+      <BaseButton
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
@@ -100,7 +103,7 @@ const handleLinked = async (caseId: string) => {
 
       <div v-if="email" class="flex items-center gap-2">
         <!-- 標記已讀/未讀 -->
-        <UButton
+        <BaseButton
           :icon="email.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
           color="neutral"
           variant="outline"
@@ -108,10 +111,10 @@ const handleLinked = async (caseId: string) => {
           @click="markAsRead(!email.is_read)"
         >
           {{ email.is_read ? '標記未讀' : '標記已讀' }}
-        </UButton>
+        </BaseButton>
 
         <!-- 更多操作 -->
-        <UDropdownMenu
+        <BaseDropdownMenu
           :items="[[
             {
               label: '關聯到案件',
@@ -129,25 +132,25 @@ const handleLinked = async (caseId: string) => {
             }
           ]]"
         >
-          <UButton
+          <BaseButton
             icon="i-lucide-ellipsis-vertical"
             color="neutral"
             variant="ghost"
             aria-label="更多操作"
           />
-        </UDropdownMenu>
+        </BaseDropdownMenu>
       </div>
     </div>
 
     <!-- Content -->
     <div v-if="emailsStore.loading" class="flex items-center justify-center h-full">
-      <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary" />
+      <BaseIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary" />
     </div>
 
     <div v-else-if="email" class="flex-1 overflow-y-auto">
       <div class="max-w-4xl mx-auto p-6">
         <!-- Email Header Card -->
-        <UCard class="mb-6">
+        <AppSection class="mb-6">
           <template #header>
             <h2 class="text-2xl font-bold text-highlighted">
               {{ email.subject || '(無主旨)' }}
@@ -158,7 +161,7 @@ const handleLinked = async (caseId: string) => {
             <!-- 寄件者 -->
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0">
-                <UAvatar
+                <BaseAvatar
                   :alt="email.from_name || email.from_email"
                   size="lg"
                 />
@@ -168,13 +171,13 @@ const handleLinked = async (caseId: string) => {
                   <span class="font-semibold text-highlighted">
                     {{ email.from_name || email.from_email }}
                   </span>
-                  <UBadge
+                  <BaseBadge
                     v-if="!email.is_read"
                     size="xs"
                     color="primary"
                   >
                     未讀
-                  </UBadge>
+                  </BaseBadge>
                 </div>
                 <div class="text-sm text-muted">{{ email.from_email }}</div>
                 <div class="text-xs text-muted mt-1">
@@ -191,7 +194,7 @@ const handleLinked = async (caseId: string) => {
 
             <!-- 標籤 -->
             <div v-if="email.labels && email.labels.length > 0" class="flex flex-wrap gap-2">
-              <UBadge
+              <BaseBadge
                 v-for="label in email.labels"
                 :key="label"
                 size="sm"
@@ -199,33 +202,33 @@ const handleLinked = async (caseId: string) => {
                 color="neutral"
               >
                 {{ label }}
-              </UBadge>
+              </BaseBadge>
             </div>
           </div>
-        </UCard>
+        </AppSection>
 
         <!-- Email Content -->
-        <UCard>
+        <AppSection>
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="font-semibold text-highlighted">郵件內容</h3>
               <div class="flex items-center gap-2">
-                <UBadge
+                <BaseBadge
                   v-if="email.has_attachments"
                   icon="i-lucide-paperclip"
                   variant="subtle"
                   color="neutral"
                 >
                   有附件
-                </UBadge>
-                <UBadge
+                </BaseBadge>
+                <BaseBadge
                   v-if="email.ai_analyzed"
                   icon="i-lucide-sparkles"
                   variant="subtle"
                   color="success"
                 >
                   已AI分析
-                </UBadge>
+                </BaseBadge>
               </div>
             </div>
           </template>
@@ -244,13 +247,13 @@ const handleLinked = async (caseId: string) => {
               class="whitespace-pre-wrap font-sans text-sm text-muted"
             >{{ displayContent }}</pre>
           </div>
-        </UCard>
+        </AppSection>
 
         <!-- AI 分析結果 (未來實作) -->
-        <UCard v-if="email.ai_analyzed" class="mt-6">
+        <AppSection v-if="email.ai_analyzed" class="mt-6">
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-sparkles" class="text-success" />
+              <BaseIcon name="i-lucide-sparkles" class="text-success" />
               <h3 class="font-semibold text-highlighted">AI 分析結果</h3>
             </div>
           </template>
@@ -258,16 +261,16 @@ const handleLinked = async (caseId: string) => {
           <div class="text-muted">
             AI 分析功能開發中...
           </div>
-        </UCard>
+        </AppSection>
       </div>
     </div>
 
     <div v-else class="flex items-center justify-center h-full">
       <div class="text-center">
-        <UIcon name="i-lucide-mail-x" class="w-16 h-16 mx-auto mb-4 text-muted" />
+        <BaseIcon name="i-lucide-mail-x" class="w-16 h-16 mx-auto mb-4 text-muted" />
         <h3 class="text-lg font-semibold text-highlighted mb-2">找不到郵件</h3>
         <p class="text-muted mb-4">此郵件可能已被刪除</p>
-        <UButton color="primary" @click="goBack">返回列表</UButton>
+        <BaseButton color="primary" @click="goBack">返回列表</BaseButton>
       </div>
     </div>
 
@@ -275,8 +278,7 @@ const handleLinked = async (caseId: string) => {
     <EmailLinkToCaseDialog
       v-if="email"
       :email-id="emailId"
-      :open="showLinkDialog"
-      @close="showLinkDialog = false"
+      v-model="showLinkDialog"
       @linked="handleLinked"
     />
   </div>
