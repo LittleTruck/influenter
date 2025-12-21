@@ -14,6 +14,9 @@ import {
   BaseCheckbox, BaseSwitch, BaseModal, BaseSlideover, BaseFormField
 } from '~/components/base'
 import draggable from 'vuedraggable'
+import CalendarView from '~/components/calendar/CalendarView.vue'
+import { useCalendar } from '~/composables/useCalendar'
+import { useCases } from '~/composables/useCases'
 
 definePageMeta({
   layout: false, // 不使用 layout，確保在 UApp 內直接渲染
@@ -49,6 +52,7 @@ const collapsibleStates = reactive({
   toast: true,
   board: true,
   draggable: true,
+  calendar: true,
 })
 
 // 表單數據
@@ -154,12 +158,21 @@ const openSlideover = () => {
 const closeSlideover = () => {
   isSlideoverOpen.value = false
 }
+
+// 日曆相關
+const { fetchCases } = useCases()
+const { loading: calendarLoading } = useCalendar()
+
+// 載入案件數據供日曆使用
+onMounted(async () => {
+  await fetchCases()
+})
 </script>
 
 <template>
-  <div class="min-h-screen w-full bg-gray-50 dark:bg-gray-900 overflow-y-auto">
-    <!-- 頂部導航 -->
-    <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+  <div class="min-h-screen w-full bg-gray-50 dark:bg-gray-900">
+    <!-- 頂部導航 - 固定 -->
+    <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-50 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
       <div class="w-full px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-4">
@@ -170,6 +183,7 @@ const closeSlideover = () => {
             <BaseBadge color="primary" variant="soft">開發用</BaseBadge>
           </div>
           <div class="flex items-center gap-2">
+            <BaseColorModeButton />
             <BaseButton
               @click="openModal"
               color="primary"
@@ -188,7 +202,7 @@ const closeSlideover = () => {
     </nav>
 
     <!-- 主要內容 -->
-    <main class="w-full py-8 px-4 sm:px-6 lg:px-8">
+    <main class="w-full py-8 px-4 sm:px-6 lg:px-8 pt-24">
       <div class="space-y-6">
         
         <!-- BaseButton 按鈕組件 -->
@@ -1003,6 +1017,45 @@ const closeSlideover = () => {
                   <BaseButton @click="showToast('info', '資訊訊息')" color="neutral">
                     資訊 Toast
                   </BaseButton>
+              </div>
+            </template>
+          </BaseCollapsible>
+        </BaseCard>
+
+        <!-- Calendar 日曆組件 -->
+        <BaseCard>
+          <BaseCollapsible v-model:open="collapsibleStates.calendar">
+            <div class="flex items-center gap-2 cursor-pointer p-4">
+              <BaseIcon name="i-lucide-calendar" class="w-5 h-5" />
+              <h2 class="text-2xl font-bold">Calendar 日曆組件</h2>
+              <BaseIcon 
+                :name="collapsibleStates.calendar ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" 
+                class="w-5 h-5 ml-auto"
+              />
+            </div>
+            <template #content>
+              <div class="px-4 pb-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  使用 FullCalendar 實作的日曆組件，支援日/週/月視圖切換，並可拖曳案件來調整截止日期。
+                </p>
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-visible w-full">
+                  <div class="w-full min-h-[600px] flex flex-col">
+                    <CalendarView v-if="!calendarLoading" />
+                    <div v-else class="flex items-center justify-center h-full">
+                      <p class="text-gray-500 dark:text-gray-400">載入中...</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                  <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">功能說明：</p>
+                  <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    <li>• 支援月視圖、週視圖、日視圖切換</li>
+                    <li>• 可拖曳案件事件來更新截止日期</li>
+                    <li>• 點擊事件可導航到案件詳情頁</li>
+                    <li>• 根據案件狀態顯示不同顏色</li>
+                    <li>• 支援深色模式</li>
+                  </ul>
+                </div>
               </div>
             </template>
           </BaseCollapsible>

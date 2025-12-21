@@ -65,8 +65,7 @@ const navigationItems: NavigationMenuItem[][] = [[{
 }, {
   label: '日曆',
   icon: 'i-lucide-calendar',
-  to: '/calendar',
-  badge: '即將推出'
+  to: '/calendar'
 }], [{
   label: '設定',
   icon: 'i-lucide-settings',
