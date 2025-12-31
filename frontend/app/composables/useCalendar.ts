@@ -1,4 +1,4 @@
-import type { Case } from '~/types/cases'
+import type { Case, CaseDetail, CasePhase } from '~/types/cases'
 import type { EventInput, EventDropArg } from '@fullcalendar/core'
 
 /**
@@ -24,13 +24,61 @@ export const useCalendar = () => {
   const loading = ref(false)
 
   /**
+   * 取得階段狀態顏色
+   */
+  const getPhaseStatusColor = (phase: CasePhase): string => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const startDate = new Date(phase.start_date)
+    startDate.setHours(0, 0, 0, 0)
+    
+    const endDate = new Date(phase.end_date)
+    endDate.setHours(23, 59, 59, 999)
+
+    if (today > endDate) {
+      return '#10b981' // success/green - 已完成
+    } else if (today >= startDate && today <= endDate) {
+      return '#3b82f6' // primary/blue - 進行中
+    } else {
+      return '#6b7280' // neutral/gray - 待開始
+    }
+  }
+
+  /**
    * 將案件轉換為日曆事件
+   * 包含案件截止日期和階段事件
    */
   const casesToEvents = (casesList: Case[], view?: CalendarView): EventInput[] => {
-    return casesList
-      .filter(caseItem => caseItem.deadline_date)
-      .map(caseItem => {
-        const deadlineDate = new Date(caseItem.deadline_date!)
+    const events: EventInput[] = []
+
+    casesList.forEach(caseItem => {
+      const caseDetail = caseItem as CaseDetail
+      
+      // 如果有階段，顯示階段事件
+      if (caseDetail.phases && caseDetail.phases.length > 0) {
+        caseDetail.phases.forEach((phase: CasePhase) => {
+          const startDate = new Date(phase.start_date)
+          const endDate = new Date(phase.end_date)
+          
+          events.push({
+            id: `phase-${phase.id}`,
+            title: `${caseItem.title} - ${phase.name}`,
+            start: startDate.toISOString(),
+            end: new Date(endDate.getTime() + 86400000).toISOString(), // 加一天因為 end_date 是包含的
+            allDay: true,
+            backgroundColor: getPhaseStatusColor(phase),
+            borderColor: getPhaseStatusColor(phase),
+            extendedProps: {
+              case: caseItem,
+              phase: phase,
+              type: 'phase'
+            }
+          } as EventInput)
+        })
+      } else if (caseItem.deadline_date) {
+        // 如果沒有階段但有截止日期，顯示截止日期事件
+        const deadlineDate = new Date(caseItem.deadline_date)
         
         // 根據案件狀態設定顏色
         const getEventColor = (status: Case['status']) => {
@@ -48,21 +96,22 @@ export const useCalendar = () => {
           }
         }
 
-        // 所有案件都顯示為全天事件（因為目前案件還不能設定時間）
-        const eventStart = deadlineDate.toISOString()
-        
-        return {
+        events.push({
           id: caseItem.id,
           title: `${caseItem.title} - ${caseItem.brand_name}`,
-          start: eventStart,
-          allDay: true, // 所有案件都是全天事件
+          start: deadlineDate.toISOString(),
+          allDay: true,
           backgroundColor: getEventColor(caseItem.status),
           borderColor: getEventColor(caseItem.status),
           extendedProps: {
-            case: caseItem
+            case: caseItem,
+            type: 'case'
           }
-        } as EventInput
-      })
+        } as EventInput)
+      }
+    })
+
+    return events
   }
 
   /**
@@ -77,10 +126,18 @@ export const useCalendar = () => {
    * 處理事件拖曳
    */
   const handleEventDrop = async (dropInfo: EventDropArg) => {
-    const caseId = dropInfo.event.id
+    const eventId = dropInfo.event.id
     const newDate = dropInfo.event.start
+    const eventType = dropInfo.event.extendedProps?.type
 
-    // 找到對應的案件
+    // 如果是階段事件，不支援拖曳（階段日期應該在案件詳情頁面編輯）
+    if (eventType === 'phase') {
+      handleError(new Error('階段日期請在案件詳情頁面編輯'), '無法拖曳')
+      return
+    }
+
+    // 處理案件截止日期拖曳
+    const caseId = eventId
     const caseItem = cases.value.find(c => c.id === caseId)
     if (!caseItem) {
       handleError(new Error('找不到對應的案件'), '更新失敗')

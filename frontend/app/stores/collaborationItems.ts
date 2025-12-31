@@ -84,8 +84,22 @@ export const useCollaborationItemsStore = defineStore('collaborationItems', () =
    * 取得所有項目（樹狀結構）
    */
   const fetchItems = async () => {
+    // 如果已經在載入，直接返回（避免重複請求）
+    if (loading.value) {
+      console.debug('fetchItems called while already loading, skipping')
+      return
+    }
+    
     loading.value = true
     error.value = null
+
+    // 設置超時保護：確保 loading 不會永遠為 true
+    const timeoutId = setTimeout(() => {
+      if (loading.value) {
+        console.warn('fetchItems timeout after 10s, forcing loading to false')
+        loading.value = false
+      }
+    }, 10000)
 
     try {
       const config = useRuntimeConfig()
@@ -97,7 +111,9 @@ export const useCollaborationItemsStore = defineStore('collaborationItems', () =
           method: 'GET',
           headers: {
             Authorization: `Bearer ${authStore.token}`
-          }
+          },
+          // 設置請求超時（5秒）
+          timeout: 5000
         }
       )
 
@@ -106,14 +122,31 @@ export const useCollaborationItemsStore = defineStore('collaborationItems', () =
       
       // 同步到 localStorage
       collaborationItemsStorage.setItems(data.data)
-    } catch (e: unknown) {
-      error.value = logError(e, '取得合作項目列表失敗', { component: 'collaborationItemsStore', action: 'fetchItems' })
+    } catch (e: any) {
+      // 如果是 404 或網絡錯誤，這是正常的（後端還沒實作），不記錄錯誤
+      const is404 = e?.statusCode === 404 || e?.status === 404 || e?.response?.status === 404
+      const isNetworkError = e?.name === 'FetchError' || e?.message?.includes('fetch')
+      
+      if (!is404 && !isNetworkError) {
+        error.value = logError(e, '取得合作項目列表失敗', { component: 'collaborationItemsStore', action: 'fetchItems' })
+      }
+      
       // Fallback 到 localStorage
-      const localItems = collaborationItemsStorage.getItems()
-      if (localItems.length > 0) {
-        items.value = buildTree(localItems)
+      try {
+        const localItems = collaborationItemsStorage.getItems()
+        if (localItems.length > 0) {
+          items.value = buildTree(localItems)
+        } else {
+          // 確保 items 為空陣列
+          items.value = []
+        }
+      } catch (storageError) {
+        console.error('Failed to load from localStorage:', storageError)
+        items.value = []
       }
     } finally {
+      clearTimeout(timeoutId)
+      // 確保 loading 狀態一定會被設置為 false
       loading.value = false
     }
   }

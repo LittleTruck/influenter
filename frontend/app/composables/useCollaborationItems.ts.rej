@@ -1,0 +1,12 @@
+diff a/frontend/app/composables/useCollaborationItems.ts b/frontend/app/composables/useCollaborationItems.ts	(rejected hunks)
+@@ -33,8 +33,4 @@
+     buildTree: itemsStore.buildTree,
+     flattenTree: itemsStore.flattenTree
+   }
+-}
+-
+-
+-
+-
++}
+\ No newline at end of file

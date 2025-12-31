@@ -59,6 +59,8 @@ export interface CaseDetail extends Case {
   collaboration_items_detail?: CollaborationItem[] // 完整的合作項目資訊
   collaboration_items_total?: number // 總價
   collaboration_items_custom?: Array<{ id: string; title: string; description?: string; price: number }> // 自訂合作項目
+  phases?: CasePhase[] // 案件階段列表
+  start_date?: string // 案件開始日期
 }
 
 /**
@@ -197,5 +199,63 @@ export interface UpdateTaskRequest {
  */
 export interface ReorderTasksRequest {
   task_ids: string[] // 按順序排列的任務 ID 陣列
+}
+
+/**
+ * 階段基本資訊
+ */
+export interface Phase {
+  id: string
+  name: string
+  duration_days: number
+  order: number
+  start_date?: string
+  end_date?: string
+}
+
+/**
+ * 案件階段
+ */
+export interface CasePhase {
+  id: string
+  case_id: string
+  name: string
+  start_date: string
+  end_date: string
+  duration_days: number
+  order: number
+  collaboration_item_phase_id?: string // 來源階段（如果有）
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * 建立案件階段請求
+ */
+export interface CreateCasePhaseRequest {
+  name: string
+  start_date: string
+  duration_days: number
+  order?: number
+  collaboration_item_phase_id?: string
+}
+
+/**
+ * 更新案件階段請求
+ */
+export interface UpdateCasePhaseRequest {
+  name?: string
+  start_date?: string
+  end_date?: string
+  duration_days?: number
+  order?: number
+}
+
+/**
+ * 套用流程請求
+ */
+export interface ApplyTemplateRequest {
+  workflow_id: string
+  start_date: string
 }
 
