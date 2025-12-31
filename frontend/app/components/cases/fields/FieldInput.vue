@@ -71,6 +71,7 @@ const selectItems = computed(() => {
       v-model="localValue"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'text'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
@@ -83,6 +84,7 @@ const selectItems = computed(() => {
       type="email"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'email'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
@@ -95,6 +97,7 @@ const selectItems = computed(() => {
       type="tel"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'phone'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
@@ -107,6 +110,7 @@ const selectItems = computed(() => {
       type="url"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'url'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
@@ -119,6 +123,7 @@ const selectItems = computed(() => {
       type="number"
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'number'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue || '-' }}
@@ -130,6 +135,7 @@ const selectItems = computed(() => {
       v-model="localValue"
       type="date"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'date'" class="text-sm text-gray-900 dark:text-white py-2">
       {{ localValue ? new Date(localValue).toLocaleDateString('zh-TW') : '-' }}
@@ -142,6 +148,7 @@ const selectItems = computed(() => {
       :placeholder="field.placeholder || `請輸入${field.label}`"
       :rows="3"
       :required="field.is_required"
+      class="w-full"
     />
     <div v-else-if="field.type === 'textarea'" class="text-sm text-gray-900 dark:text-white py-2 whitespace-pre-wrap">
       {{ localValue || '-' }}
@@ -153,6 +160,7 @@ const selectItems = computed(() => {
       v-model="localValue"
       :items="selectItems"
       :placeholder="field.placeholder || `請選擇${field.label}`"
+      class="w-full"
     />
     <div v-else-if="field.type === 'select'" class="text-sm text-gray-900 dark:text-white py-2">
       <BaseBadge v-if="localValue" color="primary" variant="subtle" size="sm">
@@ -168,6 +176,7 @@ const selectItems = computed(() => {
       :items="selectItems"
       multiple
       :placeholder="field.placeholder || `請選擇${field.label}`"
+      class="w-full"
     />
     <div v-else-if="field.type === 'multiselect'" class="text-sm py-2">
       <div v-if="Array.isArray(localValue) && localValue.length > 0" class="flex flex-wrap gap-1">

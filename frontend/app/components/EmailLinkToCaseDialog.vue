@@ -115,7 +115,7 @@ watch(() => props.modelValue, (open) => {
             :items="cases"
             value-key="id"
             placeholder="選擇案件..."
-            class="mb-4"
+            class="w-full mb-4"
           >
             <template #label>
               <template v-if="selectedCaseId">
@@ -134,24 +134,21 @@ watch(() => props.modelValue, (open) => {
             </template>
           </BaseSelect>
 
-          <div class="flex gap-2">
+          <div class="flex justify-end gap-2">
+            <BaseButton
+              color="neutral"
+              variant="outline"
+              @click="showCreateForm = true"
+            >
+              或建立新案件
+            </BaseButton>
             <BaseButton
               color="primary"
               :loading="loading"
               :disabled="!selectedCaseId"
               @click="linkToExistingCase"
-              block
             >
               關聯
-            </BaseButton>
-            
-            <BaseButton
-              color="neutral"
-              variant="outline"
-              @click="showCreateForm = true"
-              block
-            >
-              或建立新案件
             </BaseButton>
           </div>
         </div>
@@ -166,6 +163,7 @@ watch(() => props.modelValue, (open) => {
               <BaseInput
                 v-model="newCase.title"
                 placeholder="例如：Nike 球鞋業配"
+                class="w-full"
               />
             </div>
 
@@ -176,6 +174,7 @@ watch(() => props.modelValue, (open) => {
               <BaseInput
                 v-model="newCase.brand_name"
                 placeholder="例如：Nike"
+                class="w-full"
               />
             </div>
 
@@ -187,26 +186,24 @@ watch(() => props.modelValue, (open) => {
                 v-model="newCase.description"
                 placeholder="案件的詳細描述..."
                 :rows="3"
+                class="w-full"
               />
             </div>
 
-            <div class="flex gap-2">
-              <BaseButton
-                color="primary"
-                :loading="creating"
-                @click="createAndLink"
-                block
-              >
-                建立並關聯
-              </BaseButton>
-              
+            <div class="flex justify-end gap-2">
               <BaseButton
                 color="neutral"
                 variant="outline"
                 @click="showCreateForm = false"
-                block
               >
                 返回
+              </BaseButton>
+              <BaseButton
+                color="primary"
+                :loading="creating"
+                @click="createAndLink"
+              >
+                建立並關聯
               </BaseButton>
             </div>
           </div>

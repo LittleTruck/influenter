@@ -34,6 +34,7 @@ export { default as BaseColorModeButton } from './BaseColorModeButton.vue'
 export { default as BaseDashboardGroup } from './BaseDashboardGroup.vue'
 export { default as BaseDashboardSidebar } from './BaseDashboardSidebar.vue'
 export { default as BaseNavigationMenu } from './BaseNavigationMenu.vue'
+export { default as DraggableList } from './DraggableList.vue'
 
 // BaseFieldGroup 是 BaseFormGroup 的別名
 export { default as BaseFieldGroup } from './BaseFormGroup.vue'

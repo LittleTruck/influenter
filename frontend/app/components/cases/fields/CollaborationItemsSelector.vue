@@ -271,7 +271,7 @@ const totalPrice = computed(() => {
       </template>
 
       <template #footer>
-        <div class="flex items-center justify-end gap-2">
+        <div class="flex justify-end gap-2">
           <BaseButton variant="ghost" @click="showCustomForm = false">取消</BaseButton>
           <BaseButton @click="handleAddCustom">確定</BaseButton>
         </div>

@@ -19,15 +19,15 @@ const handleClick = () => {
   emit('card-click', props.caseData.id)
 }
 
-// 狀態漸層背景類別
-const statusGradientClass = computed(() => {
-  const gradients = {
-    to_confirm: 'from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20',
-    in_progress: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20',
-    completed: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20',
-    cancelled: 'from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/20'
+// 狀態邊框顏色類別
+const statusBorderClass = computed(() => {
+  const borders = {
+    to_confirm: 'border-yellow-500 dark:border-yellow-500',
+    in_progress: 'border-blue-500 dark:border-blue-500',
+    completed: 'border-green-500 dark:border-green-500',
+    cancelled: 'border-gray-400 dark:border-gray-500'
   }
-  return gradients[props.caseData.status] || gradients.to_confirm
+  return borders[props.caseData.status] || borders.to_confirm
 })
 
 // 取得品牌名稱首字（用於頭像）
@@ -40,8 +40,9 @@ const avatarText = computed(() => {
   <div
     :class="[
       'case-board-card rounded-lg p-4 transition-all duration-200 cursor-pointer',
-      `bg-gradient-to-br ${statusGradientClass}`,
-      'hover:shadow-lg hover:-translate-y-1 border border-gray-200 dark:border-gray-700'
+      'bg-white dark:bg-gray-900/50',
+      'hover:shadow-lg hover:-translate-y-1 border-2',
+      statusBorderClass
     ]"
     @click="handleClick"
   >

@@ -3,6 +3,7 @@ import type { CaseDetail } from '~/types/cases'
 import type { CaseField } from '~/types/fields'
 import { BaseButton, BaseIcon } from '~/components/base'
 import FieldInput from '~/components/cases/fields/FieldInput.vue'
+import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
 
 interface Props {
   /** 案件詳情 */
@@ -21,6 +22,9 @@ const emit = defineEmits<{
   'field-update': [fieldName: string, value: unknown]
   'field-delete': [fieldId: string]
 }>()
+
+// 編輯模式
+const isEditing = ref(false)
 
 
 // 取得屬性值
@@ -58,46 +62,58 @@ const sortedFields = computed(() => {
 </script>
 
 <template>
-  <div class="properties-panel space-y-1">
-    <div
-      v-for="field in sortedFields"
-      :key="field.id"
-      class="property-row group flex items-center gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-    >
-      <!-- 左側：屬性名稱 -->
-      <div class="property-label flex items-center gap-2 min-w-[150px] flex-shrink-0">
-        <BaseIcon
-          v-if="field.is_system"
-          name="i-lucide-lock"
-          class="w-4 h-4 text-gray-400 flex-shrink-0"
-        />
-        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ field.label }}
-        </span>
-      </div>
-
-      <!-- 右側：屬性值（可編輯） -->
-      <div class="property-value flex-1 min-w-0">
-        <FieldInput
-          :field="field"
-          :model-value="getFieldValue(field)"
-          :editable="editable && !field.is_system"
-          @update:model-value="handleFieldUpdate(field.name, $event)"
-        />
-      </div>
-
-      <!-- 刪除按鈕（僅自定義屬性，hover 時顯示） -->
+  <AppSectionWithHeader
+    title="屬性"
+    description="案件的詳細屬性資訊"
+  >
+    <template #actions>
       <BaseButton
-        v-if="!field.is_system && editable"
-        icon="i-lucide-trash-2"
+        v-if="editable"
+        :icon="isEditing ? 'i-lucide-x' : 'i-lucide-edit'"
         variant="ghost"
-        size="xs"
-        color="error"
-        class="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-        @click="handleDeleteField(field.id)"
-      />
+        size="sm"
+        @click="isEditing = !isEditing"
+      >
+        {{ isEditing ? '取消' : '編輯' }}
+      </BaseButton>
+    </template>
+
+    <div class="properties-panel space-y-1">
+      <div
+        v-for="field in sortedFields"
+        :key="field.id"
+        class="property-row group flex items-center gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      >
+        <!-- 左側：屬性名稱 -->
+        <div class="property-label flex items-center gap-2 min-w-[150px] flex-shrink-0">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ field.label }}
+          </span>
+        </div>
+
+        <!-- 右側：屬性值（可編輯） -->
+        <div class="property-value flex-1 min-w-0">
+          <FieldInput
+            :field="field"
+            :model-value="getFieldValue(field)"
+            :editable="isEditing && !field.is_system"
+            @update:model-value="handleFieldUpdate(field.name, $event)"
+          />
+        </div>
+
+        <!-- 刪除按鈕（僅自定義屬性，編輯模式下顯示） -->
+        <BaseButton
+          v-if="!field.is_system && isEditing"
+          icon="i-lucide-trash-2"
+          variant="ghost"
+          size="xs"
+          color="error"
+          class="flex-shrink-0"
+          @click="handleDeleteField(field.id)"
+        />
+      </div>
     </div>
-  </div>
+  </AppSectionWithHeader>
 </template>
 
 <style scoped>
@@ -125,4 +141,3 @@ const sortedFields = computed(() => {
   }
 }
 </style>
-

@@ -102,6 +102,7 @@ const handleCancel = () => {
             v-model="formData.title"
             placeholder="請輸入任務標題"
             required
+            class="w-full"
           />
         </BaseFormGroup>
 
@@ -110,6 +111,7 @@ const handleCancel = () => {
             v-model="formData.description"
             placeholder="請輸入任務描述"
             :rows="3"
+            class="w-full"
           />
         </BaseFormGroup>
 
@@ -118,6 +120,7 @@ const handleCancel = () => {
             <BaseInput
               v-model="formData.due_date"
               type="date"
+              class="w-full"
             />
           </BaseFormGroup>
 
@@ -125,6 +128,7 @@ const handleCancel = () => {
             <BaseInput
               v-model="formData.due_time"
               type="time"
+              class="w-full"
             />
           </BaseFormGroup>
         </div>
@@ -133,13 +137,14 @@ const handleCancel = () => {
           <BaseInput
             v-model.number="formData.reminder_days"
             type="number"
+            class="w-full"
           />
         </BaseFormGroup>
       </div>
     </template>
 
     <template #footer>
-      <div class="flex items-center justify-end gap-2">
+      <div class="flex justify-end gap-2">
         <BaseButton variant="ghost" @click="handleCancel">取消</BaseButton>
         <BaseButton
           :loading="isSubmitting"

@@ -24,6 +24,10 @@ interface Props {
 	disabled?: boolean
 	/** 是否顯示內容區域 */
 	content?: boolean
+	/** 變體 */
+	variant?: 'pill' | 'link'
+	/** 顏色 */
+	color?: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
 	/** 尺寸 */
 	size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 	/** 自定義 UI 配置 */
@@ -50,6 +54,8 @@ const emit = defineEmits<{
 		:default-value="props.defaultValue"
 		:disabled="props.disabled"
 		:content="props.content"
+		:variant="props.variant"
+		:color="props.color"
 		:size="props.size"
 		:ui="props.ui"
 		@update:model-value="(value: string | number) => emit('update:modelValue', value)"
