@@ -27,7 +27,7 @@ dev:
 	@echo "服務列表:"
 	@echo "  - PostgreSQL: localhost:5432"
 	@echo "  - Redis: localhost:6379"
-	@echo "  - Backend API: http://localhost:5000"
+	@echo "  - Backend API: http://localhost:8080"
 	@echo "  - Frontend: http://localhost:3000"
 	@echo "  - Asynq Monitor: http://localhost:8180"
 

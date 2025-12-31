@@ -30,7 +30,7 @@ services:
       dockerfile: Dockerfile
     container_name: influenter-backend-api-prod
     ports:
-      - "5000:8080"
+      - "8080:8080"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_ADDR: redis:6379
@@ -78,7 +78,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:5000/api/v1}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080/api/v1}
     depends_on:
       - backend-api
     restart: unless-stopped
