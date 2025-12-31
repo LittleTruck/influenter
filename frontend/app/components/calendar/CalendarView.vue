@@ -37,7 +37,7 @@ const calendarOptions = computed(() => ({
   },
   eventClick: (clickInfo: any) => {
     // 點擊事件時導航到案件詳情
-    const caseId = clickInfo.event.id
+    const caseId = clickInfo.event.extendedProps?.case?.id || clickInfo.event.id
     navigateTo(`/cases/${caseId}`)
   },
   height: 'auto', // 讓 FullCalendar 自動計算高度

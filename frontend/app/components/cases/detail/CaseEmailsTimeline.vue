@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { CaseEmail } from '~/types/cases'
+import type { TimelineItem } from '@nuxt/ui'
 import { BaseCard, BaseIcon } from '~/components/base'
-import EmptyState from '~/components/common/EmptyState.vue'
+import BaseCollapsible from '~/components/base/BaseCollapsible.vue'
 import { format } from 'date-fns'
 
 interface Props {
@@ -37,88 +38,90 @@ const getEmailIcon = (emailType?: string) => {
 const formatTime = (dateStr: string) => {
   return format(new Date(dateStr), 'yyyy/MM/dd HH:mm')
 }
+
+// 轉換為 Timeline items
+const timelineItems = computed<TimelineItem[]>(() => {
+  return props.emails.map((email) => ({
+    date: formatTime(email.received_at),
+    title: email.from_name || email.from_email,
+    description: email.subject || '',
+    icon: getEmailIcon(email.email_type),
+    value: email.id,
+    // 將原始 email 數據存儲在自定義屬性中，以便在 slot 中使用
+    _email: email
+  }))
+})
+
+// 計算當前活動的郵件（最後一封）
+const activeEmailIndex = computed(() => {
+  return props.emails.length > 0 ? props.emails.length - 1 : undefined
+})
 </script>
 
 <template>
-  <div class="email-timeline relative">
-    <!-- 時間軸連接線 -->
-    <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
-
-    <!-- 郵件節點 -->
-    <div
-      v-for="(email, index) in emails"
-      :key="email.id"
-      class="timeline-item relative pl-12 pb-6"
+  <div class="case-emails-timeline">
+    <UTimeline
+      v-if="emails.length > 0"
+      :items="timelineItems"
+      :default-value="activeEmailIndex"
+      color="primary"
     >
-      <!-- 節點圖示 -->
-      <div
-        class="absolute left-0 w-8 h-8 rounded-full bg-primary-500 border-4 border-white dark:border-gray-900 flex items-center justify-center z-10"
-      >
-        <BaseIcon :name="getEmailIcon(email.email_type)" class="w-4 h-4 text-white" />
-      </div>
-
-      <!-- 郵件卡片（可展開） -->
-      <BaseCard
-        class="email-card cursor-pointer transition-all duration-200 hover:shadow-md"
-        @click="toggleEmail(email.id)"
-      >
-        <div class="flex items-start justify-between">
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-gray-900 dark:text-white">
-              {{ email.from_name || email.from_email }}
-            </div>
-            <div v-if="email.subject" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {{ email.subject }}
-            </div>
-          </div>
-          <div class="text-xs text-gray-400 dark:text-gray-500 ml-4 flex-shrink-0">
-            {{ formatTime(email.received_at) }}
-          </div>
+      <template #title="{ item }">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="font-medium text-highlighted truncate">{{ item.title }}</span>
+          <span v-if="item.description" class="text-sm text-muted truncate">{{ item.description }}</span>
         </div>
+      </template>
+      
+      <template #date="{ item }">
+        <div class="flex items-center justify-between gap-4 flex-shrink-0">
+          <span class="text-xs text-dimmed whitespace-nowrap">{{ item.date }}</span>
+          <BaseIcon
+            v-if="expandedEmails.includes((item as any)._email.id)"
+            name="i-lucide-chevron-down"
+            class="w-4 h-4 text-gray-400 cursor-pointer"
+            @click.stop="toggleEmail((item as any)._email.id)"
+          />
+          <BaseIcon
+            v-else
+            name="i-lucide-chevron-right"
+            class="w-4 h-4 text-gray-400 cursor-pointer"
+            @click.stop="toggleEmail((item as any)._email.id)"
+          />
+        </div>
+      </template>
 
-        <!-- 展開內容（動畫） -->
-        <Transition name="expand">
-          <div v-if="expandedEmails.includes(email.id)" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div class="text-sm text-gray-600 dark:text-gray-300">
-              <p class="mb-2">
-                <span class="font-medium">寄件者：</span>{{ email.from_email }}
-              </p>
-              <p v-if="email.subject" class="mb-2">
-                <span class="font-medium">主旨：</span>{{ email.subject }}
-              </p>
-            </div>
-          </div>
-        </Transition>
-      </BaseCard>
-    </div>
+      <template #description="{ item }">
+        <BaseCollapsible
+          :open="expandedEmails.includes((item as any)._email.id)"
+          @update:open="() => toggleEmail((item as any)._email.id)"
+          :ui="{ content: 'pb-0' }"
+        >
+          <template #content>
+            <BaseCard class="mt-2">
+              <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                <p>
+                  <span class="font-medium">寄件者：</span>{{ (item as any)._email.from_email }}
+                </p>
+                <p v-if="(item as any)._email.subject">
+                  <span class="font-medium">主旨：</span>{{ (item as any)._email.subject }}
+                </p>
+              </div>
+            </BaseCard>
+          </template>
+        </BaseCollapsible>
+      </template>
+    </UTimeline>
 
     <!-- 空狀態 -->
-    <EmptyState
-      v-if="emails.length === 0"
-      icon="i-lucide-mail"
-      title="還沒有郵件"
-      :show-icon-background="false"
-    />
+    <div v-else class="text-center py-8 text-muted">
+      <p class="mb-1">還沒有郵件</p>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-.expand-enter-from,
-.expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-}
-
-.expand-enter-to,
-.expand-leave-from {
-  opacity: 1;
-  max-height: 1000px;
+.case-emails-timeline {
+  padding: 1rem 0;
 }
 </style>
-

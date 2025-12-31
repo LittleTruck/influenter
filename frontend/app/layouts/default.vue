@@ -39,6 +39,7 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { BaseButton, BaseIcon, BaseDashboardGroup, BaseDashboardSidebar, BaseNavigationMenu } from '~/components/base'
+import UserDropdown from '~/components/UserDropdown.vue'
 
 const navigationItems: NavigationMenuItem[][] = [[{
   label: '首頁',

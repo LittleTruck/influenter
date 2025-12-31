@@ -5,8 +5,10 @@ import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
-import { BaseButton } from '~/components/base'
+import { BaseButton, BaseIcon } from '~/components/base'
 import CollaborationItemsEditor from '~/components/cases/fields/CollaborationItemsEditor.vue'
+import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
+import BaseCollapsible from '~/components/base/BaseCollapsible.vue'
 
 interface Props {
   /** 案件詳情 */
@@ -25,7 +27,7 @@ const emit = defineEmits<{
 
 const { updateCase } = useCases()
 const { handleError, handleSuccess } = useErrorHandler()
-const { flatItems } = useCollaborationItems()
+const { flatItems, buildTree } = useCollaborationItems()
 
 // 編輯模式
 const isEditing = ref(false)
@@ -89,47 +91,156 @@ const selectedItems = computed(() => {
   return items
 })
 
-// 計算總價
-const totalPrice = computed(() => {
-  return selectedItems.value.reduce((sum, item) => sum + (item.price || 0), 0)
+// 構建樹形結構
+const treeItems = computed(() => {
+  return buildTree(selectedItems.value)
 })
+
+// 計算總價（遞歸計算所有項目）
+const calculateTotalPrice = (items: Array<CollaborationItem & { isCustom?: boolean; children?: any[] }>): number => {
+  return items.reduce((sum, item) => {
+    const itemPrice = item.price || 0
+    const childrenPrice = item.children ? calculateTotalPrice(item.children) : 0
+    return sum + itemPrice + childrenPrice
+  }, 0)
+}
+
+const totalPrice = computed(() => {
+  return calculateTotalPrice(treeItems.value)
+})
+
+// 展開/收起的狀態
+const expandedItems = ref<string[]>([])
+
+const toggleItem = (itemId: string) => {
+  const index = expandedItems.value.indexOf(itemId)
+  if (index > -1) {
+    expandedItems.value.splice(index, 1)
+  } else {
+    expandedItems.value.push(itemId)
+  }
+}
+
+// 遞歸渲染項目
+const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: any[] }, level = 0) => {
+  const hasChildren = item.children && item.children.length > 0
+  const isExpanded = expandedItems.value.includes(item.id)
+  
+  return {
+    item,
+    level,
+    hasChildren,
+    isExpanded
+  }
+}
 </script>
 
 <template>
-  <div class="case-collaboration-items">
-    <div v-if="!isEditing" class="space-y-3">
-      <div v-if="selectedItems.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
-        尚未選擇合作項目
-      </div>
-      <div v-else class="space-y-2">
-        <div
-          v-for="item in selectedItems"
-          :key="item.id"
-          class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50"
-        >
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h4 class="font-medium text-gray-900 dark:text-white">
-                {{ item.title }}
-              </h4>
-              <span
-                v-if="item.isCustom"
-                class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded"
-              >
-                自訂
-              </span>
-            </div>
-            <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {{ item.description }}
-            </p>
-          </div>
-          <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0">
-            {{ formatAmount(item.price) }}
-          </span>
+  <AppSectionWithHeader
+    title="合作項目"
+    description="與此案件相關的合作項目"
+  >
+    <template #actions>
+      <BaseButton
+        v-if="editable"
+        :icon="isEditing ? 'i-lucide-x' : 'i-lucide-edit'"
+        variant="ghost"
+        size="sm"
+        @click="isEditing = !isEditing"
+      >
+        {{ isEditing ? '取消' : '編輯' }}
+      </BaseButton>
+    </template>
+
+    <div class="case-collaboration-items">
+      <div v-if="!isEditing" class="space-y-1">
+        <div v-if="treeItems.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+          尚未選擇合作項目
         </div>
         
+        <!-- 遞歸渲染項目樹 -->
+        <template v-for="item in treeItems" :key="item.id">
+          <div class="collaboration-item">
+            <div
+              class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <!-- 展開/收起按鈕 -->
+                <BaseIcon
+                  v-if="item.children && item.children.length > 0"
+                  :name="expandedItems.includes(item.id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                  class="w-4 h-4 text-gray-400 cursor-pointer flex-shrink-0"
+                  @click="toggleItem(item.id)"
+                />
+                <div v-else class="w-4 flex-shrink-0" />
+                
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                      {{ item.title }}
+                    </h4>
+                    <span
+                      v-if="item.isCustom"
+                      class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded flex-shrink-0"
+                    >
+                      自訂
+                    </span>
+                  </div>
+                  <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                    {{ item.description }}
+                  </p>
+                </div>
+              </div>
+              <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0 whitespace-nowrap">
+                {{ formatAmount(item.price || 0) }}
+              </span>
+            </div>
+            
+            <!-- 子項目 -->
+            <BaseCollapsible
+              v-if="item.children && item.children.length > 0"
+              :open="expandedItems.includes(item.id)"
+              @update:open="() => toggleItem(item.id)"
+              :ui="{ content: 'pb-0 pl-6' }"
+            >
+              <template #content>
+                <div class="space-y-1">
+                  <template v-for="child in item.children" :key="child.id">
+                    <div
+                      class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                      <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <div class="w-4 flex-shrink-0" />
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center gap-2">
+                            <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                              {{ child.title }}
+                            </h4>
+                            <span
+                              v-if="child.isCustom"
+                              class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded flex-shrink-0"
+                            >
+                              自訂
+                            </span>
+                          </div>
+                          <p v-if="child.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                            {{ child.description }}
+                          </p>
+                        </div>
+                      </div>
+                      <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0 whitespace-nowrap">
+                        {{ formatAmount(child.price || 0) }}
+                      </span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </BaseCollapsible>
+          </div>
+        </template>
+        
         <!-- 總價顯示 -->
-        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div v-if="treeItems.length > 0" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <span class="text-base font-semibold text-gray-900 dark:text-white">
               總價
@@ -141,27 +252,15 @@ const totalPrice = computed(() => {
         </div>
       </div>
 
-      <!-- 編輯按鈕 -->
-      <div v-if="editable" class="flex justify-end pt-2">
-        <BaseButton
-          icon="i-lucide-edit"
-          variant="outline"
-          size="sm"
-          @click="isEditing = true"
-        >
-          編輯
-        </BaseButton>
-      </div>
+      <!-- 編輯模式 -->
+      <CollaborationItemsEditor
+        v-else
+        :items="selectedItems"
+        @save="handleUpdate"
+        @cancel="isEditing = false"
+      />
     </div>
-
-    <!-- 編輯模式 -->
-    <CollaborationItemsEditor
-      v-else
-      :items="selectedItems"
-      @save="handleUpdate"
-      @cancel="isEditing = false"
-    />
-  </div>
+  </AppSectionWithHeader>
 </template>
 
 <style scoped>

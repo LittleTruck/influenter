@@ -103,13 +103,85 @@ const boardCards = reactive({
   cancelled: [],
 })
 
-// 拖曳條目數據
-const draggableItems = ref([
-  { id: '1', name: '拖曳項目 1', description: '這是第一個可拖曳的項目' },
-  { id: '2', name: '拖曳項目 2', description: '這是第二個可拖曳的項目' },
-  { id: '3', name: '拖曳項目 3', description: '這是第三個可拖曳的項目' },
-  { id: '4', name: '拖曳項目 4', description: '這是第四個可拖曳的項目' },
+// 拖曳條目數據（包含父項目和子項目）
+interface DraggableItem {
+  id: string
+  name: string
+  color: string
+  children?: DraggableItem[]
+}
+
+const draggableItems = ref<DraggableItem[]>([
+  { 
+    id: '1', 
+    name: '拖曳項目 1', 
+    color: 'primary',
+    children: [
+      { 
+        id: '1-1', 
+        name: '子項目 1-1', 
+        color: 'primary',
+        children: [
+          { id: '1-1-1', name: '子子項目 1-1-1', color: 'primary' },
+          { id: '1-1-2', name: '子子項目 1-1-2', color: 'primary' },
+        ]
+      },
+      { id: '1-2', name: '子項目 1-2', color: 'primary', children: [] },
+    ]
+  },
+  { 
+    id: '2', 
+    name: '拖曳項目 2',
+    color: 'success',
+    children: []
+  },
+  { 
+    id: '3', 
+    name: '拖曳項目 3',
+    color: 'warning',
+    children: [
+      { id: '3-1', name: '子項目 3-1', color: 'warning', children: [] },
+    ]
+  },
+  { 
+    id: '4', 
+    name: '拖曳項目 4',
+    color: 'error',
+    children: []
+  },
 ])
+
+// 展開狀態
+const expandedItems = ref<Record<string, boolean>>({})
+
+// 顏色類別映射
+const colorClasses: Record<string, string> = {
+  primary: 'bg-primary-500',
+  success: 'bg-green-500',
+  warning: 'bg-yellow-500',
+  error: 'bg-red-500',
+  info: 'bg-blue-500',
+}
+
+
+// 子項目拖曳處理
+const handleChildDrag = (parentId: string, newChildren: DraggableItem[]) => {
+  const parent = draggableItems.value.find((item: DraggableItem) => item.id === parentId)
+  if (parent) {
+    parent.children = newChildren
+  }
+}
+
+// 子子項目拖曳處理
+const handleGrandchildDrag = (parentId: string, grandchildId: string, newChildren: DraggableItem[]) => {
+  const parent = draggableItems.value.find((item: DraggableItem) => item.id === parentId)
+  if (parent && parent.children) {
+    const child = parent.children.find((c: DraggableItem) => c.id === grandchildId)
+    if (child) {
+      child.children = newChildren
+    }
+  }
+}
 
 // 分頁狀態
 const currentPage = ref(1)
@@ -874,7 +946,7 @@ onMounted(async () => {
             <template #content>
               <div class="px-4 pb-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  使用 vuedraggable 實現的可拖曳列表，類似於合作項目管理中的拖曳功能
+                  使用 vuedraggable 實現的可拖曳列表，支援父項目和子項目的展開/收起
                 </p>
                 <div class="space-y-2">
                   <draggable
@@ -888,21 +960,144 @@ onMounted(async () => {
                     class="space-y-2"
                   >
                     <template #item="{ element }">
-                      <BaseCard class="cursor-move">
-                        <div class="flex items-center gap-3 p-4">
-                          <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab" />
-                          <div class="flex-1">
-                            <p class="font-medium text-gray-900 dark:text-white">{{ element.name }}</p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ element.description }}</p>
+                      <BaseCollapsible 
+                        v-if="element.children && element.children.length > 0"
+                        v-model:open="expandedItems[element.id]"
+                        class="collapsible-item"
+                        :ui="{ content: 'pb-0' }"
+                      >
+                        <!-- 父項目（觸發區域） -->
+                        <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer">
+                          <!-- 展開圖標 -->
+                          <BaseIcon 
+                            :name="expandedItems[element.id] ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" 
+                            class="w-5 h-5 flex-shrink-0"
+                          />
+
+                          <!-- 拖曳手柄 -->
+                          <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0" @click.stop />
+
+                          <!-- 顏色標記 -->
+                          <div :class="['w-4 h-4 rounded-full flex-shrink-0', colorClasses[element.color] || 'bg-gray-500']" />
+
+                          <!-- 項目名稱 -->
+                          <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ element.name }}</h4>
                           </div>
+
+                          <!-- ID Badge -->
                           <BaseBadge color="neutral" variant="soft" size="sm">{{ element.id }}</BaseBadge>
                         </div>
-                      </BaseCard>
+
+                        <!-- 子項目列表（展開時顯示） -->
+                        <template #content>
+                          <div class="pl-12 pt-2 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                            <draggable
+                              :model-value="element.children"
+                              @update:model-value="(newChildren: any) => handleChildDrag(element.id, newChildren as DraggableItem[])"
+                              item-key="id"
+                              handle=".drag-handle"
+                              :animation="200"
+                              ghost-class="drag-ghost"
+                              chosen-class="drag-chosen"
+                              drag-class="drag-dragging"
+                              class="space-y-2"
+                            >
+                              <template #item="{ element: child }">
+                                <BaseCollapsible 
+                                  v-if="child.children && child.children.length > 0"
+                                  v-model:open="expandedItems[child.id]"
+                                  class="collapsible-item w-full"
+                                  :ui="{ content: 'pt-0' }"
+                                >
+                                  <!-- 子項目 -->
+                                  <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50 cursor-pointer">
+                                    <!-- 展開圖標 -->
+                                    <BaseIcon 
+                                      :name="expandedItems[child.id] ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" 
+                                      class="w-5 h-5 flex-shrink-0"
+                                    />
+
+                                    <!-- 拖曳手柄 -->
+                                    <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0" @click.stop />
+
+                                    <!-- 顏色標記 -->
+                                    <div :class="['w-4 h-4 rounded-full flex-shrink-0', colorClasses[child.color] || 'bg-gray-500']" />
+
+                                    <!-- 子項目名稱 -->
+                                    <div class="flex-1 min-w-0">
+                                      <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ child.name }}</h4>
+                                    </div>
+
+                                    <!-- ID Badge -->
+                                    <BaseBadge color="neutral" variant="soft" size="sm">{{ child.id }}</BaseBadge>
+                                  </div>
+
+                                  <!-- 子子項目列表（展開時顯示） -->
+                                  <template #content>
+                                    <div class="pl-12 pt-2 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                                      <draggable
+                                        :model-value="child.children"
+                                        @update:model-value="(newChildren: any) => handleGrandchildDrag(element.id, child.id, newChildren as DraggableItem[])"
+                                        item-key="id"
+                                        handle=".drag-handle"
+                                        :animation="200"
+                                        ghost-class="drag-ghost"
+                                        chosen-class="drag-chosen"
+                                        drag-class="drag-dragging"
+                                        class="space-y-2"
+                                      >
+                                        <template #item="{ element: grandchild }">
+                                          <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50">
+                                            <!-- 拖曳手柄 -->
+                                            <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0" @click.stop />
+
+                                            <!-- 顏色標記 -->
+                                            <div :class="['w-4 h-4 rounded-full flex-shrink-0', colorClasses[grandchild.color] || 'bg-gray-500']" />
+
+                                            <!-- 子子項目名稱 -->
+                                            <div class="flex-1 min-w-0">
+                                              <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ grandchild.name }}</h4>
+                                            </div>
+
+                                            <!-- ID Badge -->
+                                            <BaseBadge color="neutral" variant="soft" size="sm">{{ grandchild.id }}</BaseBadge>
+                                          </div>
+                                        </template>
+                                      </draggable>
+                                    </div>
+                                  </template>
+                                </BaseCollapsible>
+                                <!-- 沒有子項目的子項目 -->
+                                <div v-else class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50">
+                                  <div class="w-5 flex-shrink-0" />
+                                  <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0" @click.stop />
+                                  <div :class="['w-4 h-4 rounded-full flex-shrink-0', colorClasses[child.color] || 'bg-gray-500']" />
+                                  <div class="flex-1 min-w-0">
+                                    <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ child.name }}</h4>
+                                  </div>
+                                  <BaseBadge color="neutral" variant="soft" size="sm">{{ child.id }}</BaseBadge>
+                                </div>
+                              </template>
+                            </draggable>
+                          </div>
+                        </template>
+                      </BaseCollapsible>
+                      <!-- 沒有子項目的父項目 -->
+                      <div v-else class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <div class="w-5 flex-shrink-0" />
+                        <BaseIcon name="i-lucide-grip-vertical" class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0" />
+                        <div :class="['w-4 h-4 rounded-full flex-shrink-0', colorClasses[element.color] || 'bg-gray-500']" />
+                        <div class="flex-1 min-w-0">
+                          <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ element.name }}</h4>
+                        </div>
+                        <BaseBadge color="neutral" variant="soft" size="sm">{{ element.id }}</BaseBadge>
+                      </div>
                     </template>
                   </draggable>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                  提示：拖曳左側的圖標來重新排序項目
+                  提示：拖曳左側的圖標來重新排序項目，點擊展開按鈕查看子項目
                 </p>
               </div>
             </template>
@@ -1127,6 +1322,7 @@ onMounted(async () => {
   cursor: grabbing;
 }
 
+
 /* 看板卡片拖曳效果 */
 .board-card-item {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1139,4 +1335,22 @@ onMounted(async () => {
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1),
               0 2px 6px -2px rgba(0, 0, 0, 0.05);
 }
+
+/* 拖曳效果 */
+:deep(.drag-ghost) {
+  opacity: 0.5;
+  background: rgba(var(--color-primary-500) / 0.1);
+}
+
+:deep(.drag-chosen) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+:deep(.drag-dragging) {
+  cursor: grabbing !important;
+  z-index: 1000;
+}
+
 </style>

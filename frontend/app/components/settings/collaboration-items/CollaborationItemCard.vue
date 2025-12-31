@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { CollaborationItem } from '~/types/collaborationItems'
+import type { CollaborationItem, WorkflowTemplate } from '~/types/collaborationItems'
+import { useWorkflowTemplates } from '~/composables/useWorkflowTemplates'
 import { formatAmount } from '~/utils/formatters'
-import draggable from 'vuedraggable'
-import type { DragChangeEvent } from '~/types/dragEvents'
-import { BaseButton, BaseIcon, BaseBadge } from '~/components/base'
+import DraggableList from '~/components/base/DraggableList.vue'
+import { BaseButton, BaseIcon, BaseBadge, BaseCollapsible } from '~/components/base'
+import DraggableItemCard from './DraggableItemCard.vue'
 
 interface Props {
   /** 項目資料 */
@@ -12,11 +13,41 @@ interface Props {
   level?: number
   /** 是否展開 */
   expanded?: boolean
+  /** 父項目（用於繼承流程） */
+  parentItem?: CollaborationItem | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   level: 0,
-  expanded: false
+  expanded: false,
+  parentItem: null
+})
+
+const { findWorkflowById } = useWorkflowTemplates()
+
+// 計算實際使用的流程（優先使用自己的，否則繼承父項目的）
+const effectiveWorkflow = computed<WorkflowTemplate | null>(() => {
+  // 如果項目有自己的流程，使用自己的
+  if (props.item.workflow_id && props.item.workflow) {
+    return props.item.workflow
+  }
+  
+  // 如果項目有自己的 workflow_id，嘗試查找
+  if (props.item.workflow_id) {
+    return findWorkflowById(props.item.workflow_id)
+  }
+  
+  // 否則繼承父項目的流程
+  if (props.parentItem) {
+    if (props.parentItem.workflow) {
+      return props.parentItem.workflow
+    }
+    if (props.parentItem.workflow_id) {
+      return findWorkflowById(props.parentItem.workflow_id)
+    }
+  }
+  
+  return null
 })
 
 const emit = defineEmits<{
@@ -30,99 +61,169 @@ const emit = defineEmits<{
 const isExpanded = ref(props.expanded)
 
 // 本地子項目列表（用於拖曳）
-const localChildren = computed({
-  get: () => props.item.children || [],
-  set: async (newChildren) => {
-    // 拖曳後更新順序
-    const itemIds = newChildren.map(item => item.id)
-    emit('reorder', itemIds, props.item.id)
-  }
-})
+const localChildren = ref<CollaborationItem[]>([...(props.item.children || [])])
 
-// 拖曳選項 - 禁止跨層級拖曳
-const dragOptions = computed(() => ({
-  animation: 200,
-  group: {
-    name: `items-level-${props.level}`,
-    pull: false,
-    put: false
-  },
-  disabled: false,
-  ghostClass: 'sortable-ghost',
-  chosenClass: 'sortable-chosen',
-  dragClass: 'sortable-drag',
-  handle: '.drag-handle'
-}))
+// 同步外部 children 變化
+watch(() => props.item.children, (newChildren) => {
+  localChildren.value = [...(newChildren || [])]
+}, { deep: true, immediate: true })
 
-// 處理拖曳變更
-const handleChange = (evt: DragChangeEvent<CollaborationItem>) => {
-  if (evt.moved || evt.added) {
-    const itemIds = localChildren.value.map(item => item.id)
-    emit('reorder', itemIds, props.item.id)
-  }
-}
-
-// 切換展開/收起
-const toggleExpand = () => {
-  if (props.item.children && props.item.children.length > 0) {
-    isExpanded.value = !isExpanded.value
-    emit('toggle-expand', props.item)
-  }
+// 處理子項目拖曳重排序
+const handleReorderChildren = (itemIds: string[]) => {
+  emit('reorder', itemIds, props.item.id)
 }
 
 // 監聽 expanded prop 變化
 watch(() => props.expanded, (newValue) => {
   isExpanded.value = newValue
 })
+
+// 監聽 isExpanded 變化，同步到父組件
+watch(() => isExpanded.value, (newValue) => {
+  if (props.item.children && props.item.children.length > 0) {
+    emit('toggle-expand', props.item)
+  }
+})
 </script>
 
 <template>
   <div class="collaboration-item-card">
-    <!-- 卡片主體 -->
-    <div
-      :class="[
-        'flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors',
-        `level-${level}`
-      ]"
-      :style="{ marginLeft: `${level * 1.5}rem` }"
+    <BaseCollapsible
+      v-if="item.children && item.children.length > 0"
+      v-model:open="isExpanded"
+      class="collapsible-item"
+      :ui="{ content: 'pb-0 mb-0' }"
     >
-      <div class="flex items-center flex-1 min-w-0 gap-2">
-        <!-- 展開/收起按鈕 -->
-        <BaseButton
-          v-if="item.children && item.children.length > 0"
-          :icon="isExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-          variant="ghost"
-          size="xs"
-          class="flex-shrink-0 transition-transform"
-          @click.stop="toggleExpand"
-        />
-        <div v-else class="w-5 flex-shrink-0" />
+      <!-- 卡片主體 -->
+      <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-white dark:bg-gray-900/50">
+        <div class="flex items-center flex-1 min-w-0 gap-3">
+          <!-- 展開/收起按鈕 -->
+          <BaseIcon
+            :name="isExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+            class="w-5 h-5 flex-shrink-0"
+          />
 
-        <!-- 拖曳手柄 -->
-        <div class="drag-handle cursor-grab active:cursor-grabbing flex-shrink-0">
+          <!-- 拖曳手柄 -->
           <BaseIcon
             name="i-lucide-grip-vertical"
-            class="w-4 h-4 text-gray-400"
+            class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+            @click.stop
           />
+
+          <!-- 項目資訊 -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                {{ item.title }}
+              </h4>
+              <BaseBadge color="primary" variant="subtle" size="xs">
+                {{ formatAmount(item.price) }}
+              </BaseBadge>
+            </div>
+          </div>
         </div>
 
-        <!-- 項目資訊 -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <h4 class="font-medium text-gray-900 dark:text-white truncate">
-              {{ item.title }}
-            </h4>
-            <BaseBadge color="primary" variant="subtle" size="xs">
-              {{ formatAmount(item.price) }}
-            </BaseBadge>
-          </div>
-          <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-            {{ item.description }}
-          </p>
+        <!-- 操作按鈕 -->
+        <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
+          <BaseButton
+            icon="i-lucide-plus"
+            variant="ghost"
+            size="xs"
+            @click="emit('add-item', item.id)"
+          >
+            子項目
+          </BaseButton>
+          <BaseButton
+            icon="i-lucide-edit"
+            variant="ghost"
+            size="xs"
+            @click="emit('edit-item', item)"
+          />
+          <BaseButton
+            icon="i-lucide-trash-2"
+            variant="ghost"
+            size="xs"
+            color="error"
+            @click="emit('delete-item', item)"
+          />
         </div>
       </div>
 
-      <!-- 操作按鈕 -->
+      <!-- 子項目列表（展開時顯示） -->
+      <template #content>
+        <div class="pl-12 py-2 bg-gray-50 dark:bg-gray-800/30">
+          <DraggableList
+            v-model:items="localChildren"
+            group-name="collaboration-items"
+            @reorder="handleReorderChildren"
+          >
+            <template #item="{ element }">
+              <DraggableItemCard
+                :item="element"
+                :show-expand="!!(element.children && element.children.length > 0)"
+                :expanded="false"
+                @edit="emit('edit-item', element)"
+                @delete="emit('delete-item', element)"
+              >
+                <template #content="{ item: element }">
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                      {{ element.title }}
+                    </h4>
+                    <BaseBadge color="primary" variant="subtle" size="xs">
+                      {{ formatAmount(element.price) }}
+                    </BaseBadge>
+                  </div>
+                </template>
+                <template #actions="{ item: element }">
+                  <BaseButton
+                    icon="i-lucide-plus"
+                    variant="ghost"
+                    size="xs"
+                    @click="emit('add-item', element.id)"
+                  >
+                    子項目
+                  </BaseButton>
+                  <BaseButton
+                    icon="i-lucide-edit"
+                    variant="ghost"
+                    size="xs"
+                    @click="emit('edit-item', element)"
+                  />
+                  <BaseButton
+                    icon="i-lucide-trash-2"
+                    variant="ghost"
+                    size="xs"
+                    color="error"
+                    @click="emit('delete-item', element)"
+                  />
+                </template>
+              </DraggableItemCard>
+            </template>
+          </DraggableList>
+        </div>
+      </template>
+    </BaseCollapsible>
+    <!-- 沒有子項目的項目 -->
+    <div
+      v-else
+      class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50"
+    >
+      <div class="w-5 flex-shrink-0" />
+      <BaseIcon
+        name="i-lucide-grip-vertical"
+        class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+      />
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <h4 class="font-medium text-gray-900 dark:text-white truncate">
+            {{ item.title }}
+          </h4>
+          <BaseBadge color="primary" variant="subtle" size="xs">
+            {{ formatAmount(item.price) }}
+          </BaseBadge>
+        </div>
+      </div>
       <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
         <BaseButton
           icon="i-lucide-plus"
@@ -147,65 +248,9 @@ watch(() => props.expanded, (newValue) => {
         />
       </div>
     </div>
-
-    <!-- 子項目列表（展開時顯示） -->
-    <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 max-h-0"
-      enter-to-class="opacity-100 max-h-[2000px]"
-      leave-active-class="transition-all duration-200 ease-in"
-      leave-from-class="opacity-100 max-h-[2000px]"
-      leave-to-class="opacity-0 max-h-0"
-    >
-      <div v-if="isExpanded && item.children && item.children.length > 0" class="children-container overflow-hidden">
-        <div class="space-y-2 pt-2">
-          <draggable
-            v-model="localChildren"
-            v-bind="dragOptions"
-            item-key="id"
-            @change="handleChange"
-          >
-            <template #item="{ element }">
-              <CollaborationItemCard
-                :item="element"
-                :level="level + 1"
-                @add-item="emit('add-item', $event)"
-                @edit-item="emit('edit-item', $event)"
-                @delete-item="emit('delete-item', $event)"
-                @reorder="emit('reorder', $event[0], $event[1])"
-                @toggle-expand="emit('toggle-expand', $event)"
-              />
-            </template>
-          </draggable>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <style scoped>
-.children-container {
-  margin-left: 0.5rem;
-}
-
-/* 拖曳效果 */
-:deep(.sortable-ghost) {
-  opacity: 0.5;
-  background: rgba(var(--color-primary-500) / 0.1);
-}
-
-:deep(.sortable-chosen) {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-:deep(.sortable-drag) {
-  cursor: grabbing !important;
-  z-index: 1000;
-}
+/* 拖曳樣式已統一在 DraggableList 組件中 */
 </style>
-
-
-
-

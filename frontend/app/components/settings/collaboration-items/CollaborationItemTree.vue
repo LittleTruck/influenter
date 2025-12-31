@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { CollaborationItem } from '~/types/collaborationItems'
 import CollaborationItemCard from './CollaborationItemCard.vue'
-import draggable from 'vuedraggable'
-import type { DragChangeEvent } from '~/types/dragEvents'
+import DraggableList from '~/components/base/DraggableList.vue'
 
 interface Props {
   /** 項目列表（樹狀結構） */
@@ -22,36 +21,16 @@ const emit = defineEmits<{
 const expandedItems = ref<Record<string, boolean>>({})
 
 // 本地頂層項目列表（用於拖曳）
-const localItems = computed({
-  get: () => props.items,
-  set: async (newItems) => {
-    // 拖曳後更新順序
-    const itemIds = newItems.map(item => item.id)
-    emit('reorder', itemIds, null)
-  }
-})
+const localItems = ref([...props.items])
 
-// 拖曳選項 - 禁止跨層級拖曳
-const dragOptions = {
-  animation: 200,
-  group: {
-    name: 'items-level-0',
-    pull: false,
-    put: false
-  },
-  disabled: false,
-  ghostClass: 'drag-ghost',
-  chosenClass: 'drag-chosen',
-  dragClass: 'drag-dragging',
-  handle: '.drag-handle'
-}
+// 同步外部 items 變化
+watch(() => props.items, (newItems) => {
+  localItems.value = [...newItems]
+}, { deep: true, immediate: true })
 
-// 處理拖曳變更
-const handleChange = (evt: DragChangeEvent<CollaborationItem>) => {
-  if (evt.moved || evt.added) {
-    const itemIds = localItems.value.map(item => item.id)
-    emit('reorder', itemIds, null)
-  }
+// 處理拖曳重排序
+const handleReorder = (itemIds: string[]) => {
+  emit('reorder', itemIds, null)
 }
 
 // 處理展開/收起
@@ -61,18 +40,18 @@ const handleToggleExpand = (item: CollaborationItem) => {
 </script>
 
 <template>
-  <div class="collaboration-item-tree space-y-2">
-    <draggable
-      v-model="localItems"
-      v-bind="dragOptions"
-      item-key="id"
-      @change="handleChange"
+  <div class="collaboration-item-tree">
+    <DraggableList
+      v-model:items="localItems"
+      group-name="collaboration-items"
+      @reorder="handleReorder"
     >
       <template #item="{ element }">
         <CollaborationItemCard
           :item="element"
           :level="0"
           :expanded="expandedItems[element.id] || false"
+          :parent-item="null"
           @add-item="emit('add-item', $event)"
           @edit-item="emit('edit-item', $event)"
           @delete-item="emit('delete-item', $event)"
@@ -80,7 +59,7 @@ const handleToggleExpand = (item: CollaborationItem) => {
           @toggle-expand="handleToggleExpand"
         />
       </template>
-    </draggable>
+    </DraggableList>
   </div>
 </template>
 
