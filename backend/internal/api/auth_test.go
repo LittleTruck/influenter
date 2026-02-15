@@ -86,7 +86,7 @@ func setupTestRouter(t *testing.T) (*gorm.DB, *gin.Engine, *config.Config) {
 
 	// 建立 handlers
 	authHandler := NewAuthHandler(db, cfg)
-	emailHandler := NewEmailHandler(db)
+	emailHandler := NewEmailHandler(db, nil)
 	gmailHandler := NewGmailHandler(db)
 
 	// 設置路由

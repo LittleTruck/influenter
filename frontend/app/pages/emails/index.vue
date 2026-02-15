@@ -8,6 +8,7 @@ definePageMeta({
 
 const emailsStore = useEmailsStore()
 const toast = useToast()
+const router = useRouter()
 
 // 當前選中的郵件
 const selectedEmailId = ref<string | null>(null)
@@ -151,6 +152,33 @@ const formatFullDate = (dateStr: string) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 加入為案件（AI 分析後建立案件）
+const addingAsCase = ref(false)
+const addAsCase = async () => {
+  const emailId = selectedEmailId.value
+  if (!emailId || !selectedEmail.value) return
+  addingAsCase.value = true
+  toast.add({ title: '正在建立案件，請稍候…', color: 'info' })
+  try {
+    const { caseId } = await emailsStore.createCaseFromEmail(emailId)
+    await emailsStore.fetchEmail(emailId)
+    selectedEmail.value = emailsStore.currentEmail
+    toast.add({
+      title: '已建立案件',
+      color: 'success'
+    })
+    router.push(`/cases/${caseId}`)
+  } catch (e: any) {
+    toast.add({
+      title: '建立案件失敗',
+      description: e?.data?.message || e?.message || '請稍後再試',
+      color: 'error'
+    })
+  } finally {
+    addingAsCase.value = false
+  }
 }
 
 // 使用郵件清理 composable
@@ -547,6 +575,16 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               </h2>
 
               <div class="flex items-center gap-2">
+                <BaseButton
+                  icon="i-lucide-briefcase"
+                  color="primary"
+                  size="sm"
+                  :loading="addingAsCase"
+                  :disabled="addingAsCase"
+                  @click="addAsCase"
+                >
+                  加入為案件
+                </BaseButton>
                 <BaseButton
                   :icon="selectedEmail.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
                   color="neutral"

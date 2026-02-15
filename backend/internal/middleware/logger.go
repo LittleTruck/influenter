@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -20,6 +21,13 @@ type responseWriter struct {
 func (w *responseWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
+}
+
+// Flush 實作 http.Flusher，讓 handler 可立即送出回應
+func (w *responseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // LoggerMiddleware 結構化日誌 middleware（記錄請求和回應）

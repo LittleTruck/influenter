@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseCard } from '~/components/base'
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu } from '~/components/base'
 import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
@@ -75,13 +75,38 @@ const contentType = computed(() => {
 // 關聯案件對話框
 const showLinkDialog = ref(false)
 
-const handleLinked = async (caseId: string) => {
+const handleLinked = async (_caseId: string) => {
   // 重新載入郵件詳情
   await emailsStore.fetchEmail(emailId)
   toast.add({
     title: '案件關聯成功',
     color: 'success'
   })
+}
+
+// 加入為案件（AI 分析後建立案件）
+const addingAsCase = ref(false)
+const addAsCase = async () => {
+  if (!email.value) return
+  addingAsCase.value = true
+  toast.add({ title: '正在建立案件，請稍候…', color: 'info' })
+  try {
+    const { caseId } = await emailsStore.createCaseFromEmail(emailId)
+    await emailsStore.fetchEmail(emailId)
+    toast.add({
+      title: '已建立案件',
+      color: 'success'
+    })
+    router.push(`/cases/${caseId}`)
+  } catch (e: any) {
+    toast.add({
+      title: '建立案件失敗',
+      description: e?.data?.message || e?.message || '請稍後再試',
+      color: 'error'
+    })
+  } finally {
+    addingAsCase.value = false
+  }
 }
 </script>
 
@@ -102,6 +127,18 @@ const handleLinked = async (caseId: string) => {
       </h1>
 
       <div v-if="email" class="flex items-center gap-2">
+        <!-- 加入為案件 -->
+        <BaseButton
+          icon="i-lucide-briefcase"
+          color="primary"
+          size="sm"
+          :loading="addingAsCase"
+          :disabled="addingAsCase"
+          @click="addAsCase"
+        >
+          加入為案件
+        </BaseButton>
+
         <!-- 標記已讀/未讀 -->
         <BaseButton
           :icon="email.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"

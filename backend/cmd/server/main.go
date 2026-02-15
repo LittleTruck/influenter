@@ -17,6 +17,7 @@ import (
 	"github.com/designcomb/influenter-backend/internal/config"
 	"github.com/designcomb/influenter-backend/internal/database"
 	"github.com/designcomb/influenter-backend/internal/middleware"
+	"github.com/designcomb/influenter-backend/internal/services/openai"
 	"github.com/designcomb/influenter-backend/internal/utils"
 
 	_ "github.com/designcomb/influenter-backend/docs" // Swagger docs
@@ -128,8 +129,10 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 
 	// 建立 handlers
 	authHandler := api.NewAuthHandler(db.DB, cfg)
-	emailHandler := api.NewEmailHandler(db.DB)
+	openaiSvc := openai.NewService(*cfg, logger, "")
+	emailHandler := api.NewEmailHandler(db.DB, openaiSvc)
 	gmailHandler := api.NewGmailHandler(db.DB)
+	caseHandler := api.NewCaseHandler(db.DB)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -160,6 +163,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 			emails := protected.Group("/emails")
 			{
 				emails.GET("", emailHandler.ListEmails)
+				emails.POST("/:id/create-case", emailHandler.CreateCaseFromEmail)
 				emails.GET("/:id", emailHandler.GetEmail)
 				emails.PATCH("/:id", emailHandler.UpdateEmail)
 			}
@@ -170,6 +174,14 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				gmailGroup.GET("/status", gmailHandler.GetStatus)
 				gmailGroup.POST("/sync", gmailHandler.TriggerSync)
 				gmailGroup.DELETE("/disconnect", gmailHandler.DisconnectGmail)
+			}
+
+			// Case routes
+			casesGroup := protected.Group("/cases")
+			{
+				casesGroup.POST("", caseHandler.CreateCase)
+				casesGroup.GET("", caseHandler.ListCases)
+				casesGroup.GET("/:id", caseHandler.GetCase)
 			}
 		}
 	}

@@ -28,17 +28,19 @@ onMounted(async () => {
       throw new Error('未收到授權碼')
     }
     
-    // 呼叫後端 callback API
+    // 呼叫後端 callback API（延長逾時，OAuth 與 Google token exchange 可能較久）
     const config = useRuntimeConfig()
+    const apiBase = config.public.apiBase as string
     const response = await $fetch<{
       user: any
       token: string
-    }>(`${config.public.apiBase}/api/v1/auth/google/callback`, {
+    }>(`${apiBase}/api/v1/auth/google/callback`, {
       method: 'POST',
       body: {
         code,
         redirect_uri: `${window.location.origin}/auth/google/callback`
-      }
+      },
+      timeout: 30000 // 30 秒，涵蓋 Google OAuth 交換時間
     })
     
     // 儲存 token 和用戶資訊
@@ -60,7 +62,13 @@ onMounted(async () => {
     await router.push(returnUrl)
   } catch (e: any) {
     console.error('OAuth callback error:', e)
-    error.value = e.message || '登入失敗'
+    // 針對「無法連線」情況提供較明確訊息
+    const msg = e.message || ''
+    if (msg.includes('Failed to fetch') || msg.includes('fetch')) {
+      error.value = '無法連線至後端 API，請確認後端服務已啟動（localhost:8080）'
+    } else {
+      error.value = msg || '登入失敗'
+    }
     
     toast.add({
       title: '登入失敗',

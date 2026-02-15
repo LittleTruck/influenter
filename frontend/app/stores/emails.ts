@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { Case } from '~/types/cases'
 
 // Email 類型定義
 export interface Email {
@@ -224,6 +225,83 @@ export const useEmailsStore = defineStore('emails', () => {
     }
   }
 
+  const createCaseFromEmail = async (emailId: string): Promise<{ caseId: string }> => {
+    const config = useRuntimeConfig()
+    const authStore = useAuthStore()
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/355316f0-535b-475e-9bb3-e5e174d5cc31', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'emails.ts:createCaseFromEmail', message: 'before $fetch create-case', data: { emailId, url: `${config.public.apiBase}/api/v1/emails/${emailId}/create-case` }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => {})
+    // #endregion
+
+    // 明確接受 202 Accepted（背景處理），避免部分環境把 202 當錯誤
+    let res: { status: string; email_id: string; message?: string } | Case
+    try {
+      res = await $fetch<{ status: string; email_id: string; message?: string } | Case>(
+        `${config.public.apiBase}/api/v1/emails/${emailId}/create-case`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authStore.token}`
+          },
+          timeout: 15000,
+          ignoreResponseError: false
+        }
+      )
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/355316f0-535b-475e-9bb3-e5e174d5cc31', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'emails.ts:createCaseFromEmail', message: 'create-case response received', data: { hasRes: !!res, keys: res && typeof res === 'object' ? Object.keys(res) : [], status: res && typeof res === 'object' && 'status' in res ? (res as any).status : null }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => {})
+      // #endregion
+    } catch (e: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/355316f0-535b-475e-9bb3-e5e174d5cc31', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'emails.ts:createCaseFromEmail', message: 'create-case error', data: { statusCode: e?.statusCode, status: e?.response?.status, message: e?.message, name: e?.name, hasData: !!e?.data }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => {})
+      // #endregion
+      if (e?.statusCode === 202 || e?.response?.status === 202) {
+        res = e.data || { status: 'processing', email_id: emailId }
+      } else if (
+        (e?.statusCode == null && e?.response?.status == null) &&
+        (e?.message?.includes('EMPTY_RESPONSE') || e?.message?.includes('Failed to fetch') || e?.message?.includes('Load failed') || e?.message?.includes('fetch'))
+      ) {
+        // 防禦：連線中斷/空回應時，伺服器可能已送 202；改為直接輪詢
+        res = { status: 'processing', email_id: emailId }
+      } else {
+        throw e
+      }
+    }
+
+    // 201: 同步完成（舊版相容）
+    if (res && typeof res === 'object' && 'id' in res && 'title' in res) {
+      const caseData = res as Case
+      if (currentEmail.value?.id === emailId) {
+        currentEmail.value.case_id = caseData.id
+      }
+      const index = emails.value.findIndex(e => e.id === emailId)
+      if (index !== -1) {
+        emails.value[index].case_id = caseData.id
+      }
+      return { caseId: caseData.id }
+    }
+
+    // 202: 背景處理中，輪詢郵件直到有 case_id
+    const maxAttempts = 45
+    const intervalMs = 2000
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, intervalMs))
+      const email = await $fetch<EmailDetail>(`${config.public.apiBase}/api/v1/emails/${emailId}`, {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+      if (email?.case_id) {
+        if (currentEmail.value?.id === emailId) {
+          currentEmail.value.case_id = email.case_id
+        }
+        const index = emails.value.findIndex(e => e.id === emailId)
+        if (index !== -1) {
+          emails.value[index].case_id = email.case_id
+        }
+        return { caseId: email.case_id }
+      }
+    }
+    throw new Error('建立案件逾時，請稍後在案件列表查看')
+  }
+
   const fetchGmailStatus = async () => {
     try {
       const config = useRuntimeConfig()
@@ -366,6 +444,7 @@ export const useEmailsStore = defineStore('emails', () => {
     fetchEmail,
     markAsRead,
     linkToCase,
+    createCaseFromEmail,
     fetchGmailStatus,
     triggerSync,
     disconnectGmail,

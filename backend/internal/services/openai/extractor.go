@@ -163,9 +163,13 @@ func (s *Service) ExtractInfo(ctx context.Context, req AnalyzeEmailRequest) (*Ex
 		result.DueDate = nil
 	}
 
+	amountStr := "N/A"
+	if result.Amount != nil {
+		amountStr = fmt.Sprintf("%.2f", *result.Amount)
+	}
 	s.logger.Info().
 		Str("brand", result.BrandName).
-		Str("amount", fmt.Sprintf("%.2f", *result.Amount)).
+		Str("amount", amountStr).
 		Int("tokens", resp.Usage.TotalTokens).
 		Dur("duration", time.Since(startTime)).
 		Msg("Info extraction completed")

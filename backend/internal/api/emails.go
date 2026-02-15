@@ -1,24 +1,35 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
+	"github.com/designcomb/influenter-backend/internal/services/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 )
 
 // EmailHandler 郵件處理器
 type EmailHandler struct {
-	db *gorm.DB
+	db            *gorm.DB
+	openaiService *openai.Service
 }
 
 // NewEmailHandler 建立新的郵件處理器
-func NewEmailHandler(db *gorm.DB) *EmailHandler {
+func NewEmailHandler(db *gorm.DB, openaiService *openai.Service) *EmailHandler {
 	return &EmailHandler{
-		db: db,
+		db:            db,
+		openaiService: openaiService,
 	}
 }
 
@@ -307,4 +318,207 @@ func (h *EmailHandler) UpdateEmail(c *gin.Context) {
 type UpdateEmailRequest struct {
 	IsRead *bool      `json:"is_read"`
 	CaseID *uuid.UUID `json:"case_id"`
+}
+
+// debugLogWrite 寫入一行 NDJSON 到 .cursor/debug.log（僅除錯用）
+func debugLogWrite(hypothesisId, location, message string, data map[string]interface{}) {
+	dir, _ := os.Getwd()
+	logPath := filepath.Join(dir, ".cursor", "debug.log")
+	if filepath.Base(dir) == "backend" {
+		logPath = filepath.Join(dir, "..", ".cursor", "debug.log")
+	}
+	line, _ := json.Marshal(map[string]interface{}{
+		"hypothesisId": hypothesisId, "location": location, "message": message, "data": data, "timestamp": time.Now().UnixMilli(),
+	})
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	f.Write(append(line, '\n'))
+	f.Close()
+}
+
+// CreateCaseFromEmail 由郵件經 AI 分析後建立案件並關聯
+// 立即回傳 202 Accepted，在背景執行 AI 分析與建立，避免連線逾時導致前端收到 ERR_EMPTY_RESPONSE
+func (h *EmailHandler) CreateCaseFromEmail(c *gin.Context) {
+	// #region agent log
+	debugLogWrite("H1", "emails.go:CreateCaseFromEmail", "handler entered", map[string]interface{}{"email_id": c.Param("id"), "method": c.Request.Method})
+	// #endregion
+	logger := middleware.GetLogger(c)
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error().Interface("panic", r).Msg("CreateCaseFromEmail panicked")
+			c.AbortWithStatusJSON(http.StatusInternalServerError, ErrorResponse{
+				Error:   "internal_error",
+				Message: "Request failed unexpectedly",
+			})
+		}
+	}()
+
+	userID := c.GetString("user_id")
+	emailID := c.Param("id")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "unauthorized", Message: "user_id required"})
+		return
+	}
+	if h.openaiService == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{Error: "ai_unavailable", Message: "AI analysis is not configured"})
+		return
+	}
+
+	id, err := uuid.Parse(emailID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid email ID"})
+		return
+	}
+
+	var email models.Email
+	err = h.db.Where("emails.id = ?", id).
+		Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+		Where("oauth_accounts.user_id = ?", userID).
+		First(&email).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "email_not_found", Message: "Email not found"})
+			return
+		}
+		logger.Error().Err(err).Str("email_id", emailID).Msg("Failed to fetch email")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch email"})
+		return
+	}
+
+	// #region agent log
+	debugLogWrite("H2", "emails.go:CreateCaseFromEmail", "about to send 202", map[string]interface{}{"email_id": emailID})
+	// #endregion
+	// 立即回傳 202，在背景執行，避免長時間等待導致連線被關閉
+	c.JSON(http.StatusAccepted, gin.H{
+		"status":   "processing",
+		"email_id": emailID,
+		"message":  "Case creation started. Poll GET /emails/:id for case_id.",
+	})
+	// 強制送出回應，避免 proxy/緩衝導致前端收到空回應
+	if f, ok := c.Writer.(interface{ Flush() }); ok {
+		f.Flush()
+	}
+	// #region agent log
+	debugLogWrite("H2", "emails.go:CreateCaseFromEmail", "202 sent and flush done", map[string]interface{}{"email_id": emailID})
+	// #endregion
+
+	go h.runCreateCaseFromEmail(context.Background(), logger, userID, emailID, &email)
+}
+
+// runCreateCaseFromEmail 在背景執行 AI 分析並建立案件（由 CreateCaseFromEmail 呼叫）
+func (h *EmailHandler) runCreateCaseFromEmail(ctx context.Context, logger *zerolog.Logger, userID, emailID string, email *models.Email) {
+	subject := ""
+	if email.Subject != nil {
+		subject = *email.Subject
+	}
+	body := emailBodyForAnalysis(email)
+	from := email.FromEmail
+
+	req := openai.AnalyzeEmailRequest{
+		Subject: subject,
+		Body:    body,
+		From:    from,
+		To:      nil,
+		Date:    email.ReceivedAt,
+		Options: openai.AnalysisOptions{DetailLevel: "standard"},
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	result, err := h.openaiService.AnalyzeEmail(ctx, req)
+	if err != nil {
+		logger.Error().Err(err).Str("email_id", emailID).Msg("OpenAI analysis failed")
+		return
+	}
+
+	userUUID, _ := uuid.Parse(userID)
+	cs := analysisResultToCase(userUUID, subject, result)
+
+	if err := h.db.Create(cs).Error; err != nil {
+		logger.Error().Err(err).Str("email_id", emailID).Msg("Failed to create case")
+		return
+	}
+
+	updates := map[string]interface{}{
+		"case_id":     cs.ID,
+		"ai_analyzed": true,
+	}
+	if err := h.db.Model(email).Updates(updates).Error; err != nil {
+		logger.Error().Err(err).Str("email_id", emailID).Msg("Failed to link email to case")
+		return
+	}
+
+	logger.Info().
+		Str("email_id", emailID).
+		Str("case_id", cs.ID.String()).
+		Msg("Case created from email")
+}
+
+// emailBodyForAnalysis 取得用於 AI 分析的郵件內文（純文字）
+func emailBodyForAnalysis(e *models.Email) string {
+	if e.BodyText != nil && strings.TrimSpace(*e.BodyText) != "" {
+		return *e.BodyText
+	}
+	if e.Snippet != nil && *e.Snippet != "" {
+		return *e.Snippet
+	}
+	if e.BodyHTML != nil && *e.BodyHTML != "" {
+		return stripHTML(*e.BodyHTML)
+	}
+	return ""
+}
+
+var htmlTagRe = regexp.MustCompile(`(?s)<[^>]*>`)
+
+func stripHTML(s string) string {
+	return strings.TrimSpace(htmlTagRe.ReplaceAllString(s, " "))
+}
+
+// analysisResultToCase 將 AI 分析結果轉為 Case 模型
+func analysisResultToCase(userID uuid.UUID, subject string, result *openai.EmailAnalysisResult) *models.Case {
+	title := subject
+	if title == "" {
+		title = result.Summary
+	}
+	if title == "" {
+		title = "未命名案件"
+	}
+	brandName := result.ExtractedInfo.BrandName
+	if brandName == "" {
+		brandName = "未知品牌"
+	}
+
+	cs := &models.Case{
+		UserID:    userID,
+		Title:    title,
+		BrandName: brandName,
+		Status:    models.CaseStatusToConfirm,
+	}
+	if result.ExtractedInfo.ContentType != "" {
+		cs.CollaborationType = &result.ExtractedInfo.ContentType
+	}
+	cs.QuotedAmount = result.ExtractedInfo.Amount
+	if result.ExtractedInfo.Currency != "" {
+		cs.Currency = &result.ExtractedInfo.Currency
+	}
+	cs.DeadlineDate = result.ExtractedInfo.DueDate
+	if result.ExtractedInfo.ContactName != "" {
+		cs.ContactName = &result.ExtractedInfo.ContactName
+	}
+	if result.ExtractedInfo.ContactEmail != "" {
+		cs.ContactEmail = &result.ExtractedInfo.ContactEmail
+	}
+	if result.ExtractedInfo.ContactPhone != "" {
+		cs.ContactPhone = &result.ExtractedInfo.ContactPhone
+	}
+	if result.Summary != "" {
+		cs.Description = &result.Summary
+	} else if result.ExtractedInfo.ProjectDetails != "" {
+		cs.Description = &result.ExtractedInfo.ProjectDetails
+	}
+	return cs
 }
