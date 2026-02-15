@@ -576,6 +576,16 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
 
               <div class="flex items-center gap-2">
                 <BaseButton
+                  v-if="selectedEmail.case_id"
+                  icon="i-lucide-external-link"
+                  color="primary"
+                  size="sm"
+                  @click="router.push(`/cases/${selectedEmail.case_id}`)"
+                >
+                  顯示案件
+                </BaseButton>
+                <BaseButton
+                  v-else
                   icon="i-lucide-briefcase"
                   color="primary"
                   size="sm"

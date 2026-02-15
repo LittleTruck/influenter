@@ -127,8 +127,18 @@ const addAsCase = async () => {
       </h1>
 
       <div v-if="email" class="flex items-center gap-2">
-        <!-- 加入為案件 -->
+        <!-- 已關聯：顯示案件；未關聯：加入為案件 -->
         <BaseButton
+          v-if="email.case_id"
+          icon="i-lucide-external-link"
+          color="primary"
+          size="sm"
+          @click="router.push(`/cases/${email.case_id}`)"
+        >
+          顯示案件
+        </BaseButton>
+        <BaseButton
+          v-else
           icon="i-lucide-briefcase"
           color="primary"
           size="sm"
