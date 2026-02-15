@@ -25,7 +25,8 @@ const statusBorderClass = computed(() => {
     to_confirm: 'border-yellow-500 dark:border-yellow-500',
     in_progress: 'border-blue-500 dark:border-blue-500',
     completed: 'border-green-500 dark:border-green-500',
-    cancelled: 'border-gray-400 dark:border-gray-500'
+    cancelled: 'border-gray-400 dark:border-gray-500',
+    other: 'border-gray-400 dark:border-gray-500'
   }
   return borders[props.caseData.status] || borders.to_confirm
 })

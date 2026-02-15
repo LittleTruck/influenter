@@ -27,7 +27,7 @@ const emit = defineEmits<{
 
 // 狀態欄位定義
 const statusColumns = computed(() => {
-  const statuses: CaseStatus[] = ['to_confirm', 'in_progress', 'completed', 'cancelled']
+  const statuses: CaseStatus[] = ['to_confirm', 'in_progress', 'completed', 'cancelled', 'other']
   return statuses.map(status => ({
     status,
     label: getStatusLabel(status),
@@ -41,7 +41,8 @@ const casesByStatus = computed(() => {
     to_confirm: [],
     in_progress: [],
     completed: [],
-    cancelled: []
+    cancelled: [],
+    other: []
   }
 
   props.cases.forEach(c => {

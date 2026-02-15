@@ -480,45 +480,68 @@ func stripHTML(s string) string {
 
 // analysisResultToCase 將 AI 分析結果轉為 Case 模型
 func analysisResultToCase(userID uuid.UUID, subject string, result *openai.EmailAnalysisResult) *models.Case {
-	title := subject
-	if title == "" {
-		title = result.Summary
-	}
-	if title == "" {
-		title = "未命名案件"
-	}
-	brandName := result.ExtractedInfo.BrandName
-	if brandName == "" {
-		brandName = "未知品牌"
+	// 判斷是否為合作相關案件
+	isCollaboration := result.Classification.Category != "" && openai.IsCollaborationRelated(result.Classification.Category)
+
+	var title, brandName string
+	var status models.CaseStatus
+
+	if isCollaboration {
+		title = subject
+		if title == "" {
+			title = result.Summary
+		}
+		if title == "" {
+			title = "未命名案件"
+		}
+		brandName = result.ExtractedInfo.BrandName
+		if brandName == "" {
+			brandName = "未知品牌"
+		}
+		status = models.CaseStatusToConfirm
+	} else {
+		// 非合作案件：標題用郵件主旨，不填品牌/報價/截止日等
+		title = subject
+		if title == "" {
+			title = "未命名案件"
+		}
+		brandName = "—" // DB 必填，用佔位符
+		status = models.CaseStatusOther
 	}
 
 	cs := &models.Case{
 		UserID:    userID,
-		Title:    title,
+		Title:     title,
 		BrandName: brandName,
-		Status:    models.CaseStatusToConfirm,
+		Status:    status,
 	}
-	if result.ExtractedInfo.ContentType != "" {
-		cs.CollaborationType = &result.ExtractedInfo.ContentType
-	}
-	cs.QuotedAmount = result.ExtractedInfo.Amount
-	if result.ExtractedInfo.Currency != "" {
-		cs.Currency = &result.ExtractedInfo.Currency
-	}
-	cs.DeadlineDate = result.ExtractedInfo.DueDate
-	if result.ExtractedInfo.ContactName != "" {
-		cs.ContactName = &result.ExtractedInfo.ContactName
-	}
-	if result.ExtractedInfo.ContactEmail != "" {
-		cs.ContactEmail = &result.ExtractedInfo.ContactEmail
-	}
-	if result.ExtractedInfo.ContactPhone != "" {
-		cs.ContactPhone = &result.ExtractedInfo.ContactPhone
-	}
-	if result.Summary != "" {
+
+	if isCollaboration {
+		if result.ExtractedInfo.ContentType != "" {
+			cs.CollaborationType = &result.ExtractedInfo.ContentType
+		}
+		cs.QuotedAmount = result.ExtractedInfo.Amount
+		if result.ExtractedInfo.Currency != "" {
+			cs.Currency = &result.ExtractedInfo.Currency
+		}
+		cs.DeadlineDate = result.ExtractedInfo.DueDate
+		if result.ExtractedInfo.ContactName != "" {
+			cs.ContactName = &result.ExtractedInfo.ContactName
+		}
+		if result.ExtractedInfo.ContactEmail != "" {
+			cs.ContactEmail = &result.ExtractedInfo.ContactEmail
+		}
+		if result.ExtractedInfo.ContactPhone != "" {
+			cs.ContactPhone = &result.ExtractedInfo.ContactPhone
+		}
+		if result.Summary != "" {
+			cs.Description = &result.Summary
+		} else if result.ExtractedInfo.ProjectDetails != "" {
+			cs.Description = &result.ExtractedInfo.ProjectDetails
+		}
+	} else if result.Summary != "" {
+		// 非合作案件僅保留摘要作為說明
 		cs.Description = &result.Summary
-	} else if result.ExtractedInfo.ProjectDetails != "" {
-		cs.Description = &result.ExtractedInfo.ProjectDetails
 	}
 	return cs
 }

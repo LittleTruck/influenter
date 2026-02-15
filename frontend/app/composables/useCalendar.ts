@@ -90,6 +90,7 @@ export const useCalendar = () => {
             case 'completed':
               return '#10b981' // success/green
             case 'cancelled':
+            case 'other':
               return '#6b7280' // neutral/gray
             default:
               return '#3b82f6'

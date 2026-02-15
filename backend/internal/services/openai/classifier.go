@@ -251,6 +251,18 @@ func IsHighPriorityCategory(category EmailCategory) bool {
 	return false
 }
 
+// IsCollaborationRelated 判斷郵件分類是否與工作/合作案件相關
+// 合作相關：collaboration, payment, confirmation, inquiry
+// 非合作：social, newsletter, notification, spam, other
+func IsCollaborationRelated(category EmailCategory) bool {
+	switch category {
+	case CategoryCollaboration, CategoryPayment, CategoryConfirmation, CategoryInquiry:
+		return true
+	default:
+		return false
+	}
+}
+
 // logClassificationResult 記錄分類結果（用於除錯和統計）
 func (s *Service) logClassificationResult(logger *zerolog.Logger, result *EmailClassification, tokensUsed int) {
 	logger.Info().

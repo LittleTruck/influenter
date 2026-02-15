@@ -102,6 +102,7 @@ func main() {
 	logger.Info().Msg("   GET  /api/v1/gmail/status       - Gmail sync status (protected)")
 	logger.Info().Msg("   POST /api/v1/gmail/sync         - Trigger sync (protected)")
 	logger.Info().Msg("   DELETE /api/v1/gmail/disconnect - Disconnect Gmail (protected)")
+	logger.Info().Msg("   GET  /api/v1/cases/fields       - List case fields (protected)")
 
 	if err := router.Run(addr); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start server")
@@ -176,11 +177,12 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				gmailGroup.DELETE("/disconnect", gmailHandler.DisconnectGmail)
 			}
 
-			// Case routes
+			// Case routes（/fields 必須在 /:id 之前，否則 "fields" 會被當成 id）
 			casesGroup := protected.Group("/cases")
 			{
 				casesGroup.POST("", caseHandler.CreateCase)
 				casesGroup.GET("", caseHandler.ListCases)
+				casesGroup.GET("/fields", caseHandler.ListCaseFields)
 				casesGroup.GET("/:id", caseHandler.GetCase)
 			}
 		}

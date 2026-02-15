@@ -51,7 +51,8 @@ const defaultSystemFields: SystemField[] = [
       { label: '待確認', value: 'to_confirm' },
       { label: '進行中', value: 'in_progress' },
       { label: '已完成', value: 'completed' },
-      { label: '已取消', value: 'cancelled' }
+      { label: '已取消', value: 'cancelled' },
+      { label: '非合作案件', value: 'other' }
     ]
   },
   {

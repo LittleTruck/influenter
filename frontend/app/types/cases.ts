@@ -5,7 +5,7 @@ import type { CollaborationItem } from '~/types/collaborationItems'
 /**
  * 案件狀態枚舉
  */
-export type CaseStatus = 'to_confirm' | 'in_progress' | 'completed' | 'cancelled'
+export type CaseStatus = 'to_confirm' | 'in_progress' | 'completed' | 'cancelled' | 'other'
 
 /**
  * 視圖類型

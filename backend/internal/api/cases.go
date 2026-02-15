@@ -207,6 +207,56 @@ func (h *CaseHandler) ListCases(c *gin.Context) {
 	})
 }
 
+// CaseFieldOption 屬性選項（select / multiselect）
+type CaseFieldOption struct {
+	Label string      `json:"label"`
+	Value interface{} `json:"value"`
+	Color string      `json:"color,omitempty"`
+}
+
+// CaseFieldResponse 單一屬性（與前端 CaseField 對齊）
+type CaseFieldResponse struct {
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	Label             string             `json:"label"`
+	Type              string             `json:"type"`
+	IsSystem          bool               `json:"is_system"`
+	SystemColumnName  string             `json:"system_column_name,omitempty"`
+	IsRequired        bool               `json:"is_required"`
+	IsVisible         bool               `json:"is_visible"`
+	Order             int                `json:"order"`
+	Placeholder       string             `json:"placeholder,omitempty"`
+	Options           []CaseFieldOption  `json:"options,omitempty"`
+	CreatedAt         string             `json:"created_at,omitempty"`
+	UpdatedAt         string             `json:"updated_at,omitempty"`
+}
+
+// CaseFieldsListResponse 屬性列表回應（與前端 FieldListResponse 對齊）
+type CaseFieldsListResponse struct {
+	SystemFields []CaseFieldResponse `json:"system_fields"`
+	CustomFields []CaseFieldResponse `json:"custom_fields"`
+}
+
+// defaultSystemFields 與前端 defaultSystemFields 一致的預設系統屬性
+var defaultSystemFields = []CaseFieldResponse{
+	{ID: "system-title", Name: "title", Label: "案件標題", Type: "text", IsSystem: true, SystemColumnName: "title", IsRequired: true, IsVisible: true, Order: 1, Placeholder: "例如：Nike 球鞋業配"},
+	{ID: "system-brand_name", Name: "brand_name", Label: "品牌名稱", Type: "text", IsSystem: true, SystemColumnName: "brand_name", IsRequired: true, IsVisible: true, Order: 2, Placeholder: "例如：Nike"},
+	{ID: "system-status", Name: "status", Label: "案件狀態", Type: "select", IsSystem: true, SystemColumnName: "status", IsRequired: true, IsVisible: true, Order: 3, Options: []CaseFieldOption{
+		{Label: "待確認", Value: "to_confirm"}, {Label: "進行中", Value: "in_progress"}, {Label: "已完成", Value: "completed"}, {Label: "已取消", Value: "cancelled"}, {Label: "非合作案件", Value: "other"},
+	}},
+	{ID: "system-deadline_date", Name: "deadline_date", Label: "截止日期", Type: "date", IsSystem: true, SystemColumnName: "deadline_date", IsRequired: false, IsVisible: true, Order: 4},
+	{ID: "system-quoted_amount", Name: "quoted_amount", Label: "預估報價", Type: "number", IsSystem: true, SystemColumnName: "quoted_amount", IsRequired: false, IsVisible: true, Order: 5},
+}
+
+// ListCaseFields 取得案件屬性列表（系統屬性 + 自定義屬性）
+// 目前僅回傳預設系統屬性，自定義屬性尚未持久化。
+func (h *CaseHandler) ListCaseFields(c *gin.Context) {
+	c.JSON(http.StatusOK, CaseFieldsListResponse{
+		SystemFields: defaultSystemFields,
+		CustomFields: []CaseFieldResponse{},
+	})
+}
+
 // GetCase 取得案件詳情
 func (h *CaseHandler) GetCase(c *gin.Context) {
 	logger := middleware.GetLogger(c)

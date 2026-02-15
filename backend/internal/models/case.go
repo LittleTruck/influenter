@@ -12,10 +12,11 @@ import (
 type CaseStatus string
 
 const (
-	CaseStatusToConfirm CaseStatus = "to_confirm"
-	CaseStatusInProgress CaseStatus = "in_progress"
-	CaseStatusCompleted CaseStatus = "completed"
-	CaseStatusCancelled CaseStatus = "cancelled"
+	CaseStatusToConfirm   CaseStatus = "to_confirm"
+	CaseStatusInProgress  CaseStatus = "in_progress"
+	CaseStatusCompleted   CaseStatus = "completed"
+	CaseStatusCancelled   CaseStatus = "cancelled"
+	CaseStatusOther       CaseStatus = "other" // 非合作案件（郵件非工作相關）
 )
 
 // Case 案件模型

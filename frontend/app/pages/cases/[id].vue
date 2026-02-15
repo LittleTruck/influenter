@@ -244,8 +244,19 @@ const mockEmails = computed(() => {
 
       <!-- 案件詳情 -->
       <div v-else-if="currentCase" class="space-y-6">
-        <!-- 內容區域 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 非合作案件：僅顯示屬性面板 -->
+        <div v-if="currentCase.status === 'other'" class="max-w-2xl">
+          <CasePropertiesPanel
+            :case="currentCase"
+            :fields="allFields"
+            :editable="true"
+            @field-update="handleFieldUpdate"
+            @field-delete="handleFieldDelete"
+          />
+        </div>
+
+        <!-- 合作案件：完整版面（郵件、專案流程、屬性、合作項目） -->
+        <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- 左側：郵件和專案流程 -->
           <div class="lg:col-span-2 space-y-6">
             <!-- 郵件區域 -->

@@ -25,7 +25,8 @@ const statusIcon = computed(() => {
     to_confirm: 'i-lucide-clock',
     in_progress: 'i-lucide-play-circle',
     completed: 'i-lucide-check-circle',
-    cancelled: 'i-lucide-x-circle'
+    cancelled: 'i-lucide-x-circle',
+    other: 'i-lucide-file-question'
   }
   return icons[props.status] || 'i-lucide-circle'
 })

@@ -614,7 +614,8 @@ export const useCasesStore = defineStore('cases', () => {
       to_confirm: [],
       in_progress: [],
       completed: [],
-      cancelled: []
+      cancelled: [],
+      other: []
     }
 
     cases.value.forEach(c => {

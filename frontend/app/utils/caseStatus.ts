@@ -11,7 +11,8 @@ export const STATUS_COLORS: Record<CaseStatus, 'warning' | 'primary' | 'success'
   to_confirm: 'warning',
   in_progress: 'primary',
   completed: 'success',
-  cancelled: 'error'
+  cancelled: 'error',
+  other: 'neutral'
 } as const
 
 /**
@@ -21,7 +22,8 @@ export const STATUS_LABELS: Record<CaseStatus, string> = {
   to_confirm: '待確認',
   in_progress: '進行中',
   completed: '已完成',
-  cancelled: '已取消'
+  cancelled: '已取消',
+  other: '非合作案件'
 } as const
 
 /**
@@ -31,7 +33,8 @@ export const STATUS_COLOR_HEX: Record<CaseStatus, string> = {
   to_confirm: '#eab308',
   in_progress: '#3b82f6',
   completed: '#22c55e',
-  cancelled: '#ef4444'
+  cancelled: '#ef4444',
+  other: '#6b7280'
 } as const
 
 /**
