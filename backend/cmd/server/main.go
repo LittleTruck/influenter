@@ -184,6 +184,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("", caseHandler.ListCases)
 				casesGroup.GET("/fields", caseHandler.ListCaseFields)
 				casesGroup.GET("/:id", caseHandler.GetCase)
+				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
 			}
 		}
 	}

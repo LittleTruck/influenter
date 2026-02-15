@@ -19,7 +19,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { fetchCase, currentCase, loading, updateCase } = useCases()
+const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase } = useCases()
 const { allFields, fetchFields } = useCaseFields()
 
 const caseId = computed(() => route.params.id as string)
@@ -39,6 +39,15 @@ onMounted(async () => {
         }
       })
     ])
+    // 合作案件：載入關聯郵件
+    const caseData = currentCase.value
+    if (caseData && caseData.status !== 'other') {
+      await fetchCaseEmails(caseId.value).catch((err: any) => {
+        if (err?.statusCode !== 404) {
+          console.error('載入案件郵件失敗:', err)
+        }
+      })
+    }
   } catch (err) {
     // 忽略錯誤，讓頁面正常顯示
     console.error('載入失敗:', err)
@@ -184,38 +193,8 @@ const caseStartDate = computed(() => {
   return (currentCase.value as any)?.start_date || new Date().toISOString().split('T')[0]
 })
 
-// 假郵件資料
-const mockEmails = computed(() => {
-  if ((currentCase.value as any)?.emails && (currentCase.value as any).emails.length > 0) {
-    return (currentCase.value as any).emails
-  }
-  return [
-    {
-      id: 'email-1',
-      from_name: '張小明',
-      from_email: 'zhang@example.com',
-      subject: '合作提案',
-      received_at: '2024-01-01T10:00:00Z',
-      email_type: 'initial_inquiry'
-    },
-    {
-      id: 'email-2',
-      from_name: '李經理',
-      from_email: 'li@example.com',
-      subject: 'Re: 合作提案',
-      received_at: '2024-01-02T14:30:00Z',
-      email_type: 'reply'
-    },
-    {
-      id: 'email-3',
-      from_name: '張小明',
-      from_email: 'zhang@example.com',
-      subject: 'Re: Re: 合作提案',
-      received_at: '2024-01-03T09:15:00Z',
-      email_type: 'follow_up'
-    }
-  ]
-})
+// 案件關聯郵件（由 fetchCaseEmails 載入，無則為空陣列）
+const caseEmails = computed(() => currentCase.value?.emails ?? [])
 </script>
 
 <template>
@@ -264,7 +243,7 @@ const mockEmails = computed(() => {
               title="郵件"
             >
               <div class="space-y-4">
-                <CaseEmailsTimeline :emails="mockEmails" />
+                <CaseEmailsTimeline :emails="caseEmails" />
                 <BaseButton
                   icon="i-lucide-sparkles"
                   variant="outline"

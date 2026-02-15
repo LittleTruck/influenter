@@ -285,3 +285,64 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 
 	c.JSON(http.StatusOK, caseToResponse(&cs, int(emailCount), 0, 0))
 }
+
+// CaseEmailResponse 案件郵件列表項目（與前端 CaseEmail 對齊）
+type CaseEmailResponse struct {
+	ID         string  `json:"id"`
+	Subject    *string `json:"subject,omitempty"`
+	FromEmail  string  `json:"from_email"`
+	FromName   *string `json:"from_name,omitempty"`
+	ReceivedAt string  `json:"received_at"`
+	EmailType  string  `json:"email_type,omitempty"`
+}
+
+// ListCaseEmails 取得案件關聯的郵件列表
+func (h *CaseHandler) ListCaseEmails(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var emails []models.Email
+	err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+		Where("emails.case_id = ? AND oauth_accounts.user_id = ?", id, userID).
+		Order("emails.received_at ASC").
+		Find(&emails).Error
+	if err != nil {
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to list case emails")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to list case emails"})
+		return
+	}
+
+	data := make([]CaseEmailResponse, 0, len(emails))
+	for i := range emails {
+		e := &emails[i]
+		data = append(data, CaseEmailResponse{
+			ID:         e.ID.String(),
+			Subject:    e.Subject,
+			FromEmail:  e.FromEmail,
+			FromName:   e.FromName,
+			ReceivedAt: e.ReceivedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+			EmailType:  "", // 可依 AI 分析結果擴充
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
