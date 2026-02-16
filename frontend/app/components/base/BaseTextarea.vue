@@ -46,7 +46,7 @@ const value = computed({
     :required="required"
     :size="size"
     :class="[
-      'base-textarea',
+      'base-textarea w-full min-w-0',
       disabled && 'base-textarea-disabled'
     ]"
   />

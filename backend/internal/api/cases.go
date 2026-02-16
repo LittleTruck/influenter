@@ -7,6 +7,7 @@ import (
 
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
+	"github.com/designcomb/influenter-backend/internal/services/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -14,12 +15,13 @@ import (
 
 // CaseHandler 案件處理器
 type CaseHandler struct {
-	db *gorm.DB
+	db            *gorm.DB
+	openaiService *openai.Service
 }
 
 // NewCaseHandler 建立新的案件處理器
-func NewCaseHandler(db *gorm.DB) *CaseHandler {
-	return &CaseHandler{db: db}
+func NewCaseHandler(db *gorm.DB, openaiSvc *openai.Service) *CaseHandler {
+	return &CaseHandler{db: db, openaiService: openaiSvc}
 }
 
 // CreateCaseRequest 建立案件請求（與前端 CreateCaseRequest 對齊）
@@ -296,6 +298,12 @@ type CaseEmailResponse struct {
 	EmailType  string  `json:"email_type,omitempty"`
 }
 
+// DraftReplyRequest 擬回信 API 請求 body
+type DraftReplyRequest struct {
+	EmailID    string `json:"email_id"`    // 要回覆的郵件 ID，可選；未傳則用該案件最新一封
+	Instruction string `json:"instruction"` // 使用者補充說明，可選
+}
+
 // ListCaseEmails 取得案件關聯的郵件列表
 func (h *CaseHandler) ListCaseEmails(c *gin.Context) {
 	logger := middleware.GetLogger(c)
@@ -345,4 +353,117 @@ func (h *CaseHandler) ListCaseEmails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+// DraftReply 產生 AI 擬回信草稿
+func (h *CaseHandler) DraftReply(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	if h.openaiService == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{Error: "openai_unavailable", Message: "AI 服務未設定"})
+		return
+	}
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var body DraftReplyRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_request", Message: err.Error()})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var email models.Email
+	if body.EmailID != "" {
+		emailUUID, err := uuid.Parse(body.EmailID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_email_id", Message: "Invalid email ID"})
+			return
+		}
+		err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+			Where("emails.id = ? AND emails.case_id = ? AND oauth_accounts.user_id = ?", emailUUID, id, userID).
+			First(&email).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "email_not_found", Message: "該郵件不存在或未關聯此案件"})
+				return
+			}
+			logger.Error().Err(err).Str("email_id", body.EmailID).Msg("Failed to fetch email")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch email"})
+			return
+		}
+	} else {
+		err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+			Where("emails.case_id = ? AND oauth_accounts.user_id = ?", id, userID).
+			Order("emails.received_at DESC").
+			First(&email).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no_emails", Message: "此案件尚無關聯郵件，無法擬信"})
+				return
+			}
+			logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch latest email")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch email"})
+			return
+		}
+	}
+
+	bodyText := ""
+	if email.BodyText != nil && *email.BodyText != "" {
+		bodyText = *email.BodyText
+	} else if email.Snippet != nil {
+		bodyText = *email.Snippet
+	}
+	subject := ""
+	if email.Subject != nil {
+		subject = *email.Subject
+	}
+	fromName := email.FromEmail
+	if email.FromName != nil && *email.FromName != "" {
+		fromName = *email.FromName + " <" + email.FromEmail + ">"
+	}
+	contactName := ""
+	if cs.ContactName != nil {
+		contactName = *cs.ContactName
+	}
+	contactEmail := ""
+	if cs.ContactEmail != nil {
+		contactEmail = *cs.ContactEmail
+	}
+
+	req := openai.DraftReplyRequest{
+		CaseTitle:     cs.Title,
+		BrandName:     cs.BrandName,
+		ContactName:   contactName,
+		ContactEmail:  contactEmail,
+		EmailFrom:     fromName,
+		EmailSubject:  subject,
+		EmailBody:     bodyText,
+		Instruction:   body.Instruction,
+	}
+
+	result, err := h.openaiService.DraftReply(c.Request.Context(), req)
+	if err != nil {
+		logger.Error().Err(err).Str("case_id", caseID).Msg("DraftReply failed")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "draft_failed", Message: "產生草稿失敗，請稍後再試"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"draft": result.Draft})
 }

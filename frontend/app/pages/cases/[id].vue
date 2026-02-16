@@ -19,6 +19,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase } = useCases()
 const { allFields, fetchFields } = useCaseFields()
 
@@ -81,6 +82,14 @@ const handleFieldDelete = async (fieldId: string) => {
 const showPhaseDateEditor = ref(false)
 const editingPhase = ref<any>(null)
 const showApplyTemplate = ref(false)
+
+// 點擊 AI 擬信：導向該案件最新一封郵件的回覆頁
+const goToReplyPage = () => {
+  const list = currentCase.value?.emails ?? []
+  if (list.length === 0) return
+  const lastEmailId = list[list.length - 1].id
+  router.push(`/emails/${lastEmailId}?reply=1`)
+}
 
 // 處理階段日期編輯
 const handleEditPhase = (phase: any) => {
@@ -248,7 +257,8 @@ const caseEmails = computed(() => currentCase.value?.emails ?? [])
                   icon="i-lucide-sparkles"
                   variant="outline"
                   block
-                  @click="() => {}"
+                  :disabled="caseEmails.length === 0"
+                  @click="goToReplyPage"
                 >
                   AI 擬信
                 </BaseButton>

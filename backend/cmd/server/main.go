@@ -133,7 +133,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	openaiSvc := openai.NewService(*cfg, logger, "")
 	emailHandler := api.NewEmailHandler(db.DB, openaiSvc)
 	gmailHandler := api.NewGmailHandler(db.DB)
-	caseHandler := api.NewCaseHandler(db.DB)
+	caseHandler := api.NewCaseHandler(db.DB, openaiSvc)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -185,6 +185,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/fields", caseHandler.ListCaseFields)
 				casesGroup.GET("/:id", caseHandler.GetCase)
 				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
+				casesGroup.POST("/:id/draft-reply", caseHandler.DraftReply)
 			}
 		}
 	}

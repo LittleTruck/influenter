@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu } from '~/components/base'
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea } from '~/components/base'
 import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
   middleware: 'auth'
 })
 
+const config = useRuntimeConfig()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const emailsStore = useEmailsStore()
@@ -13,9 +15,19 @@ const toast = useToast()
 
 const emailId = route.params.id as string
 
+// 回覆框內容（使用者可審視、修改）
+const replyBody = ref('')
+const draftLoading = ref(false)
+const replySectionRef = ref<HTMLElement | null>(null)
+
 // 載入郵件詳情
 onMounted(async () => {
   await emailsStore.fetchEmail(emailId)
+  if (route.query.reply === '1') {
+    await nextTick()
+    replySectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    router.replace({ path: route.path, query: {} })
+  }
 })
 
 // 當前郵件
@@ -106,6 +118,52 @@ const addAsCase = async () => {
     })
   } finally {
     addingAsCase.value = false
+  }
+}
+
+// AI 產生草稿：呼叫擬信 API，將草稿填入回覆框
+const generateDraft = async () => {
+  const em = email.value
+  if (!em) return
+  if (!em.case_id) {
+    toast.add({
+      title: '請先將此郵件關聯到案件',
+      description: '關聯後即可使用 AI 產生回信草稿',
+      color: 'warning'
+    })
+    return
+  }
+
+  draftLoading.value = true
+  try {
+    const res = await $fetch<{ draft: string }>(
+      `${config.public.apiBase}/api/v1/cases/${em.case_id}/draft-reply`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email_id: emailId })
+      }
+    )
+    replyBody.value = res.draft ?? ''
+    toast.add({ title: '草稿已填入回覆框', color: 'success' })
+  } catch (e: any) {
+    const msg = e?.data?.message || e?.message || '產生草稿失敗'
+    toast.add({ title: msg, color: 'error' })
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+const copyReplyBody = async () => {
+  if (!replyBody.value) return
+  try {
+    await navigator.clipboard.writeText(replyBody.value)
+    toast.add({ title: '已複製到剪貼簿', color: 'success' })
+  } catch {
+    toast.add({ title: '複製失敗', color: 'error' })
   }
 }
 </script>
@@ -295,6 +353,45 @@ const addAsCase = async () => {
             >{{ displayContent }}</pre>
           </div>
         </AppSection>
+
+        <!-- 回覆區：回覆框 + AI 產生草稿 -->
+        <div ref="replySectionRef" class="mt-6">
+        <AppSection>
+          <template #header>
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h3 class="font-semibold text-highlighted">回覆</h3>
+              <div class="flex items-center gap-2">
+                <BaseButton
+                  icon="i-lucide-sparkles"
+                  variant="outline"
+                  size="sm"
+                  :loading="draftLoading"
+                  :disabled="draftLoading || !email?.case_id"
+                  @click="generateDraft"
+                >
+                  AI 產生草稿
+                </BaseButton>
+                <BaseButton
+                  v-if="replyBody"
+                  icon="i-lucide-copy"
+                  variant="outline"
+                  size="sm"
+                  @click="copyReplyBody"
+                >
+                  複製
+                </BaseButton>
+              </div>
+            </div>
+          </template>
+
+          <BaseTextarea
+            v-model="replyBody"
+            :rows="12"
+            placeholder="回信內容（可手動輸入或點「AI 產生草稿」填入）"
+            class="font-mono text-sm"
+          />
+        </AppSection>
+        </div>
 
         <!-- AI 分析結果 (未來實作) -->
         <AppSection v-if="email.ai_analyzed" class="mt-6">

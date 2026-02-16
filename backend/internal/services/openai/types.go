@@ -76,6 +76,24 @@ type AnalyzeEmailRequest struct {
 	Options AnalysisOptions
 }
 
+// DraftReplyRequest 擬回信請求（案件摘要 + 要回覆的郵件 + 可選補充說明）
+type DraftReplyRequest struct {
+	CaseTitle    string // 案件標題
+	BrandName    string // 品牌名稱
+	ContactName  string // 聯絡人姓名
+	ContactEmail string // 聯絡人 email
+	// 要回覆的那封郵件
+	EmailFrom    string // 寄件者
+	EmailSubject string // 主旨
+	EmailBody    string // 內文（純文字）
+	Instruction  string // 使用者補充說明（選填）
+}
+
+// DraftReplyResult 擬回信結果
+type DraftReplyResult struct {
+	Draft string `json:"draft"` // 回信草稿內文（純文字）
+}
+
 // TokenUsage 記錄 token 使用情況
 type TokenUsage struct {
 	UserID           string
