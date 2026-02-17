@@ -25,8 +25,12 @@ const toggleEmail = (emailId: string) => {
 }
 
 // 取得郵件圖示
-const getEmailIcon = (emailType?: string) => {
+const getEmailIcon = (emailType?: string, direction?: string) => {
+  if (direction === 'outgoing') {
+    return 'i-lucide-send'
+  }
   const icons: Record<string, string> = {
+    sent: 'i-lucide-send',
     initial_inquiry: 'i-lucide-mail',
     reply: 'i-lucide-reply',
     follow_up: 'i-lucide-mail-question'
@@ -41,15 +45,20 @@ const formatTime = (dateStr: string) => {
 
 // 轉換為 Timeline items
 const timelineItems = computed<TimelineItem[]>(() => {
-  return props.emails.map((email) => ({
-    date: formatTime(email.received_at),
-    title: email.from_name || email.from_email,
-    description: email.subject || '',
-    icon: getEmailIcon(email.email_type),
-    value: email.id,
-    // 將原始 email 數據存儲在自定義屬性中，以便在 slot 中使用
-    _email: email
-  }))
+  return props.emails.map((email) => {
+    const isOutgoing = email.direction === 'outgoing'
+    const title = isOutgoing
+      ? `寄給 ${email.to_email || '—'}`
+      : (email.from_name || email.from_email)
+    return {
+      date: formatTime(email.received_at),
+      title,
+      description: email.subject || '',
+      icon: getEmailIcon(email.email_type, email.direction),
+      value: email.id,
+      _email: email
+    }
+  })
 })
 
 // 計算當前活動的郵件（最後一封）
@@ -67,10 +76,14 @@ const activeEmailIndex = computed(() => {
       color="primary"
     >
       <template #title="{ item }">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="font-medium text-highlighted truncate">{{ item.title }}</span>
+        <NuxtLink
+          :to="`/emails/${(item as any)._email.id}`"
+          class="flex items-center gap-2 min-w-0 group"
+        >
+          <span class="font-medium text-highlighted truncate group-hover:text-primary group-hover:underline">{{ item.title }}</span>
           <span v-if="item.description" class="text-sm text-muted truncate">{{ item.description }}</span>
-        </div>
+          <BaseIcon name="i-lucide-external-link" class="w-4 h-4 text-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </NuxtLink>
       </template>
       
       <template #date="{ item }">
@@ -100,12 +113,22 @@ const activeEmailIndex = computed(() => {
           <template #content>
             <BaseCard class="mt-2">
               <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-                <p>
+                <p v-if="(item as any)._email.direction === 'outgoing'">
+                  <span class="font-medium">寄給：</span>{{ (item as any)._email.to_email || '—' }}
+                </p>
+                <p v-else>
                   <span class="font-medium">寄件者：</span>{{ (item as any)._email.from_email }}
                 </p>
                 <p v-if="(item as any)._email.subject">
                   <span class="font-medium">主旨：</span>{{ (item as any)._email.subject }}
                 </p>
+                <NuxtLink
+                  :to="`/emails/${(item as any)._email.id}`"
+                  class="inline-flex items-center gap-1.5 mt-2 text-primary hover:underline"
+                >
+                  <BaseIcon name="i-lucide-external-link" class="w-4 h-4" />
+                  前往郵件詳情
+                </NuxtLink>
               </div>
             </BaseCard>
           </template>

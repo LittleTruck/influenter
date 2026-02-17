@@ -68,9 +68,11 @@ export interface CaseDetail extends Case {
  */
 export interface CaseEmail {
   id: string
+  direction?: 'incoming' | 'outgoing'
   subject?: string
   from_email: string
   from_name?: string
+  to_email?: string
   received_at: string
   email_type?: string
 }

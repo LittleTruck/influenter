@@ -3,6 +3,7 @@ package gmail
 import (
 	"encoding/base64"
 	"fmt"
+	"mime"
 	"net/mail"
 	"strings"
 	"time"
@@ -36,12 +37,19 @@ func ParseMessage(gmailMsg *gmail.Message, oauthAccountID uuid.UUID) (*models.Em
 		parseBody(gmailMsg.Payload, parsed)
 	}
 
+	// 判斷方向：有 SENT 標籤為寄出，否則為收到
+	direction := models.EmailDirectionIncoming
+	if contains(parsed.LabelIDs, LabelSent) {
+		direction = models.EmailDirectionOutgoing
+	}
+
 	// 轉換為我們的 Email model
 	email := &models.Email{
 		ID:                uuid.New(),
 		OAuthAccountID:    oauthAccountID,
 		ProviderMessageID: parsed.ID,
 		ThreadID:          &parsed.ThreadID,
+		Direction:         direction,
 		FromEmail:         parsed.From.Address,
 		FromName:          stringPtr(parsed.From.Name),
 		Subject:           stringPtr(parsed.Subject),
@@ -62,6 +70,19 @@ func ParseMessage(gmailMsg *gmail.Message, oauthAccountID uuid.UUID) (*models.Em
 	return email, nil
 }
 
+// decodeHeaderSubject 解碼主旨（RFC 2047 encoded-word）為 UTF-8
+func decodeHeaderSubject(s string) string {
+	if s == "" {
+		return s
+	}
+	var dec mime.WordDecoder
+	decoded, err := dec.DecodeHeader(s)
+	if err != nil {
+		return s
+	}
+	return decoded
+}
+
 // parseHeaders 解析郵件 headers
 func parseHeaders(headers []*gmail.MessagePartHeader, parsed *ParsedMessage) {
 	for _, header := range headers {
@@ -75,9 +96,8 @@ func parseHeaders(headers []*gmail.MessagePartHeader, parsed *ParsedMessage) {
 		case "Bcc":
 			parsed.Bcc = parseEmailAddresses(header.Value)
 		case "Subject":
-			// 使用 mail.ParseAddress 的內部解碼機制
-			// MIME encoded words 會在 parseEmailAddress 中處理
-			parsed.Subject = header.Value
+			// 解碼 RFC 2047（=?UTF-8?B?...?=），存成 UTF-8 避免回信主旨亂碼
+			parsed.Subject = decodeHeaderSubject(header.Value)
 		case "Date":
 			if t, err := mail.ParseDate(header.Value); err == nil {
 				parsed.Date = t

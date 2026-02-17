@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"mime"
+	"strings"
 	"time"
 
 	"github.com/designcomb/influenter-backend/internal/config"
@@ -361,6 +363,20 @@ func (s *Service) GetHistory(startHistoryID uint64) ([]*gmail.History, error) {
 	return response.History, nil
 }
 
+// encodeSubject 將主旨編碼為 RFC 2047，避免非 ASCII（如中文）在寄出時變成亂碼
+func encodeSubject(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	for _, r := range s {
+		if r > 127 {
+			return mime.BEncoding.Encode("UTF-8", s)
+		}
+	}
+	return s
+}
+
 // buildRFC2822Message 建構 RFC 2822 格式的郵件
 func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 	message := ""
@@ -401,8 +417,8 @@ func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 		message += "\r\n"
 	}
 
-	// Subject
-	message += "Subject: " + req.Subject + "\r\n"
+	// Subject（含中文等非 ASCII 時以 RFC 2047 編碼，避免亂碼）
+	message += "Subject: " + encodeSubject(req.Subject) + "\r\n"
 
 	// In-Reply-To (用於回覆)
 	if req.InReplyTo != "" {

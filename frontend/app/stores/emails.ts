@@ -4,8 +4,10 @@ import type { Case } from '~/types/cases'
 // Email 類型定義
 export interface Email {
   id: string
+  direction?: 'incoming' | 'outgoing'
   from_email: string
   from_name?: string
+  to_email?: string
   subject?: string
   snippet?: string
   received_at: string
@@ -20,7 +22,6 @@ export interface EmailDetail extends Email {
   oauth_account_id: string
   provider_message_id: string
   thread_id?: string
-  to_email?: string
   body_text?: string
   body_html?: string
   ai_analysis_id?: string
@@ -30,6 +31,7 @@ export interface EmailDetail extends Email {
 
 export interface EmailQueryParams {
   oauth_account_id?: string
+  direction?: 'incoming' | 'outgoing'
   is_read?: boolean
   case_id?: string
   from_email?: string

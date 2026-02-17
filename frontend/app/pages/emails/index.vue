@@ -17,11 +17,12 @@ const loadingDetail = ref(false)
 
 // 載入郵件和 Gmail 狀態
 onMounted(async () => {
-  // 先載入 Gmail 狀態
   await emailsStore.fetchGmailStatus()
-  
-  // 再載入郵件列表
-  await emailsStore.fetchEmails()
+  // 依目前分頁載入（預設收件匣）
+  await emailsStore.fetchEmails({
+    direction: filterDirection.value === 'all' ? undefined : filterDirection.value,
+    page: 1
+  })
   
   // 重新載入 Gmail 狀態以獲取最新的統計資料
   await emailsStore.fetchGmailStatus()
@@ -204,17 +205,26 @@ const contentType = computed(() => {
 
 // 篩選相關
 const filterIsRead = ref<'all' | 'read' | 'unread'>('all')
+const filterDirection = ref<'all' | 'incoming' | 'outgoing'>('incoming') // 收件匣 / 寄件匣 / 全部
 const searchQuery = ref('')
 
 // 監聽篩選變更
-watch([filterIsRead, searchQuery], async () => {
+watch([filterIsRead, filterDirection, searchQuery], async () => {
   const params: any = {}
+  
+  // 收件/寄件篩選
+  if (filterDirection.value === 'incoming') {
+    params.direction = 'incoming'
+  } else if (filterDirection.value === 'outgoing') {
+    params.direction = 'outgoing'
+  } else {
+    params.direction = undefined
+  }
   
   // 根據篩選狀態設定 is_read 參數
   if (filterIsRead.value === 'unread') {
     params.is_read = false
   } else if (filterIsRead.value === 'all') {
-    // 明確設定為 undefined 以清除之前的篩選
     params.is_read = undefined
   }
   
@@ -222,18 +232,9 @@ watch([filterIsRead, searchQuery], async () => {
     params.subject = searchQuery.value
   }
   
-  // 重置到第一頁
   params.page = 1
   
   await emailsStore.fetchEmails(params)
-  
-  // // 重新選中第一封郵件
-  // if (emailsStore.emails.length > 0) {
-  //   await selectEmail(emailsStore.emails[0].id)
-  // } else {
-  //   selectedEmail.value = null
-  //   selectedEmailId.value = null
-  // }
 })
 
 // 刷新郵件列表
@@ -356,7 +357,35 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
       <!-- Left Side: Email List -->
       <div class="w-96 flex flex-col border-r border-default">
         <!-- Search & Filters -->
-        <div class="p-4 border-b border-default bg-elevated/50">
+        <div class="p-4 border-b border-default bg-elevated/50 space-y-3">
+          <!-- 收件匣 / 寄件匣 / 全部 -->
+          <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+            <BaseButton
+              :variant="filterDirection === 'incoming' ? 'solid' : 'ghost'"
+              :color="filterDirection === 'incoming' ? 'primary' : 'neutral'"
+              size="sm"
+              @click="filterDirection = 'incoming'"
+            >
+              收件匣
+            </BaseButton>
+            <BaseButton
+              :variant="filterDirection === 'outgoing' ? 'solid' : 'ghost'"
+              :color="filterDirection === 'outgoing' ? 'primary' : 'neutral'"
+              size="sm"
+              icon="i-lucide-send"
+              @click="filterDirection = 'outgoing'"
+            >
+              寄件匣
+            </BaseButton>
+            <BaseButton
+              :variant="filterDirection === 'all' ? 'solid' : 'ghost'"
+              :color="filterDirection === 'all' ? 'primary' : 'neutral'"
+              size="sm"
+              @click="filterDirection = 'all'"
+            >
+              全部
+            </BaseButton>
+          </div>
           <div class="flex items-center gap-2">
             <BaseInput
               v-model="searchQuery"
@@ -365,8 +394,6 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               size="sm"
               class="flex-1"
             />
-            
-            <!-- All/Unread 切換 (參考 template) -->
             <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
               <BaseButton
                 :variant="filterIsRead === 'all' ? 'solid' : 'ghost'"
@@ -400,13 +427,19 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             v-else-if="emailsStore.emails.length === 0"
             class="flex flex-col items-center justify-center py-12 px-4 text-center"
           >
-            <BaseIcon name="i-lucide-inbox" class="w-12 h-12 mb-3 text-muted" />
+            <BaseIcon 
+              :name="filterDirection === 'outgoing' ? 'i-lucide-send' : 'i-lucide-inbox'" 
+              class="w-12 h-12 mb-3 text-muted" 
+            />
             <h3 class="text-sm font-semibold text-highlighted mb-1">
-              {{ emailsStore.isConnected ? '目前沒有郵件' : '尚未連接 Gmail' }}
+              {{ emailsStore.isConnected 
+                ? (filterDirection === 'outgoing' ? '目前沒有寄出的信件' : '目前沒有郵件') 
+                : '尚未連接 Gmail' 
+              }}
             </h3>
             <p class="text-xs text-muted">
               {{ emailsStore.isConnected 
-                ? '嘗試同步郵件或調整篩選條件' 
+                ? (filterDirection === 'outgoing' ? '從案件或郵件詳情頁寄出回信後會顯示於此' : '嘗試同步郵件或調整篩選條件')
                 : '請先在設定中連接您的 Gmail 帳號' 
               }}
             </p>
@@ -443,7 +476,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                       class="text-sm truncate"
                       :class="email.is_read ? 'text-muted font-normal' : 'text-highlighted font-semibold'"
                     >
-                      {{ email.from_name || email.from_email }}
+                      {{ email.direction === 'outgoing' ? `寄給 ${email.to_email || '—'}` : (email.from_name || email.from_email) }}
                     </span>
                     <span class="text-xs text-muted shrink-0">
                       {{ formatTime(email.received_at) }}
@@ -626,26 +659,36 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               </div>
             </div>
 
-            <!-- Sender Info -->
+            <!-- Sender/Recipient Info -->
             <div class="flex items-start gap-3">
               <BaseAvatar
-                :alt="selectedEmail.from_name || selectedEmail.from_email"
+                :alt="(selectedEmail as any).direction === 'outgoing' ? (selectedEmail.to_email || '') : (selectedEmail.from_name || selectedEmail.from_email)"
                 size="lg"
               />
               <div class="flex-1">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="font-semibold text-highlighted">
-                    {{ selectedEmail.from_name || selectedEmail.from_email }}
+                    {{ (selectedEmail as any).direction === 'outgoing' ? `寄給 ${selectedEmail.to_email || '—'}` : (selectedEmail.from_name || selectedEmail.from_email) }}
                   </span>
                   <BaseBadge
-                    v-if="!selectedEmail.is_read"
+                    v-if="(selectedEmail as any).direction === 'outgoing'"
+                    size="xs"
+                    color="neutral"
+                    variant="subtle"
+                  >
+                    已寄出
+                  </BaseBadge>
+                  <BaseBadge
+                    v-else-if="!selectedEmail.is_read"
                     size="xs"
                     color="primary"
                   >
                     未讀
                   </BaseBadge>
                 </div>
-                <div class="text-sm text-muted">{{ selectedEmail.from_email }}</div>
+                <div class="text-sm text-muted">
+                  {{ (selectedEmail as any).direction === 'outgoing' ? selectedEmail.to_email : selectedEmail.from_email }}
+                </div>
                 <div class="text-xs text-muted mt-1">
                   {{ formatFullDate(selectedEmail.received_at) }}
                 </div>

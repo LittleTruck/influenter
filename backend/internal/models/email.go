@@ -28,8 +28,9 @@ type Email struct {
 	Snippet   *string `gorm:"type:text" json:"snippet,omitempty"`                 // 郵件摘要（前 150 字）
 
 	// 郵件屬性
-	ReceivedAt     time.Time      `gorm:"not null;index:idx_emails_received_at,sort:desc" json:"received_at"` // 收件時間
-	IsRead         bool           `gorm:"default:false" json:"is_read"`                                       // 是否已讀
+	Direction      string         `gorm:"type:varchar(20);not null;default:'incoming';index" json:"direction"` // incoming: 收到, outgoing: 寄出
+	ReceivedAt     time.Time      `gorm:"not null;index:idx_emails_received_at,sort:desc" json:"received_at"`  // 收件/寄件時間
+	IsRead         bool           `gorm:"default:false" json:"is_read"`                                        // 是否已讀
 	HasAttachments bool           `gorm:"default:false" json:"has_attachments"`                               // 是否有附件
 	Labels         pq.StringArray `gorm:"type:text[]" json:"labels,omitempty"`                                // 標籤（Gmail labels）
 
@@ -96,9 +97,16 @@ func (e *Email) IsInInbox() bool {
 	return e.HasLabel("INBOX")
 }
 
+// EmailDirection 郵件方向
+const (
+	EmailDirectionIncoming = "incoming" // 收到的郵件
+	EmailDirectionOutgoing = "outgoing" // 寄出的郵件
+)
+
 // EmailListResponse 用於列表 API 回應的結構
 type EmailListResponse struct {
 	ID             uuid.UUID  `json:"id"`
+	Direction      string     `json:"direction"` // incoming | outgoing
 	FromEmail      string     `json:"from_email"`
 	FromName       *string    `json:"from_name,omitempty"`
 	Subject        *string    `json:"subject,omitempty"`
@@ -113,8 +121,13 @@ type EmailListResponse struct {
 
 // ToListResponse 轉換為列表 API 回應格式
 func (e *Email) ToListResponse() EmailListResponse {
+	dir := e.Direction
+	if dir == "" {
+		dir = EmailDirectionIncoming
+	}
 	return EmailListResponse{
 		ID:             e.ID,
+		Direction:      dir,
 		FromEmail:      e.FromEmail,
 		FromName:       e.FromName,
 		Subject:        e.Subject,
@@ -131,6 +144,7 @@ func (e *Email) ToListResponse() EmailListResponse {
 // EmailDetailResponse 用於詳情 API 回應的結構
 type EmailDetailResponse struct {
 	ID                uuid.UUID  `json:"id"`
+	Direction         string     `json:"direction"` // incoming | outgoing
 	OAuthAccountID    uuid.UUID  `json:"oauth_account_id"`
 	ProviderMessageID string     `json:"provider_message_id"`
 	ThreadID          *string    `json:"thread_id,omitempty"`
@@ -154,8 +168,13 @@ type EmailDetailResponse struct {
 
 // ToDetailResponse 轉換為詳情 API 回應格式
 func (e *Email) ToDetailResponse() EmailDetailResponse {
+	dir := e.Direction
+	if dir == "" {
+		dir = EmailDirectionIncoming
+	}
 	return EmailDetailResponse{
 		ID:                e.ID,
+		Direction:         dir,
 		OAuthAccountID:    e.OAuthAccountID,
 		ProviderMessageID: e.ProviderMessageID,
 		ThreadID:          e.ThreadID,
@@ -181,6 +200,7 @@ func (e *Email) ToDetailResponse() EmailDetailResponse {
 // EmailQueryParams 郵件查詢參數
 type EmailQueryParams struct {
 	OAuthAccountID *uuid.UUID `form:"oauth_account_id"`
+	Direction      string     `form:"direction"` // incoming, outgoing 或空（全部）
 	IsRead         *bool      `form:"is_read"`
 	CaseID         *uuid.UUID `form:"case_id"`
 	FromEmail      string     `form:"from_email"`

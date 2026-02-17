@@ -189,6 +189,12 @@ const sendReply = async () => {
     replyBody.value = ''
     toast.add({ title: '回信已寄出', color: 'success' })
     await emailsStore.fetchEmail(emailId)
+    // 若有關聯案件，重新載入該案件郵件，案件詳情時間軸會顯示剛寄出的信
+    const em = emailsStore.currentEmail
+    if (em?.case_id) {
+      const casesStore = useCasesStore()
+      await casesStore.fetchCaseEmails(em.case_id).catch(() => {})
+    }
   } catch (e: any) {
     const msg = e?.data?.message || e?.message || '寄出失敗'
     toast.add({ title: msg, color: 'error' })

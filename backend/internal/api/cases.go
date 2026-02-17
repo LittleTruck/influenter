@@ -291,9 +291,11 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 // CaseEmailResponse 案件郵件列表項目（與前端 CaseEmail 對齊）
 type CaseEmailResponse struct {
 	ID         string  `json:"id"`
+	Direction  string  `json:"direction"` // incoming | outgoing
 	Subject    *string `json:"subject,omitempty"`
 	FromEmail  string  `json:"from_email"`
 	FromName   *string `json:"from_name,omitempty"`
+	ToEmail    *string `json:"to_email,omitempty"` // 寄出時為收件者
 	ReceivedAt string  `json:"received_at"`
 	EmailType  string  `json:"email_type,omitempty"`
 }
@@ -342,13 +344,23 @@ func (h *CaseHandler) ListCaseEmails(c *gin.Context) {
 	data := make([]CaseEmailResponse, 0, len(emails))
 	for i := range emails {
 		e := &emails[i]
+		dir := e.Direction
+		if dir == "" {
+			dir = "incoming"
+		}
+		emailType := ""
+		if dir == "outgoing" {
+			emailType = "sent"
+		}
 		data = append(data, CaseEmailResponse{
 			ID:         e.ID.String(),
+			Direction:  dir,
 			Subject:    e.Subject,
 			FromEmail:  e.FromEmail,
 			FromName:   e.FromName,
+			ToEmail:    e.ToEmail,
 			ReceivedAt: e.ReceivedAt.Format("2006-01-02T15:04:05.000Z07:00"),
-			EmailType:  "", // 可依 AI 分析結果擴充
+			EmailType:  emailType,
 		})
 	}
 

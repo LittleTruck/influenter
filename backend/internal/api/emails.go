@@ -17,6 +17,7 @@ import (
 	"github.com/designcomb/influenter-backend/internal/services/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 )
@@ -82,6 +83,10 @@ func (h *EmailHandler) ListEmails(c *gin.Context) {
 	// 應用篩選條件
 	if params.OAuthAccountID != nil {
 		query = query.Where("emails.oauth_account_id = ?", *params.OAuthAccountID)
+	}
+
+	if params.Direction == "incoming" || params.Direction == "outgoing" {
+		query = query.Where("emails.direction = ?", params.Direction)
 	}
 
 	if params.IsRead != nil {
@@ -402,6 +407,34 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 
 	logger.Info().Str("email_id", emailID).Str("sent_id", sentID).Msg("Reply sent successfully")
 
+	// 儲存寄出郵件到 DB 並關聯案件，案件詳情頁郵件區塊才能顯示回信
+	sentEmail := &models.Email{
+		OAuthAccountID:    oauthAccount.ID,
+		ProviderMessageID: sentID,
+		ThreadID:          email.ThreadID,
+		Direction:         models.EmailDirectionOutgoing,
+		FromEmail:         oauthAccount.Email,
+		ToEmail:           &email.FromEmail,
+		Subject:           &subject,
+		BodyText:          &body.Body,
+		Snippet:           stringPtr(truncateStr(body.Body, 150)),
+		ReceivedAt:        time.Now(),
+		Labels:            pq.StringArray{"SENT"},
+		IsRead:            true,
+		CaseID:            email.CaseID,
+	}
+	if err := h.db.Create(sentEmail).Error; err != nil {
+		// 若為重複（例如同步先寫入），改為依 provider_message_id 更新 case_id
+		var existing models.Email
+		if err2 := h.db.Where("provider_message_id = ? AND oauth_account_id = ?", sentID, oauthAccount.ID).First(&existing).Error; err2 == nil && email.CaseID != nil {
+			if err3 := h.db.Model(&existing).Update("case_id", *email.CaseID).Error; err3 == nil {
+				logger.Info().Str("sent_id", sentID).Str("case_id", email.CaseID.String()).Msg("Linked existing sent email to case")
+			}
+		} else {
+			logger.Error().Err(err).Str("sent_id", sentID).Str("case_id", fmt.Sprintf("%v", email.CaseID)).Msg("Failed to save sent email to DB")
+		}
+	}
+
 	// 若郵件有關聯案件且 AI 服務可用，背景分析回信並自動更新案件狀態與進度
 	if email.CaseID != nil && h.openaiService != nil {
 		go h.runUpdateCaseFromReply(context.Background(), logger, emailID, email.CaseID, &email, body.Body)
@@ -414,6 +447,23 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 type UpdateEmailRequest struct {
 	IsRead *bool      `json:"is_read"`
 	CaseID *uuid.UUID `json:"case_id"`
+}
+
+// stringPtr 返回字串指標
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// truncateStr 截斷字串
+func truncateStr(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }
 
 // debugLogWrite 寫入一行 NDJSON 到 .cursor/debug.log（僅除錯用）

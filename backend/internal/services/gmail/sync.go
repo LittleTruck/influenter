@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/designcomb/influenter-backend/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -30,37 +31,68 @@ func NewSyncService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*SyncServic
 	}, nil
 }
 
-// InitialSync 首次同步（抓取最近 100 封郵件）
+// InitialSync 首次同步（抓取最近 100 封收件 + 100 封寄件）
 func (s *SyncService) InitialSync(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{
 		SyncedAt: time.Now(),
 	}
 
-	// 建構查詢：最近 7 天，在收件匣中，限制 100 封
-	// 使用較短的時間範圍以避免首次同步過多郵件
-	query := "in:inbox newer_than:7d"
+	// 同步收件匣：最近 7 天，限制 100 封
+	queryInbox := "in:inbox newer_than:7d"
+	if _, err := s.syncWithQueryLimited(ctx, queryInbox, result, 100); err != nil {
+		return nil, err
+	}
 
-	return s.syncWithQueryLimited(ctx, query, result, 100)
+	// 同步已寄出：最近 7 天，限制 100 封
+	querySent := "in:sent newer_than:7d"
+	res2, err := s.syncWithQueryLimited(ctx, querySent, result, 100)
+	if err != nil {
+		return result, nil // 收件已成功，寄件失敗不阻斷
+	}
+	result.TotalFetched += res2.TotalFetched
+	result.NewEmails += res2.NewEmails
+	result.UpdatedEmails += res2.UpdatedEmails
+	if len(res2.Errors) > 0 {
+		result.Errors = append(result.Errors, res2.Errors...)
+	}
+
+	return result, nil
 }
 
-// IncrementalSync 增量同步（只抓取新郵件）
+// IncrementalSync 增量同步（收件匣 + 已寄出）
 func (s *SyncService) IncrementalSync(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{
 		SyncedAt: time.Now(),
 	}
 
-	// 如果有 last_sync_at，只同步之後的郵件
-	query := "in:inbox"
+	afterClause := ""
 	if s.oauthAccount.LastSyncAt != nil {
-		// 使用 Gmail 查詢語法：after:YYYY/MM/DD
-		afterDate := s.oauthAccount.LastSyncAt.Add(-1 * time.Minute) // 往前 1 分鐘避免遺漏
-		query += " after:" + afterDate.Format("2006/01/02")
+		afterDate := s.oauthAccount.LastSyncAt.Add(-1 * time.Minute)
+		afterClause = " after:" + afterDate.Format("2006/01/02")
 	} else {
-		// 如果沒有同步過，等同於首次同步
-		query += " newer_than:30d"
+		afterClause = " newer_than:30d"
 	}
 
-	return s.syncWithQuery(ctx, query, result)
+	// 同步收件匣
+	queryInbox := "in:inbox" + afterClause
+	if _, err := s.syncWithQuery(ctx, queryInbox, result); err != nil {
+		return nil, err
+	}
+
+	// 同步已寄出
+	querySent := "in:sent" + afterClause
+	res2, err := s.syncWithQuery(ctx, querySent, result)
+	if err != nil {
+		return result, nil
+	}
+	result.TotalFetched += res2.TotalFetched
+	result.NewEmails += res2.NewEmails
+	result.UpdatedEmails += res2.UpdatedEmails
+	if len(res2.Errors) > 0 {
+		result.Errors = append(result.Errors, res2.Errors...)
+	}
+
+	return result, nil
 }
 
 // HistorySync 使用 Gmail History API 進行增量同步（更高效）
@@ -222,6 +254,18 @@ func (s *SyncService) fetchAndSaveMessage(messageID string) error {
 	// 儲存到資料庫
 	if err := s.db.Create(email).Error; err != nil {
 		return fmt.Errorf("failed to save message %s: %w", messageID, err)
+	}
+
+	// 若為寄出信且同 thread 已有案件關聯，補上 case_id（寄出時寫入失敗的補救）
+	if email.Direction == models.EmailDirectionOutgoing && email.ThreadID != nil && *email.ThreadID != "" {
+		var caseIDs []uuid.UUID
+		s.db.Model(&models.Email{}).
+			Where("thread_id = ? AND oauth_account_id = ? AND case_id IS NOT NULL", *email.ThreadID, s.oauthAccount.ID).
+			Limit(1).
+			Pluck("case_id", &caseIDs)
+		if len(caseIDs) > 0 {
+			_ = s.db.Model(email).Update("case_id", caseIDs[0])
+		}
 	}
 
 	return nil
