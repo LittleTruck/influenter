@@ -94,6 +94,32 @@ type DraftReplyResult struct {
 	Draft string `json:"draft"` // 回信草稿內文（純文字）
 }
 
+// ReplyCaseUpdateRequest 回信後 AI 分析案件更新請求
+type ReplyCaseUpdateRequest struct {
+	ReplyBody         string // 寄出的回信內容
+	EmailSubject      string // 原始郵件主旨
+	EmailBody         string // 原始郵件內文
+	EmailFrom         string // 原始寄件者
+	CaseTitle         string // 案件標題
+	CaseStatus        string // 目前案件狀態
+	CaseDescription   string // 案件描述
+	CaseNotes         string // 案件備註
+	CaseQuotedAmount  string // 預估報價（顯示用）
+	CaseDeadline      string // 截止日期（顯示用）
+}
+
+// ReplyCaseUpdateResult AI 分析後建議的案件更新
+type ReplyCaseUpdateResult struct {
+	ShouldUpdate      bool    `json:"should_update"`       // 是否有建議更新
+	Status            string  `json:"status"`              // 建議的新狀態（to_confirm/in_progress/completed/cancelled/other）
+	NotesProgress     string  `json:"notes_progress"`      // 進度說明（附加到 notes）
+	DescriptionUpdate string  `json:"description_update"`  // 描述更新
+	QuotedAmount      *float64 `json:"quoted_amount"`      // 預估報價
+	FinalAmount       *float64 `json:"final_amount"`       // 最終金額
+	DeadlineDate      string  `json:"deadline_date"`       // 截止日期 ISO YYYY-MM-DD
+	Reason            string  `json:"reason"`              // 更新理由
+}
+
 // TokenUsage 記錄 token 使用情況
 type TokenUsage struct {
 	UserID           string

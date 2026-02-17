@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -400,6 +401,12 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 	}
 
 	logger.Info().Str("email_id", emailID).Str("sent_id", sentID).Msg("Reply sent successfully")
+
+	// 若郵件有關聯案件且 AI 服務可用，背景分析回信並自動更新案件狀態與進度
+	if email.CaseID != nil && h.openaiService != nil {
+		go h.runUpdateCaseFromReply(context.Background(), logger, emailID, email.CaseID, &email, body.Body)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message_id": sentID, "message": "回信已寄出"})
 }
 
@@ -545,6 +552,114 @@ func (h *EmailHandler) runCreateCaseFromEmail(ctx context.Context, logger *zerol
 		Str("email_id", emailID).
 		Str("case_id", cs.ID.String()).
 		Msg("Case created from email")
+}
+
+// runUpdateCaseFromReply 根據寄出的回信，在背景執行 AI 分析並更新案件狀態與進度
+func (h *EmailHandler) runUpdateCaseFromReply(ctx context.Context, logger *zerolog.Logger, emailID string, caseID *uuid.UUID, email *models.Email, replyBody string) {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	var cs models.Case
+	if err := h.db.Where("id = ?", caseID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			logger.Warn().Str("case_id", caseID.String()).Msg("Case not found for reply update")
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID.String()).Msg("Failed to fetch case for reply update")
+		return
+	}
+
+	emailBody := emailBodyForAnalysis(email)
+	emailSubject := ""
+	if email.Subject != nil {
+		emailSubject = *email.Subject
+	}
+
+	notes := ""
+	if cs.Notes != nil {
+		notes = *cs.Notes
+	}
+	desc := ""
+	if cs.Description != nil {
+		desc = *cs.Description
+	}
+	quotedStr := ""
+	if cs.QuotedAmount != nil {
+		quotedStr = fmt.Sprintf("%.0f", *cs.QuotedAmount)
+		if cs.Currency != nil && *cs.Currency != "" {
+			quotedStr += " " + *cs.Currency
+		}
+	}
+	deadlineStr := ""
+	if cs.DeadlineDate != nil {
+		deadlineStr = cs.DeadlineDate.Format("2006-01-02")
+	}
+
+	req := openai.ReplyCaseUpdateRequest{
+		ReplyBody:        replyBody,
+		EmailSubject:     emailSubject,
+		EmailBody:        emailBody,
+		EmailFrom:        email.FromEmail,
+		CaseTitle:        cs.Title,
+		CaseStatus:       string(cs.Status),
+		CaseDescription:  desc,
+		CaseNotes:        notes,
+		CaseQuotedAmount: quotedStr,
+		CaseDeadline:     deadlineStr,
+	}
+
+	result, err := h.openaiService.AnalyzeReplyForCaseUpdate(ctx, req)
+	if err != nil {
+		logger.Error().Err(err).Str("email_id", emailID).Str("case_id", caseID.String()).Msg("AI reply analysis failed")
+		return
+	}
+
+	if !result.ShouldUpdate {
+		return
+	}
+
+	updates := make(map[string]interface{})
+
+	if result.Status != "" && result.Status != string(cs.Status) {
+		updates["status"] = result.Status
+	}
+	if result.NotesProgress != "" {
+		newNotes := notes
+		if newNotes != "" {
+			newNotes += "\n\n"
+		}
+		newNotes += fmt.Sprintf("[%s] %s", time.Now().Format("2006-01-02 15:04"), result.NotesProgress)
+		updates["notes"] = newNotes
+	}
+	if result.DescriptionUpdate != "" {
+		updates["description"] = result.DescriptionUpdate
+	}
+	if result.QuotedAmount != nil {
+		updates["quoted_amount"] = *result.QuotedAmount
+	}
+	if result.FinalAmount != nil {
+		updates["final_amount"] = *result.FinalAmount
+	}
+	if result.DeadlineDate != "" {
+		if t, err := time.Parse("2006-01-02", result.DeadlineDate); err == nil {
+			updates["deadline_date"] = t
+		}
+	}
+
+	if len(updates) == 0 {
+		return
+	}
+
+	if err := h.db.Model(&cs).Updates(updates).Error; err != nil {
+		logger.Error().Err(err).Str("case_id", caseID.String()).Msg("Failed to update case from reply")
+		return
+	}
+
+	logger.Info().
+		Str("email_id", emailID).
+		Str("case_id", caseID.String()).
+		Interface("updates", updates).
+		Msg("Case updated from reply analysis")
 }
 
 // emailBodyForAnalysis 取得用於 AI 分析的郵件內文（純文字）
