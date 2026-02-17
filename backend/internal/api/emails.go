@@ -12,6 +12,7 @@ import (
 
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
+	"github.com/designcomb/influenter-backend/internal/services/gmail"
 	"github.com/designcomb/influenter-backend/internal/services/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -312,6 +313,94 @@ func (h *EmailHandler) UpdateEmail(c *gin.Context) {
 		Msg("Email updated successfully")
 
 	c.JSON(http.StatusOK, email.ToDetailResponse())
+}
+
+// SendReplyRequest 寄出回信請求
+type SendReplyRequest struct {
+	Body string `json:"body" binding:"required"`
+}
+
+// SendReply 寄出回信（透過 Gmail API）
+func (h *EmailHandler) SendReply(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	emailID := c.Param("id")
+
+	id, err := uuid.Parse(emailID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid email ID"})
+		return
+	}
+
+	var body SendReplyRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_request", Message: "請提供回信內容 (body)"})
+		return
+	}
+
+	var email models.Email
+	err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+		Where("emails.id = ? AND oauth_accounts.user_id = ?", id, userID).
+		First(&email).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "email_not_found", Message: "Email not found"})
+			return
+		}
+		logger.Error().Err(err).Str("email_id", emailID).Msg("Failed to fetch email")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch email"})
+		return
+	}
+
+	var oauthAccount models.OAuthAccount
+	if err := h.db.Where("id = ?", email.OAuthAccountID).First(&oauthAccount).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "oauth_not_found", Message: "Gmail 帳號不存在"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch oauth account")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to send reply"})
+		return
+	}
+
+	gmailSvc, err := gmail.NewService(h.db, &oauthAccount)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create Gmail service")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "gmail_error", Message: "無法連接 Gmail，請確認已授權"})
+		return
+	}
+
+	subject := "Re: "
+	if email.Subject != nil {
+		subj := strings.TrimSpace(*email.Subject)
+		if !strings.HasPrefix(strings.ToUpper(subj), "RE:") {
+			subject += subj
+		} else {
+			subject = subj
+		}
+	}
+
+	threadID := ""
+	if email.ThreadID != nil {
+		threadID = *email.ThreadID
+	}
+
+	req := &gmail.SendMessageRequest{
+		To:       []string{email.FromEmail},
+		Subject:  subject,
+		TextBody: body.Body,
+		ThreadID: threadID,
+	}
+
+	sentID, err := gmailSvc.SendMessage(req)
+	if err != nil {
+		logger.Error().Err(err).Str("email_id", emailID).Msg("Failed to send reply")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "send_failed", Message: "寄出失敗，請稍後再試"})
+		return
+	}
+
+	logger.Info().Str("email_id", emailID).Str("sent_id", sentID).Msg("Reply sent successfully")
+	c.JSON(http.StatusOK, gin.H{"message_id": sentID, "message": "回信已寄出"})
 }
 
 // UpdateEmailRequest 更新郵件請求

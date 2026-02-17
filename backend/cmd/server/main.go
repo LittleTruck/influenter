@@ -167,6 +167,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				emails.POST("/:id/create-case", emailHandler.CreateCaseFromEmail)
 				emails.GET("/:id", emailHandler.GetEmail)
 				emails.PATCH("/:id", emailHandler.UpdateEmail)
+				emails.POST("/:id/send-reply", emailHandler.SendReply)
 			}
 
 			// Gmail integration routes

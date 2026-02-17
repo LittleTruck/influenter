@@ -18,6 +18,7 @@ const emailId = route.params.id as string
 // 回覆框內容（使用者可審視、修改）
 const replyBody = ref('')
 const draftLoading = ref(false)
+const sendLoading = ref(false)
 const replySectionRef = ref<HTMLElement | null>(null)
 
 // 載入郵件詳情
@@ -164,6 +165,35 @@ const copyReplyBody = async () => {
     toast.add({ title: '已複製到剪貼簿', color: 'success' })
   } catch {
     toast.add({ title: '複製失敗', color: 'error' })
+  }
+}
+
+// 寄出回信
+const sendReply = async () => {
+  const body = replyBody.value?.trim()
+  if (!body) {
+    toast.add({ title: '請輸入回信內容', color: 'warning' })
+    return
+  }
+
+  sendLoading.value = true
+  try {
+    await $fetch(`${config.public.apiBase}/api/v1/emails/${emailId}/send-reply`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ body })
+    })
+    replyBody.value = ''
+    toast.add({ title: '回信已寄出', color: 'success' })
+    await emailsStore.fetchEmail(emailId)
+  } catch (e: any) {
+    const msg = e?.data?.message || e?.message || '寄出失敗'
+    toast.add({ title: msg, color: 'error' })
+  } finally {
+    sendLoading.value = false
   }
 }
 </script>
@@ -366,7 +396,7 @@ const copyReplyBody = async () => {
                   variant="outline"
                   size="sm"
                   :loading="draftLoading"
-                  :disabled="draftLoading || !email?.case_id"
+                  :disabled="draftLoading || sendLoading || !email?.case_id"
                   @click="generateDraft"
                 >
                   AI 產生草稿
@@ -376,9 +406,19 @@ const copyReplyBody = async () => {
                   icon="i-lucide-copy"
                   variant="outline"
                   size="sm"
+                  :disabled="sendLoading"
                   @click="copyReplyBody"
                 >
                   複製
+                </BaseButton>
+                <BaseButton
+                  icon="i-lucide-send"
+                  size="sm"
+                  :loading="sendLoading"
+                  :disabled="sendLoading || draftLoading || !replyBody?.trim()"
+                  @click="sendReply"
+                >
+                  寄出
                 </BaseButton>
               </div>
             </div>
@@ -392,20 +432,6 @@ const copyReplyBody = async () => {
           />
         </AppSection>
         </div>
-
-        <!-- AI 分析結果 (未來實作) -->
-        <AppSection v-if="email.ai_analyzed" class="mt-6">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <BaseIcon name="i-lucide-sparkles" class="text-success" />
-              <h3 class="font-semibold text-highlighted">AI 分析結果</h3>
-            </div>
-          </template>
-
-          <div class="text-muted">
-            AI 分析功能開發中...
-          </div>
-        </AppSection>
       </div>
     </div>
 
