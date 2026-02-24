@@ -279,6 +279,73 @@ func (h *AuthHandler) GoogleOAuthCallback(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// UpdateAIInstructionsRequest AI 注意事項更新請求
+type UpdateAIInstructionsRequest struct {
+	AIInstructions *string `json:"ai_instructions"`
+}
+
+// UpdateAIInstructions 更新使用者的 AI 注意事項
+// @Summary      更新 AI 注意事項
+// @Description  更新使用者的 AI 注意事項，用於 AI 擬信時參考
+// @Tags         認證
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request  body      UpdateAIInstructionsRequest  true  "AI 注意事項"
+// @Success      200      {object}  map[string]string  "更新成功"
+// @Failure      400      {object}  ErrorResponse  "請求格式錯誤"
+// @Failure      401      {object}  ErrorResponse  "未認證"
+// @Failure      500      {object}  ErrorResponse  "伺服器內部錯誤"
+// @Router       /auth/ai-instructions [put]
+func (h *AuthHandler) UpdateAIInstructions(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "unauthorized",
+			Message: "User not authenticated",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "invalid_user_id",
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	var req UpdateAIInstructionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "invalid_request",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	logger := middleware.GetLogger(c)
+
+	if err := h.authService.UpdateAIInstructions(userID, req.AIInstructions); err != nil {
+		logger.Error().
+			Err(err).
+			Str("user_id", userID.String()).
+			Msg("Failed to update AI instructions")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "internal_error",
+			Message: "Failed to update AI instructions",
+		})
+		return
+	}
+
+	logger.Info().
+		Str("user_id", userID.String()).
+		Msg("AI instructions updated")
+
+	c.JSON(http.StatusOK, gin.H{"message": "AI instructions updated"})
+}
+
 // Logout 登出
 // @Summary      使用者登出
 // @Description  登出當前使用者，客戶端需清除本地儲存的 token

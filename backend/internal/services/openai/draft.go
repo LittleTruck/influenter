@@ -17,6 +17,10 @@ func (s *Service) DraftReply(ctx context.Context, req DraftReplyRequest) (*Draft
 請直接產出回信「內文」純文字，不要包含主旨或稱謂以外的多餘說明。
 語氣要專業且友善，適合商業合作往來。`
 
+	if req.UserAIInstructions != "" {
+		systemPrompt += fmt.Sprintf("\n\n## 使用者常規注意事項（請務必遵守）\n%s", req.UserAIInstructions)
+	}
+
 	userPrompt := fmt.Sprintf(`## 案件摘要
 - 標題：%s
 - 品牌：%s

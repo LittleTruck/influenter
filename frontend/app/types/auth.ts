@@ -5,6 +5,7 @@ export interface User {
   email: string
   name: string
   profile_picture_url?: string
+  ai_instructions?: string
   googleId?: string
   aiReplyTone?: string
   timezone?: string

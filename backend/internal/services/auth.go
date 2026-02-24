@@ -420,6 +420,11 @@ func (s *AuthService) generateLoginResponse(user *models.User) (*LoginResponse, 
 	}, nil
 }
 
+// UpdateAIInstructions 更新使用者的 AI 注意事項
+func (s *AuthService) UpdateAIInstructions(userID uuid.UUID, instructions *string) error {
+	return s.db.Model(&models.User{}).Where("id = ?", userID).Update("ai_instructions", instructions).Error
+}
+
 // GetUserByID 根據 ID 取得使用者
 func (s *AuthService) GetUserByID(userID uuid.UUID) (*models.User, error) {
 	var user models.User

@@ -152,6 +152,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 			authProtected.Use(middleware.AuthMiddleware(cfg))
 			{
 				authProtected.GET("/me", authHandler.GetCurrentUser)
+				authProtected.PUT("/ai-instructions", authHandler.UpdateAIInstructions)
 				authProtected.POST("/logout", authHandler.Logout)
 			}
 		}

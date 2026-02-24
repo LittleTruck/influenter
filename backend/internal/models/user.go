@@ -13,6 +13,7 @@ type User struct {
 	Email             string         `gorm:"uniqueIndex;not null" json:"email"`
 	Name              string         `gorm:"not null" json:"name"`
 	ProfilePictureURL *string        `json:"profile_picture_url,omitempty"`
+	AIInstructions    *string        `json:"ai_instructions,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
