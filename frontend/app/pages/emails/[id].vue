@@ -27,7 +27,9 @@ onMounted(async () => {
   if (route.query.reply === '1') {
     await nextTick()
     replySectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    router.replace({ path: route.path, query: {} })
+    // 保留 from_case 參數，移除 reply
+    const { reply, ...rest } = route.query
+    router.replace({ path: route.path, query: rest })
   }
 })
 
@@ -47,9 +49,14 @@ const markAsRead = async (isRead: boolean) => {
   }
 }
 
-// 返回列表
+// 返回列表（若從案件進來，返回該案件）
+const fromCaseId = route.query.from_case as string | undefined
 const goBack = () => {
-  router.push('/emails')
+  if (fromCaseId) {
+    router.push(`/cases/${fromCaseId}`)
+  } else {
+    router.push('/emails')
+  }
 }
 
 // 格式化日期

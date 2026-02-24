@@ -88,7 +88,7 @@ const goToReplyPage = () => {
   const list = currentCase.value?.emails ?? []
   if (list.length === 0) return
   const lastEmailId = list[list.length - 1].id
-  router.push(`/emails/${lastEmailId}?reply=1`)
+  router.push(`/emails/${lastEmailId}?reply=1&from_case=${caseId.value}`)
 }
 
 // 處理階段日期編輯
@@ -252,7 +252,7 @@ const caseEmails = computed(() => currentCase.value?.emails ?? [])
               title="郵件"
             >
               <div class="space-y-4">
-                <CaseEmailsTimeline :emails="caseEmails" />
+                <CaseEmailsTimeline :emails="caseEmails" :case-id="caseId" />
                 <BaseButton
                   icon="i-lucide-sparkles"
                   variant="outline"

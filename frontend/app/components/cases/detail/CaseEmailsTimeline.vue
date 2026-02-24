@@ -8,6 +8,8 @@ import { format } from 'date-fns'
 interface Props {
   /** 郵件列表 */
   emails: CaseEmail[]
+  /** 案件 ID（用於返回導航） */
+  caseId?: string
 }
 
 const props = defineProps<Props>()
@@ -77,7 +79,7 @@ const activeEmailIndex = computed(() => {
     >
       <template #title="{ item }">
         <NuxtLink
-          :to="`/emails/${(item as any)._email.id}`"
+          :to="caseId ? `/emails/${(item as any)._email.id}?from_case=${caseId}` : `/emails/${(item as any)._email.id}`"
           class="flex items-center gap-2 min-w-0 group"
         >
           <span class="font-medium text-highlighted truncate group-hover:text-primary group-hover:underline">{{ item.title }}</span>
@@ -123,7 +125,7 @@ const activeEmailIndex = computed(() => {
                   <span class="font-medium">主旨：</span>{{ (item as any)._email.subject }}
                 </p>
                 <NuxtLink
-                  :to="`/emails/${(item as any)._email.id}`"
+                  :to="caseId ? `/emails/${(item as any)._email.id}?from_case=${caseId}` : `/emails/${(item as any)._email.id}`"
                   class="inline-flex items-center gap-1.5 mt-2 text-primary hover:underline"
                 >
                   <BaseIcon name="i-lucide-external-link" class="w-4 h-4" />
