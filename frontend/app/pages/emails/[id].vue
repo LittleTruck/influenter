@@ -17,6 +17,7 @@ const emailId = route.params.id as string
 
 // 回覆框內容（使用者可審視、修改）
 const replyBody = ref('')
+const draftInstruction = ref('')
 const draftLoading = ref(false)
 const sendLoading = ref(false)
 const replySectionRef = ref<HTMLElement | null>(null)
@@ -152,7 +153,7 @@ const generateDraft = async () => {
           Authorization: `Bearer ${authStore.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email_id: emailId })
+        body: JSON.stringify({ email_id: emailId, instruction: draftInstruction.value || undefined })
       }
     )
     replyBody.value = res.draft ?? ''
@@ -437,12 +438,23 @@ const sendReply = async () => {
             </div>
           </template>
 
-          <BaseTextarea
-            v-model="replyBody"
-            :rows="12"
-            placeholder="回信內容（可手動輸入或點「AI 產生草稿」填入）"
-            class="font-mono text-sm"
-          />
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-muted mb-1">AI 補充說明（選填）</label>
+              <BaseTextarea
+                v-model="draftInstruction"
+                :rows="2"
+                placeholder="例如：拒絕這次合作，因為近期沒有合適的內容"
+                :disabled="draftLoading || sendLoading"
+              />
+            </div>
+            <BaseTextarea
+              v-model="replyBody"
+              :rows="12"
+              placeholder="回信內容（可手動輸入或點「AI 產生草稿」填入）"
+              class="font-mono text-sm"
+            />
+          </div>
         </AppSection>
         </div>
       </div>
