@@ -8,7 +8,7 @@ import WorkflowFormModal from './WorkflowFormModal.vue'
 import WorkflowTree from './WorkflowTree.vue'
 
 const { handleError, handleSuccess } = useErrorHandler()
-const { workflowTemplates: templateList, fetchWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, reorderWorkflows } = useWorkflowTemplates()
+const { workflowTemplates: templateList, fetchWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, reorderWorkflows, updatePhase } = useWorkflowTemplates()
 
 // 使用本地狀態來管理流程（可以修改）
 const workflows = ref<WorkflowTemplate[]>([])
@@ -75,7 +75,12 @@ const handleReorderPhases = async (workflowId: string, phases: CollaborationItem
     const workflow = workflows.value.find(w => w.id === workflowId)
     if (workflow) {
       workflow.phases = phases
-      // TODO: 呼叫 API 更新階段順序
+      // 逐一更新每個階段的 order
+      await Promise.all(
+        phases.map((phase, index) =>
+          updatePhase(workflowId, phase.id, { order: index })
+        )
+      )
       handleSuccess('階段排序已更新')
     }
   } catch (error: unknown) {

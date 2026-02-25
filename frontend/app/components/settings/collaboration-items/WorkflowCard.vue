@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { WorkflowTemplate, CollaborationItemPhase, CreateCollaborationItemPhaseRequest, UpdateCollaborationItemPhaseRequest } from '~/types/collaborationItems'
 import { WORKFLOW_COLORS } from '~/utils/mockData'
+import { useWorkflowTemplates } from '~/composables/useWorkflowTemplates'
+import { useErrorHandler } from '~/composables/useErrorHandler'
 import { BaseButton, BaseIcon, BaseBadge, BaseCollapsible } from '~/components/base'
 import PhaseFormModal from '~/components/collaboration-items/PhaseFormModal.vue'
 import DraggableList from '~/components/base/DraggableList.vue'
@@ -24,6 +26,9 @@ const emit = defineEmits<{
   'delete-phase': [phase: CollaborationItemPhase]
   'reorder-phases': [workflowId: string, phases: CollaborationItemPhase[]]
 }>()
+
+const { createPhase, updatePhase, deletePhase } = useWorkflowTemplates()
+const { handleError, handleSuccess } = useErrorHandler()
 
 const isExpanded = ref(props.expanded)
 const localPhases = ref<CollaborationItemPhase[]>([...props.workflow.phases])
@@ -73,39 +78,45 @@ const handleEditPhase = (phase: CollaborationItemPhase) => {
   showPhaseForm.value = true
 }
 
-const handleDeletePhase = (phase: CollaborationItemPhase) => {
-  emit('delete-phase', phase)
+const handleDeletePhase = async (phase: CollaborationItemPhase) => {
+  try {
+    await deletePhase(props.workflow.id, phase.id)
+    localPhases.value = localPhases.value.filter(p => p.id !== phase.id)
+    handleSuccess('階段已刪除')
+  } catch (error: unknown) {
+    handleError(error, '刪除階段失敗')
+  }
 }
 
-const handlePhaseSubmit = (data: CreateCollaborationItemPhaseRequest | UpdateCollaborationItemPhaseRequest) => {
-  if (editingPhase.value) {
-    // 更新階段
-    const index = localPhases.value.findIndex(p => p.id === editingPhase.value?.id)
-    if (index !== -1) {
-      localPhases.value[index] = {
-        ...localPhases.value[index],
-        name: data.name || localPhases.value[index].name,
-        duration_days: data.duration_days || localPhases.value[index].duration_days,
-        updated_at: new Date().toISOString()
+const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | UpdateCollaborationItemPhaseRequest) => {
+  try {
+    if (editingPhase.value) {
+      // 更新階段
+      const updated = await updatePhase(props.workflow.id, editingPhase.value.id, {
+        name: data.name,
+        duration_days: data.duration_days
+      })
+      const index = localPhases.value.findIndex(p => p.id === editingPhase.value?.id)
+      if (index !== -1) {
+        localPhases.value[index] = updated
       }
-      emit('reorder-phases', props.workflow.id, localPhases.value)
+      handleSuccess('階段已更新')
+    } else {
+      // 新增階段
+      const newPhase = await createPhase(props.workflow.id, {
+        name: data.name!,
+        duration_days: data.duration_days!,
+        order: localPhases.value.length
+      })
+      localPhases.value.push(newPhase)
+      handleSuccess('階段已新增')
     }
-  } else {
-    // 新增階段
-    const newPhase: CollaborationItemPhase = {
-      id: `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      workflow_template_id: props.workflow.id,
-      name: data.name!,
-      duration_days: data.duration_days!,
-      order: localPhases.value.length,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-    localPhases.value.push(newPhase)
-    emit('reorder-phases', props.workflow.id, localPhases.value)
+  } catch (error: unknown) {
+    handleError(error, '操作失敗')
+  } finally {
+    showPhaseForm.value = false
+    editingPhase.value = null
   }
-  showPhaseForm.value = false
-  editingPhase.value = null
 }
 </script>
 
