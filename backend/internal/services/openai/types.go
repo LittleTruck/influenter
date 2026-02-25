@@ -144,6 +144,31 @@ type MatchCollaborationItemsResult struct {
 	Reason         string   `json:"reason"`
 }
 
+// MatchWorkflowTemplateRequest AI 自動選擇流程範本請求
+type MatchWorkflowTemplateRequest struct {
+	CaseTitle       string                 `json:"case_title"`
+	CaseBrandName   string                 `json:"case_brand_name"`
+	CaseDescription string                 `json:"case_description"`
+	EmailSubject    string                 `json:"email_subject"`
+	EmailBody       string                 `json:"email_body"`
+	Templates       []WorkflowTemplateInfo `json:"templates"`
+}
+
+// WorkflowTemplateInfo 流程範本摘要（用於 AI 匹配）
+type WorkflowTemplateInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Phases      []string `json:"phases"` // 階段名稱列表
+}
+
+// MatchWorkflowTemplateResult AI 選擇流程範本結果
+type MatchWorkflowTemplateResult struct {
+	TemplateID string  `json:"template_id"`
+	Confidence float64 `json:"confidence"`
+	Reason     string  `json:"reason"`
+}
+
 // TokenUsage 記錄 token 使用情況
 type TokenUsage struct {
 	UserID           string

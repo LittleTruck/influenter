@@ -194,6 +194,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/:id/phases", caseHandler.ListCasePhases)
 				casesGroup.POST("/:id/phases", caseHandler.CreateCasePhase)
 				casesGroup.POST("/:id/phases/apply-template", caseHandler.ApplyTemplate)
+				casesGroup.POST("/:id/phases/auto-apply", caseHandler.AutoApplyTemplate)
 				casesGroup.PATCH("/:id/phases/:phaseId", caseHandler.UpdateCasePhase)
 				casesGroup.DELETE("/:id/phases/:phaseId", caseHandler.DeleteCasePhase)
 			}

@@ -929,3 +929,189 @@ func (h *CaseHandler) DeleteCasePhase(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Case phase deleted"})
 }
+
+// AutoApplyTemplate AI 自動選擇並套用流程範本
+func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	if h.openaiService == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{Error: "openai_unavailable", Message: "AI 服務未設定"})
+		return
+	}
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	// 取得案件
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	// 取得使用者所有流程範本（含 phases）
+	var templates []models.WorkflowTemplate
+	if err := h.db.Where("user_id = ?", userID).
+		Preload("Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Find(&templates).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to fetch workflow templates")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch workflow templates"})
+		return
+	}
+
+	if len(templates) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no_templates", Message: "尚未建立任何流程範本，請先到設定頁建立"})
+		return
+	}
+
+	// 取得案件相關最新郵件（用於 AI 分析）
+	emailSubject := ""
+	emailBody := ""
+	var latestEmail models.Email
+	err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+		Where("emails.case_id = ? AND oauth_accounts.user_id = ?", caseUUID, userID).
+		Order("emails.received_at DESC").
+		First(&latestEmail).Error
+	if err == nil {
+		if latestEmail.Subject != nil {
+			emailSubject = *latestEmail.Subject
+		}
+		if latestEmail.BodyText != nil {
+			emailBody = *latestEmail.BodyText
+		} else if latestEmail.Snippet != nil {
+			emailBody = *latestEmail.Snippet
+		}
+	}
+
+	// 組裝 AI 請求
+	templateInfos := make([]openai.WorkflowTemplateInfo, 0, len(templates))
+	for _, t := range templates {
+		phaseNames := make([]string, 0, len(t.Phases))
+		for _, p := range t.Phases {
+			phaseNames = append(phaseNames, p.Name)
+		}
+		desc := ""
+		if t.Description != nil {
+			desc = *t.Description
+		}
+		templateInfos = append(templateInfos, openai.WorkflowTemplateInfo{
+			ID:          t.ID.String(),
+			Name:        t.Name,
+			Description: desc,
+			Phases:      phaseNames,
+		})
+	}
+
+	caseDesc := ""
+	if cs.Description != nil {
+		caseDesc = *cs.Description
+	}
+
+	matchReq := openai.MatchWorkflowTemplateRequest{
+		CaseTitle:       cs.Title,
+		CaseBrandName:   cs.BrandName,
+		CaseDescription: caseDesc,
+		EmailSubject:    emailSubject,
+		EmailBody:       emailBody,
+		Templates:       templateInfos,
+	}
+
+	matchResult, err := h.openaiService.MatchWorkflowTemplate(c.Request.Context(), matchReq)
+	if err != nil {
+		logger.Error().Err(err).Msg("AI workflow template matching failed")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ai_error", Message: "AI 分析失敗，請稍後再試"})
+		return
+	}
+
+	if matchResult.Confidence < 0.3 || matchResult.TemplateID == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"matched":    false,
+			"confidence": matchResult.Confidence,
+			"reason":     matchResult.Reason,
+			"message":    "AI 無法判斷適合的流程範本",
+		})
+		return
+	}
+
+	// 找到匹配的範本
+	var matchedTmpl *models.WorkflowTemplate
+	for i := range templates {
+		if templates[i].ID.String() == matchResult.TemplateID {
+			matchedTmpl = &templates[i]
+			break
+		}
+	}
+
+	if matchedTmpl == nil || len(matchedTmpl.Phases) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"matched":    false,
+			"confidence": matchResult.Confidence,
+			"reason":     "匹配到的範本不存在或沒有階段",
+		})
+		return
+	}
+
+	// 套用：刪除舊階段，建立新階段
+	tx := h.db.Begin()
+
+	if err := tx.Where("case_id = ?", caseUUID).Delete(&models.CasePhase{}).Error; err != nil {
+		tx.Rollback()
+		logger.Error().Err(err).Msg("Failed to delete existing case phases")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to auto-apply template"})
+		return
+	}
+
+	startDate := time.Now().Truncate(24 * time.Hour)
+	currentDate := startDate
+	var createdPhases []models.CasePhase
+
+	for i, wp := range matchedTmpl.Phases {
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		wpID := wp.ID
+		phase := models.CasePhase{
+			CaseID:          caseUUID,
+			Name:            wp.Name,
+			StartDate:       &currentDate,
+			EndDate:         &endDate,
+			DurationDays:    wp.DurationDays,
+			Order:           i,
+			WorkflowPhaseID: &wpID,
+		}
+		if err := tx.Create(&phase).Error; err != nil {
+			tx.Rollback()
+			logger.Error().Err(err).Msg("Failed to create case phase")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to auto-apply template"})
+			return
+		}
+		createdPhases = append(createdPhases, phase)
+		currentDate = endDate
+	}
+
+	tx.Commit()
+
+	data := make([]CasePhaseResponse, 0, len(createdPhases))
+	for _, p := range createdPhases {
+		data = append(data, casePhaseToResponse(&p))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"matched":       true,
+		"confidence":    matchResult.Confidence,
+		"reason":        matchResult.Reason,
+		"template_name": matchedTmpl.Name,
+		"data":          data,
+		"message":       fmt.Sprintf("AI 自動套用了「%s」流程（%d 個階段）", matchedTmpl.Name, len(createdPhases)),
+	})
+}

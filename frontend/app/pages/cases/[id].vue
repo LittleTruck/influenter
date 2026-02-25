@@ -185,6 +185,35 @@ const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
   }
 }
 
+// AI 自動套用流程
+const autoApplying = ref(false)
+const handleAutoApplyTemplate = async () => {
+  autoApplying.value = true
+  try {
+    const result = await $fetch<{ matched: boolean; message: string; reason: string; template_name?: string }>(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/auto-apply`,
+      {
+        method: 'POST',
+        headers: apiHeaders.value
+      }
+    )
+    if (result.matched) {
+      handleSuccess(result.message || 'AI 已自動套用流程')
+      await fetchCase(caseId.value)
+    } else {
+      toast.add({
+        title: 'AI 無法自動套用',
+        description: result.reason || '找不到適合的流程範本',
+        color: 'warning'
+      })
+    }
+  } catch (error: any) {
+    handleError(error, 'AI 自動套用失敗')
+  } finally {
+    autoApplying.value = false
+  }
+}
+
 // 取得案件階段列表（從 API 回傳的 phases）
 const casePhases = computed(() => {
   return (currentCase.value as any)?.phases ?? []
@@ -264,14 +293,25 @@ const caseEmails = computed(() => currentCase.value?.emails ?? [])
               description="管理案件的執行階段"
             >
               <template #actions>
-                <BaseButton
-                  icon="i-lucide-layout-template"
-                  size="sm"
-                  variant="outline"
-                  @click="showApplyTemplate = true"
-                >
-                  {{ casePhases.length === 0 ? '套用流程' : '重新套用流程' }}
-                </BaseButton>
+                <div class="flex gap-2">
+                  <BaseButton
+                    icon="i-lucide-sparkles"
+                    size="sm"
+                    variant="outline"
+                    :loading="autoApplying"
+                    @click="handleAutoApplyTemplate"
+                  >
+                    AI 自動套用
+                  </BaseButton>
+                  <BaseButton
+                    icon="i-lucide-layout-template"
+                    size="sm"
+                    variant="outline"
+                    @click="showApplyTemplate = true"
+                  >
+                    {{ casePhases.length === 0 ? '手動套用' : '重新套用' }}
+                  </BaseButton>
+                </div>
               </template>
               <CasePhaseTimeline
                 :phases="casePhases"
