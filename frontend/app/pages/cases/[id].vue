@@ -23,6 +23,9 @@ const router = useRouter()
 const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase } = useCases()
 const { allFields, fetchFields } = useCaseFields()
 
+const { handleError, handleSuccess } = useErrorHandler()
+const toast = useToast()
+
 const caseId = computed(() => route.params.id as string)
 
 // 載入案件詳情和屬性（忽略 404 錯誤，因為後端還沒實作）
@@ -208,7 +211,13 @@ const handleAutoApplyTemplate = async () => {
       })
     }
   } catch (error: any) {
-    handleError(error, 'AI 自動套用失敗')
+    // 擷取後端回傳的錯誤訊息（例如「尚未建立任何流程範本」）
+    const serverMsg = error?.data?.message || error?.response?._data?.message
+    if (serverMsg) {
+      toast.add({ title: 'AI 自動套用失敗', description: serverMsg, color: 'error' })
+    } else {
+      handleError(error, 'AI 自動套用失敗')
+    }
   } finally {
     autoApplying.value = false
   }
