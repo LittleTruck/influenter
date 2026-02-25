@@ -602,6 +602,115 @@ func (h *EmailHandler) runCreateCaseFromEmail(ctx context.Context, logger *zerol
 		Str("email_id", emailID).
 		Str("case_id", cs.ID.String()).
 		Msg("Case created from email")
+
+	// AI 自動匹配合作項目（僅對合作案件）
+	if cs.Status != models.CaseStatusOther {
+		h.autoMatchCollaborationItems(ctx, logger, userUUID, cs, subject, body, from)
+	}
+}
+
+// autoMatchCollaborationItems AI 自動匹配合作項目並套用流程
+func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *zerolog.Logger, userID uuid.UUID, cs *models.Case, subject, body, from string) {
+	// 讀取使用者合作項目
+	var items []models.CollaborationItem
+	if err := h.db.Where("user_id = ?", userID).Preload("Workflow").Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+		return db.Order(`"order" ASC`)
+	}).Find(&items).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to fetch collaboration items for matching")
+		return
+	}
+
+	if len(items) == 0 {
+		return
+	}
+
+	// 準備 AI 匹配請求
+	itemInfos := make([]openai.CollaborationItemInfo, 0, len(items))
+	for _, item := range items {
+		desc := ""
+		if item.Description != nil {
+			desc = *item.Description
+		}
+		itemInfos = append(itemInfos, openai.CollaborationItemInfo{
+			ID:          item.ID.String(),
+			Title:       item.Title,
+			Description: desc,
+			Price:       item.Price,
+		})
+	}
+
+	matchReq := openai.MatchCollaborationItemsRequest{
+		EmailSubject: subject,
+		EmailBody:    body,
+		EmailFrom:    from,
+		Items:        itemInfos,
+	}
+
+	matchResult, err := h.openaiService.MatchCollaborationItems(ctx, matchReq)
+	if err != nil {
+		logger.Error().Err(err).Msg("AI collaboration item matching failed")
+		return
+	}
+
+	if matchResult.Confidence < 0.5 || len(matchResult.MatchedItemIDs) == 0 {
+		logger.Info().
+			Float64("confidence", matchResult.Confidence).
+			Str("reason", matchResult.Reason).
+			Msg("No confident match for collaboration items")
+		return
+	}
+
+	// 更新案件的 collaboration_items
+	if err := h.db.Model(cs).Update("collaboration_items", pq.StringArray(matchResult.MatchedItemIDs)).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to update case collaboration items")
+		return
+	}
+
+	logger.Info().
+		Strs("matched_ids", matchResult.MatchedItemIDs).
+		Float64("confidence", matchResult.Confidence).
+		Str("reason", matchResult.Reason).
+		Msg("Auto-matched collaboration items")
+
+	// 找到第一個有 workflow 的匹配項目，自動套用流程
+	for _, matchedID := range matchResult.MatchedItemIDs {
+		for _, item := range items {
+			if item.ID.String() == matchedID && item.Workflow != nil && len(item.Workflow.Phases) > 0 {
+				h.applyWorkflowToCase(logger, cs, item.Workflow)
+				return
+			}
+		}
+	}
+}
+
+// applyWorkflowToCase 將流程範本套用到案件
+func (h *EmailHandler) applyWorkflowToCase(logger *zerolog.Logger, cs *models.Case, workflow *models.WorkflowTemplate) {
+	currentDate := time.Now().Truncate(24 * time.Hour)
+
+	for i, wp := range workflow.Phases {
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		wpID := wp.ID
+		phase := models.CasePhase{
+			CaseID:          cs.ID,
+			Name:            wp.Name,
+			StartDate:       &currentDate,
+			EndDate:         &endDate,
+			DurationDays:    wp.DurationDays,
+			Order:           i,
+			WorkflowPhaseID: &wpID,
+		}
+		if err := h.db.Create(&phase).Error; err != nil {
+			logger.Error().Err(err).Str("phase_name", wp.Name).Msg("Failed to create auto case phase")
+			return
+		}
+		currentDate = endDate
+	}
+
+	logger.Info().
+		Str("case_id", cs.ID.String()).
+		Str("workflow", workflow.Name).
+		Int("phases", len(workflow.Phases)).
+		Msg("Auto-applied workflow phases to case")
 }
 
 // runUpdateCaseFromReply 根據寄出的回信，在背景執行 AI 分析並更新案件狀態與進度

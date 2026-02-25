@@ -3,14 +3,19 @@
  * 提供便捷的流程範本操作方法
  */
 
-import { generateMockWorkflowTemplates } from '~/utils/mockData'
-import type { WorkflowTemplate } from '~/types/collaborationItems'
+import type { WorkflowTemplate, CollaborationItemPhase } from '~/types/collaborationItems'
 
 export const useWorkflowTemplates = () => {
-  // 使用假資料作為初始狀態
-  const workflowTemplates = ref<WorkflowTemplate[]>(generateMockWorkflowTemplates(3))
+  const workflowTemplates = ref<WorkflowTemplate[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  const config = useRuntimeConfig()
+  const authStore = useAuthStore()
+
+  const headers = computed(() => ({
+    Authorization: `Bearer ${authStore.token}`
+  }))
 
   /**
    * 載入流程範本列表
@@ -20,29 +25,19 @@ export const useWorkflowTemplates = () => {
     error.value = null
 
     try {
-      // TODO: 呼叫 API 載入流程範本列表
-      // const config = useRuntimeConfig()
-      // const authStore = useAuthStore()
-      // const data = await $fetch<{ data: WorkflowTemplate[] }>(
-      //   `${config.public.apiBase}/api/v1/workflow-templates`,
-      //   {
-      //     headers: {
-      //       Authorization: `Bearer ${authStore.token}`
-      //     }
-      //   }
-      // )
-      // workflowTemplates.value = data.data
-
-      // 暫時：使用假資料
-      await new Promise(resolve => setTimeout(resolve, 300))
-      workflowTemplates.value = generateMockWorkflowTemplates(3)
+      const data = await $fetch<{ data: WorkflowTemplate[] }>(
+        `${config.public.apiBase}/api/v1/workflow-templates`,
+        {
+          headers: headers.value
+        }
+      )
+      workflowTemplates.value = data.data ?? []
     } catch (e: any) {
       const is404 = e?.statusCode === 404 || e?.status === 404 || e?.response?.status === 404
       if (!is404) {
         error.value = '載入流程範本失敗'
         console.error('載入流程範本失敗:', e)
       }
-      // 即使失敗也保留假資料
     } finally {
       loading.value = false
     }
@@ -59,17 +54,14 @@ export const useWorkflowTemplates = () => {
    * 建立流程範本
    */
   const createWorkflow = async (data: { name: string; description?: string; color: string }): Promise<WorkflowTemplate> => {
-    // TODO: 呼叫 API 建立流程範本
-    const newWorkflow: WorkflowTemplate = {
-      id: `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: data.name,
-      description: data.description,
-      color: data.color || 'primary',
-      phases: [],
-      order: workflowTemplates.value.length,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
+    const newWorkflow = await $fetch<WorkflowTemplate>(
+      `${config.public.apiBase}/api/v1/workflow-templates`,
+      {
+        method: 'POST',
+        body: data,
+        headers: headers.value
+      }
+    )
     workflowTemplates.value.push(newWorkflow)
     return newWorkflow
   }
@@ -78,24 +70,32 @@ export const useWorkflowTemplates = () => {
    * 更新流程範本
    */
   const updateWorkflow = async (id: string, data: { name?: string; description?: string; color?: string }): Promise<WorkflowTemplate> => {
-    // TODO: 呼叫 API 更新流程範本
+    const updatedWorkflow = await $fetch<WorkflowTemplate>(
+      `${config.public.apiBase}/api/v1/workflow-templates/${id}`,
+      {
+        method: 'PATCH',
+        body: data,
+        headers: headers.value
+      }
+    )
     const index = workflowTemplates.value.findIndex(w => w.id === id)
     if (index !== -1) {
-      workflowTemplates.value[index] = {
-        ...workflowTemplates.value[index],
-        ...data,
-        updated_at: new Date().toISOString()
-      }
-      return workflowTemplates.value[index]
+      workflowTemplates.value[index] = updatedWorkflow
     }
-    throw new Error('流程範本不存在')
+    return updatedWorkflow
   }
 
   /**
    * 刪除流程範本
    */
   const deleteWorkflow = async (id: string): Promise<void> => {
-    // TODO: 呼叫 API 刪除流程範本
+    await $fetch(
+      `${config.public.apiBase}/api/v1/workflow-templates/${id}`,
+      {
+        method: 'DELETE',
+        headers: headers.value
+      }
+    )
     workflowTemplates.value = workflowTemplates.value.filter(w => w.id !== id)
   }
 
@@ -103,12 +103,70 @@ export const useWorkflowTemplates = () => {
    * 重新排序流程範本
    */
   const reorderWorkflows = async (workflowIds: string[]): Promise<void> => {
-    // TODO: 呼叫 API 重新排序
     const sortedWorkflows = workflowIds.map(id => workflowTemplates.value.find(w => w.id === id)).filter(Boolean) as WorkflowTemplate[]
     sortedWorkflows.forEach((workflow, index) => {
       workflow.order = index
     })
     workflowTemplates.value = sortedWorkflows
+  }
+
+  /**
+   * 建立流程階段
+   */
+  const createPhase = async (workflowId: string, data: { name: string; duration_days: number; order?: number }): Promise<CollaborationItemPhase> => {
+    const newPhase = await $fetch<CollaborationItemPhase>(
+      `${config.public.apiBase}/api/v1/workflow-templates/${workflowId}/phases`,
+      {
+        method: 'POST',
+        body: data,
+        headers: headers.value
+      }
+    )
+    // 更新本地範本的階段列表
+    const workflow = workflowTemplates.value.find(w => w.id === workflowId)
+    if (workflow) {
+      workflow.phases.push(newPhase)
+    }
+    return newPhase
+  }
+
+  /**
+   * 更新流程階段
+   */
+  const updatePhase = async (workflowId: string, phaseId: string, data: { name?: string; duration_days?: number; order?: number }): Promise<CollaborationItemPhase> => {
+    const updatedPhase = await $fetch<CollaborationItemPhase>(
+      `${config.public.apiBase}/api/v1/workflow-templates/${workflowId}/phases/${phaseId}`,
+      {
+        method: 'PATCH',
+        body: data,
+        headers: headers.value
+      }
+    )
+    const workflow = workflowTemplates.value.find(w => w.id === workflowId)
+    if (workflow) {
+      const index = workflow.phases.findIndex(p => p.id === phaseId)
+      if (index !== -1) {
+        workflow.phases[index] = updatedPhase
+      }
+    }
+    return updatedPhase
+  }
+
+  /**
+   * 刪除流程階段
+   */
+  const deletePhase = async (workflowId: string, phaseId: string): Promise<void> => {
+    await $fetch(
+      `${config.public.apiBase}/api/v1/workflow-templates/${workflowId}/phases/${phaseId}`,
+      {
+        method: 'DELETE',
+        headers: headers.value
+      }
+    )
+    const workflow = workflowTemplates.value.find(w => w.id === workflowId)
+    if (workflow) {
+      workflow.phases = workflow.phases.filter(p => p.id !== phaseId)
+    }
   }
 
   return {
@@ -120,7 +178,9 @@ export const useWorkflowTemplates = () => {
     createWorkflow,
     updateWorkflow,
     deleteWorkflow,
-    reorderWorkflows
+    reorderWorkflows,
+    createPhase,
+    updatePhase,
+    deletePhase
   }
 }
-

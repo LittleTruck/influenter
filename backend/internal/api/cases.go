@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -285,7 +286,36 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 	var emailCount int64
 	h.db.Model(&models.Email{}).Where("case_id = ?", id).Count(&emailCount)
 
-	c.JSON(http.StatusOK, caseToResponse(&cs, int(emailCount), 0, 0))
+	// 查詢案件階段
+	var phases []models.CasePhase
+	h.db.Where("case_id = ?", id).Order(`"order" ASC`).Find(&phases)
+
+	resp := caseToResponse(&cs, int(emailCount), 0, 0)
+	phaseList := make([]CasePhaseResponse, 0, len(phases))
+	for _, p := range phases {
+		phaseList = append(phaseList, casePhaseToResponse(&p))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":                  resp.ID,
+		"title":               resp.Title,
+		"brand_name":          resp.BrandName,
+		"collaboration_type":  resp.CollaborationType,
+		"status":              resp.Status,
+		"quoted_amount":       resp.QuotedAmount,
+		"final_amount":        resp.FinalAmount,
+		"currency":            resp.Currency,
+		"deadline_date":       resp.DeadlineDate,
+		"contact_name":        resp.ContactName,
+		"contact_email":       resp.ContactEmail,
+		"contact_phone":       resp.ContactPhone,
+		"email_count":         resp.EmailCount,
+		"task_count":          resp.TaskCount,
+		"completed_task_count": resp.CompletedTaskCount,
+		"created_at":          resp.CreatedAt,
+		"updated_at":          resp.UpdatedAt,
+		"phases":              phaseList,
+	})
 }
 
 // CaseEmailResponse 案件郵件列表項目（與前端 CaseEmail 對齊）
@@ -486,4 +516,416 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"draft": result.Draft})
+}
+
+// --- Case Phase types and handlers ---
+
+// CasePhaseResponse 案件階段回應
+type CasePhaseResponse struct {
+	ID              string  `json:"id"`
+	CaseID          string  `json:"case_id"`
+	Name            string  `json:"name"`
+	StartDate       *string `json:"start_date"`
+	EndDate         *string `json:"end_date"`
+	DurationDays    int     `json:"duration_days"`
+	Order           int     `json:"order"`
+	WorkflowPhaseID *string `json:"workflow_phase_id,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+}
+
+func casePhaseToResponse(p *models.CasePhase) CasePhaseResponse {
+	resp := CasePhaseResponse{
+		ID:           p.ID.String(),
+		CaseID:       p.CaseID.String(),
+		Name:         p.Name,
+		DurationDays: p.DurationDays,
+		Order:        p.Order,
+		CreatedAt:    p.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+		UpdatedAt:    p.UpdatedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+	}
+	if p.StartDate != nil {
+		s := p.StartDate.Format("2006-01-02")
+		resp.StartDate = &s
+	}
+	if p.EndDate != nil {
+		s := p.EndDate.Format("2006-01-02")
+		resp.EndDate = &s
+	}
+	if p.WorkflowPhaseID != nil {
+		s := p.WorkflowPhaseID.String()
+		resp.WorkflowPhaseID = &s
+	}
+	return resp
+}
+
+// CreateCasePhaseRequest 建立案件階段請求
+type CreateCasePhaseRequest struct {
+	Name         string `json:"name" binding:"required"`
+	StartDate    string `json:"start_date"`
+	DurationDays int    `json:"duration_days"`
+	Order        *int   `json:"order"`
+}
+
+// UpdateCasePhaseRequest 更新案件階段請求
+type UpdateCasePhaseRequest struct {
+	Name         *string `json:"name"`
+	StartDate    *string `json:"start_date"`
+	EndDate      *string `json:"end_date"`
+	DurationDays *int    `json:"duration_days"`
+	Order        *int    `json:"order"`
+}
+
+// ApplyTemplateRequest 套用流程範本請求
+type ApplyTemplateRequest struct {
+	WorkflowID string `json:"workflow_id" binding:"required"`
+	StartDate  string `json:"start_date" binding:"required"`
+}
+
+// ListCasePhases 取得案件階段列表
+func (h *CaseHandler) ListCasePhases(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var phases []models.CasePhase
+	if err := h.db.Where("case_id = ?", caseUUID).Order(`"order" ASC`).Find(&phases).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to list case phases")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to list case phases"})
+		return
+	}
+
+	data := make([]CasePhaseResponse, 0, len(phases))
+	for _, p := range phases {
+		data = append(data, casePhaseToResponse(&p))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+// CreateCasePhase 建立案件階段
+func (h *CaseHandler) CreateCasePhase(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req CreateCasePhaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	durationDays := req.DurationDays
+	if durationDays <= 0 {
+		durationDays = 1
+	}
+
+	phase := models.CasePhase{
+		CaseID:       caseUUID,
+		Name:         req.Name,
+		DurationDays: durationDays,
+	}
+
+	if req.StartDate != "" {
+		if t, err := time.Parse("2006-01-02", req.StartDate); err == nil {
+			phase.StartDate = &t
+			endDate := t.AddDate(0, 0, durationDays)
+			phase.EndDate = &endDate
+		}
+	}
+
+	if req.Order != nil {
+		phase.Order = *req.Order
+	} else {
+		var maxOrder int
+		h.db.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).
+			Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
+		phase.Order = maxOrder + 1
+	}
+
+	if err := h.db.Create(&phase).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to create case phase")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to create case phase"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, casePhaseToResponse(&phase))
+}
+
+// ApplyTemplate 套用流程範本到案件
+func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req ApplyTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(req.WorkflowID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_workflow_id", Message: "Invalid workflow ID"})
+		return
+	}
+
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_start_date", Message: "Invalid start date format (YYYY-MM-DD)"})
+		return
+	}
+
+	// 讀取流程範本及階段
+	var tmpl models.WorkflowTemplate
+	if err := h.db.Where("id = ? AND user_id = ?", workflowUUID, userID).
+		Preload("Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		First(&tmpl).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "workflow_not_found", Message: "Workflow template not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch workflow template")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch workflow template"})
+		return
+	}
+
+	if len(tmpl.Phases) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no_phases", Message: "Workflow template has no phases"})
+		return
+	}
+
+	tx := h.db.Begin()
+
+	// 刪除既有的案件階段
+	if err := tx.Where("case_id = ?", caseUUID).Delete(&models.CasePhase{}).Error; err != nil {
+		tx.Rollback()
+		logger.Error().Err(err).Msg("Failed to delete existing case phases")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to apply template"})
+		return
+	}
+
+	// 從開始日期計算每個階段的日期
+	currentDate := startDate
+	var createdPhases []models.CasePhase
+
+	for i, wp := range tmpl.Phases {
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		wpID := wp.ID
+		phase := models.CasePhase{
+			CaseID:          caseUUID,
+			Name:            wp.Name,
+			StartDate:       &currentDate,
+			EndDate:         &endDate,
+			DurationDays:    wp.DurationDays,
+			Order:           i,
+			WorkflowPhaseID: &wpID,
+		}
+		if err := tx.Create(&phase).Error; err != nil {
+			tx.Rollback()
+			logger.Error().Err(err).Msg("Failed to create case phase")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: fmt.Sprintf("Failed to create phase: %s", wp.Name)})
+			return
+		}
+		createdPhases = append(createdPhases, phase)
+		currentDate = endDate
+	}
+
+	tx.Commit()
+
+	data := make([]CasePhaseResponse, 0, len(createdPhases))
+	for _, p := range createdPhases {
+		data = append(data, casePhaseToResponse(&p))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data, "message": fmt.Sprintf("Applied %d phases from template '%s'", len(createdPhases), tmpl.Name)})
+}
+
+// UpdateCasePhase 更新案件階段
+func (h *CaseHandler) UpdateCasePhase(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+	phaseID := c.Param("phaseId")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	phaseUUID, err := uuid.Parse(phaseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid phase ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var phase models.CasePhase
+	if err := h.db.Where("id = ? AND case_id = ?", phaseUUID, caseUUID).First(&phase).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "phase_not_found", Message: "Case phase not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case phase")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case phase"})
+		return
+	}
+
+	var req UpdateCasePhaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+	if req.DurationDays != nil {
+		updates["duration_days"] = *req.DurationDays
+	}
+	if req.Order != nil {
+		updates["order"] = *req.Order
+	}
+	if req.StartDate != nil {
+		if t, err := time.Parse("2006-01-02", *req.StartDate); err == nil {
+			updates["start_date"] = t
+			// 如果有 duration_days，自動計算 end_date
+			dur := phase.DurationDays
+			if req.DurationDays != nil {
+				dur = *req.DurationDays
+			}
+			endDate := t.AddDate(0, 0, dur)
+			updates["end_date"] = endDate
+		}
+	}
+	if req.EndDate != nil {
+		if t, err := time.Parse("2006-01-02", *req.EndDate); err == nil {
+			updates["end_date"] = t
+		}
+	}
+
+	if err := h.db.Model(&phase).Updates(updates).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to update case phase")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to update case phase"})
+		return
+	}
+
+	h.db.First(&phase, "id = ?", phaseUUID)
+	c.JSON(http.StatusOK, casePhaseToResponse(&phase))
+}
+
+// DeleteCasePhase 刪除案件階段
+func (h *CaseHandler) DeleteCasePhase(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+	phaseID := c.Param("phaseId")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	phaseUUID, err := uuid.Parse(phaseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid phase ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var phase models.CasePhase
+	if err := h.db.Where("id = ? AND case_id = ?", phaseUUID, caseUUID).First(&phase).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "phase_not_found", Message: "Case phase not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case phase")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case phase"})
+		return
+	}
+
+	if err := h.db.Delete(&phase).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to delete case phase")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to delete case phase"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Case phase deleted"})
 }

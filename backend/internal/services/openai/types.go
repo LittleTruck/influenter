@@ -121,6 +121,29 @@ type ReplyCaseUpdateResult struct {
 	Reason            string  `json:"reason"`              // 更新理由
 }
 
+// MatchCollaborationItemsRequest 匹配合作項目請求
+type MatchCollaborationItemsRequest struct {
+	EmailSubject string                  `json:"email_subject"`
+	EmailBody    string                  `json:"email_body"`
+	EmailFrom    string                  `json:"email_from"`
+	Items        []CollaborationItemInfo `json:"items"`
+}
+
+// CollaborationItemInfo 合作項目摘要（用於 AI 匹配）
+type CollaborationItemInfo struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+}
+
+// MatchCollaborationItemsResult 合作項目匹配結果
+type MatchCollaborationItemsResult struct {
+	MatchedItemIDs []string `json:"matched_item_ids"`
+	Confidence     float64  `json:"confidence"`
+	Reason         string   `json:"reason"`
+}
+
 // TokenUsage 記錄 token 使用情況
 type TokenUsage struct {
 	UserID           string

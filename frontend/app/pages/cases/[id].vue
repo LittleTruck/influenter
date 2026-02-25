@@ -97,10 +97,23 @@ const handleEditPhase = (phase: any) => {
   showPhaseDateEditor.value = true
 }
 
+// API helpers
+const config = useRuntimeConfig()
+const authStore = useAuthStore()
+const apiHeaders = computed(() => ({
+  Authorization: `Bearer ${authStore.token}`
+}))
+
 // 處理階段刪除
 const handleDeletePhase = async (phase: any) => {
   try {
-    // TODO: 呼叫 API 刪除階段
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/${phase.id}`,
+      {
+        method: 'DELETE',
+        headers: apiHeaders.value
+      }
+    )
     handleSuccess('階段已刪除')
     await fetchCase(caseId.value)
   } catch (error: any) {
@@ -109,19 +122,41 @@ const handleDeletePhase = async (phase: any) => {
 }
 
 // 處理新增階段
-const handleAddPhase = () => {
-  // TODO: 實作新增階段功能
-  toast.add({
-    title: '功能開發中',
-    description: '手動新增階段功能即將推出',
-    color: 'info'
-  })
+const handleAddPhase = async () => {
+  try {
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases`,
+      {
+        method: 'POST',
+        body: {
+          name: '新階段',
+          start_date: new Date().toISOString().split('T')[0],
+          duration_days: 7
+        },
+        headers: apiHeaders.value
+      }
+    )
+    handleSuccess('階段已新增')
+    await fetchCase(caseId.value)
+  } catch (error: any) {
+    handleError(error, '新增失敗')
+  }
 }
 
 // 處理階段日期更新
 const handlePhaseDateUpdate = async (data: any) => {
   try {
-    // TODO: 呼叫 API 更新階段日期
+    const phaseId = editingPhase.value?.id
+    if (!phaseId) return
+
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/${phaseId}`,
+      {
+        method: 'PATCH',
+        body: data,
+        headers: apiHeaders.value
+      }
+    )
     handleSuccess('階段日期已更新')
     showPhaseDateEditor.value = false
     editingPhase.value = null
@@ -134,67 +169,25 @@ const handlePhaseDateUpdate = async (data: any) => {
 // 處理套用流程
 const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
   try {
-    // TODO: 呼叫 API 套用流程
-    // const config = useRuntimeConfig()
-    // const authStore = useAuthStore()
-    // await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/apply-template`, {
-    //   method: 'POST',
-    //   body: data,
-    //   headers: {
-    //     Authorization: `Bearer ${authStore.token}`
-    //   }
-    // })
-    
-    // 暫時：顯示提示訊息
-    toast.add({
-      title: '套用流程功能開發中',
-      description: `將套用流程 ${data.workflow_id} 的階段`,
-      color: 'info'
-    })
-    
-    handleSuccess('流程已套用（模擬）')
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/apply-template`,
+      {
+        method: 'POST',
+        body: data,
+        headers: apiHeaders.value
+      }
+    )
+    handleSuccess('流程已套用')
     showApplyTemplate.value = false
-    // await fetchCase(caseId.value) // API 實作後取消註解
+    await fetchCase(caseId.value)
   } catch (error: any) {
     handleError(error, '套用失敗')
   }
 }
 
-// 取得案件階段列表（如果有的話，使用假資料）
+// 取得案件階段列表（從 API 回傳的 phases）
 const casePhases = computed(() => {
-  if ((currentCase.value as any)?.phases && (currentCase.value as any).phases.length > 0) {
-    return (currentCase.value as any).phases
-  }
-  // 假資料
-  return [
-    {
-      id: 'phase-1',
-      name: '腳本',
-      start_date: '2024-01-01',
-      end_date: '2024-01-07',
-      duration_days: 7,
-      order: 0,
-      status: 'completed'
-    },
-    {
-      id: 'phase-2',
-      name: '拍攝',
-      start_date: '2024-01-08',
-      end_date: '2024-01-15',
-      duration_days: 8,
-      order: 1,
-      status: 'in_progress'
-    },
-    {
-      id: 'phase-3',
-      name: '後製',
-      start_date: '2024-01-16',
-      end_date: '2024-01-23',
-      duration_days: 8,
-      order: 2,
-      status: 'pending'
-    }
-  ]
+  return (currentCase.value as any)?.phases ?? []
 })
 
 // 取得案件開始日期

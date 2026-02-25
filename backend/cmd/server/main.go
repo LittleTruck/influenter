@@ -134,6 +134,8 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	emailHandler := api.NewEmailHandler(db.DB, openaiSvc)
 	gmailHandler := api.NewGmailHandler(db.DB)
 	caseHandler := api.NewCaseHandler(db.DB, openaiSvc)
+	collaborationItemHandler := api.NewCollaborationItemHandler(db.DB)
+	workflowTemplateHandler := api.NewWorkflowTemplateHandler(db.DB)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -188,6 +190,34 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/:id", caseHandler.GetCase)
 				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
 				casesGroup.POST("/:id/draft-reply", caseHandler.DraftReply)
+				// Case phases
+				casesGroup.GET("/:id/phases", caseHandler.ListCasePhases)
+				casesGroup.POST("/:id/phases", caseHandler.CreateCasePhase)
+				casesGroup.POST("/:id/phases/apply-template", caseHandler.ApplyTemplate)
+				casesGroup.PATCH("/:id/phases/:phaseId", caseHandler.UpdateCasePhase)
+				casesGroup.DELETE("/:id/phases/:phaseId", caseHandler.DeleteCasePhase)
+			}
+
+			// Collaboration items
+			collabGroup := protected.Group("/collaboration-items")
+			{
+				collabGroup.GET("", collaborationItemHandler.ListItems)
+				collabGroup.POST("", collaborationItemHandler.CreateItem)
+				collabGroup.PATCH("/reorder", collaborationItemHandler.ReorderItems)
+				collabGroup.PATCH("/:id", collaborationItemHandler.UpdateItem)
+				collabGroup.DELETE("/:id", collaborationItemHandler.DeleteItem)
+			}
+
+			// Workflow templates
+			workflowGroup := protected.Group("/workflow-templates")
+			{
+				workflowGroup.GET("", workflowTemplateHandler.ListTemplates)
+				workflowGroup.POST("", workflowTemplateHandler.CreateTemplate)
+				workflowGroup.PATCH("/:id", workflowTemplateHandler.UpdateTemplate)
+				workflowGroup.DELETE("/:id", workflowTemplateHandler.DeleteTemplate)
+				workflowGroup.POST("/:id/phases", workflowTemplateHandler.CreatePhase)
+				workflowGroup.PATCH("/:id/phases/:phaseId", workflowTemplateHandler.UpdatePhase)
+				workflowGroup.DELETE("/:id/phases/:phaseId", workflowTemplateHandler.DeletePhase)
 			}
 		}
 	}
