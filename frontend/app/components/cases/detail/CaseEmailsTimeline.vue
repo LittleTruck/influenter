@@ -14,6 +14,10 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const emit = defineEmits<{
+  'view-email': [emailId: string]
+}>()
+
 const expandedEmails = ref<string[]>([])
 
 // 切換郵件展開狀態
@@ -76,18 +80,19 @@ const activeEmailIndex = computed(() => {
       :items="timelineItems"
       :default-value="activeEmailIndex"
       color="primary"
+      :ui="{ separator: 'bg-gray-200 dark:bg-gray-700' }"
     >
       <template #title="{ item }">
-        <NuxtLink
-          :to="caseId ? `/emails/${(item as any)._email.id}?from_case=${caseId}` : `/emails/${(item as any)._email.id}`"
-          class="flex items-center gap-2 min-w-0 group"
+        <button
+          class="flex items-center gap-2 min-w-0 group text-left"
+          @click="emit('view-email', (item as any)._email.id)"
         >
           <span class="font-medium text-highlighted truncate group-hover:text-primary group-hover:underline">{{ item.title }}</span>
           <span v-if="item.description" class="text-sm text-muted truncate">{{ item.description }}</span>
-          <BaseIcon name="i-lucide-external-link" class="w-4 h-4 text-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </NuxtLink>
+          <BaseIcon name="i-lucide-eye" class="w-4 h-4 text-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
       </template>
-      
+
       <template #date="{ item }">
         <div class="flex items-center justify-between gap-4 flex-shrink-0">
           <span class="text-xs text-dimmed whitespace-nowrap">{{ item.date }}</span>
@@ -124,13 +129,13 @@ const activeEmailIndex = computed(() => {
                 <p v-if="(item as any)._email.subject">
                   <span class="font-medium">主旨：</span>{{ (item as any)._email.subject }}
                 </p>
-                <NuxtLink
-                  :to="caseId ? `/emails/${(item as any)._email.id}?from_case=${caseId}` : `/emails/${(item as any)._email.id}`"
+                <button
                   class="inline-flex items-center gap-1.5 mt-2 text-primary hover:underline"
+                  @click="emit('view-email', (item as any)._email.id)"
                 >
-                  <BaseIcon name="i-lucide-external-link" class="w-4 h-4" />
-                  前往郵件詳情
-                </NuxtLink>
+                  <BaseIcon name="i-lucide-eye" class="w-4 h-4" />
+                  查看郵件內容
+                </button>
               </div>
             </BaseCard>
           </template>

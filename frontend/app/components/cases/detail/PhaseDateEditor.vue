@@ -113,9 +113,10 @@ watch(isOpen, (open) => {
           label="開始日期"
           required
         >
-          <BaseInput
+          <input
             v-model="formData.start_date"
             type="date"
+            class="w-full rounded-md border border-default bg-default px-3 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </BaseFormField>
 
@@ -138,10 +139,11 @@ watch(isOpen, (open) => {
           label="結束日期"
           description="自動根據開始日期和天數計算"
         >
-          <BaseInput
-            :model-value="formData.end_date"
+          <input
+            :value="formData.end_date"
             type="date"
             disabled
+            class="w-full rounded-md border border-default bg-muted px-3 py-1.5 text-sm text-dimmed shadow-sm cursor-not-allowed"
           />
         </BaseFormField>
       </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CaseDetail, CaseEmail } from '~/types/cases'
-import { BaseModal, BaseButton, BaseFormField, BaseSelect, BaseTextarea } from '~/components/base'
+import { BaseSlideover, BaseButton, BaseFormField, BaseSelect, BaseTextarea } from '~/components/base'
 
 interface Props {
   modelValue: boolean
@@ -82,7 +82,7 @@ const handleGenerate = async () => {
       isOpen.value = false
       router.push(`/emails/${emailId}?reply=draft`)
     } catch {
-      // 導向失敗時草稿仍顯示在 modal 內
+      // 導向失敗時草稿仍顯示在 slideover 內
     }
   } catch (e: any) {
     const msg = e?.data?.message || e?.message || '產生草稿失敗'
@@ -118,10 +118,11 @@ watch(isOpen, (open) => {
 </script>
 
 <template>
-  <BaseModal
+  <BaseSlideover
     v-model="isOpen"
     title="AI 擬信"
     description="選擇要回覆的郵件，AI 將根據案件與來信內容產生回信草稿"
+    side="right"
     size="lg"
   >
     <template #body>
@@ -199,5 +200,5 @@ watch(isOpen, (open) => {
         </BaseButton>
       </div>
     </template>
-  </BaseModal>
+  </BaseSlideover>
 </template>

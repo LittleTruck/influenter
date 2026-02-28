@@ -138,12 +138,6 @@ const activePhaseIndex = computed(() => {
   return sortedPhases.value.length > 0 ? sortedPhases.value.length - 1 : undefined
 })
 
-// 根據階段狀態決定 Timeline 顏色
-const timelineColor = computed<'primary' | 'success' | 'neutral'>(() => {
-  if (sortedPhases.value.length === 0) return 'primary'
-  const status = getPhaseStatus(sortedPhases.value[0])
-  return getPhaseColor(status)
-})
 </script>
 
 <template>
@@ -158,7 +152,8 @@ const timelineColor = computed<'primary' | 'success' | 'neutral'>(() => {
       v-else-if="sortedPhases.length > 0"
       :items="timelineItems"
       :default-value="activePhaseIndex"
-      :color="timelineColor"
+      color="primary"
+      :ui="{ separator: 'bg-gray-200 dark:bg-gray-700' }"
     >
       <template #title="{ item }">
         <div class="flex items-center gap-2">

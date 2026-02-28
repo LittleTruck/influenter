@@ -57,19 +57,26 @@ const handleUpdate = async (items: Array<{ id?: string; title: string; descripti
   }
 }
 
-// 取得選中的項目（包括自訂項目）
+// 取得選中的項目（優先使用 detail 資料）
 const selectedItems = computed(() => {
+  // 優先使用後端回傳的完整 detail 資料
+  const detail = props.case.collaboration_items_detail
+  if (detail && detail.length > 0) {
+    return detail as Array<CollaborationItem & { isCustom?: boolean }>
+  }
+
+  // Fallback: 透過 ID 逐一查找
   if (!props.case.collaboration_items || props.case.collaboration_items.length === 0) {
     return []
   }
-  
+
   const items: Array<CollaborationItem & { isCustom?: boolean }> = []
-  
+
   props.case.collaboration_items.forEach(id => {
     // 檢查是否為自訂項目
     const customItems = (props.case as any).collaboration_items_custom || []
     const customItem = customItems.find((item: any) => item.id === id)
-    
+
     if (customItem) {
       items.push({
         ...customItem,
@@ -87,7 +94,7 @@ const selectedItems = computed(() => {
       }
     }
   })
-  
+
   return items
 })
 
@@ -121,18 +128,6 @@ const toggleItem = (itemId: string) => {
   }
 }
 
-// 遞歸渲染項目
-const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: any[] }, level = 0) => {
-  const hasChildren = item.children && item.children.length > 0
-  const isExpanded = expandedItems.value.includes(item.id)
-  
-  return {
-    item,
-    level,
-    hasChildren,
-    isExpanded
-  }
-}
 </script>
 
 <template>
@@ -154,8 +149,10 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
 
     <div class="case-collaboration-items">
       <div v-if="!isEditing" class="space-y-1">
-        <div v-if="treeItems.length === 0" class="text-sm text-muted p-4 text-center">
-          尚未選擇合作項目
+        <div v-if="treeItems.length === 0" class="text-center py-6 text-muted">
+          <BaseIcon name="i-lucide-package" class="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p class="text-sm mb-0.5">尚未選擇合作項目</p>
+          <p class="text-xs text-dimmed">點擊「編輯」新增合作項目</p>
         </div>
         
         <!-- 遞歸渲染項目樹 -->
