@@ -81,7 +81,7 @@ const handleEditPhase = (phase: CollaborationItemPhase) => {
 }
 
 // 處理刪除階段
-const handleDeletePhase = async (phase: CollaborationItemPhase) => {
+const handleDeletePhase = async (_phase: CollaborationItemPhase) => {
   try {
     // TODO: 呼叫 API 刪除階段
     // await $fetch(`/api/v1/collaboration-items/${itemId.value}/phases/${phase.id}`, { method: 'DELETE' })
@@ -93,7 +93,7 @@ const handleDeletePhase = async (phase: CollaborationItemPhase) => {
 }
 
 // 處理重新排序
-const handleReorder = async (updatedPhases: CollaborationItemPhase[]) => {
+const handleReorder = async (_updatedPhases: CollaborationItemPhase[]) => {
   try {
     // TODO: 呼叫 API 重新排序
     // await $fetch(`/api/v1/collaboration-items/${itemId.value}/phases/reorder`, {
@@ -108,7 +108,7 @@ const handleReorder = async (updatedPhases: CollaborationItemPhase[]) => {
 }
 
 // 處理表單提交
-const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | UpdateCollaborationItemPhaseRequest) => {
+const handlePhaseSubmit = async (_data: CreateCollaborationItemPhaseRequest | UpdateCollaborationItemPhaseRequest) => {
   try {
     if (editingPhase.value) {
       // 更新階段
@@ -148,7 +148,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
           <BaseButton
             icon="i-lucide-arrow-left"
             variant="ghost"
-            @click="router.push('/cases/collaboration-items')"
+            @click="router.push('/my/collaboration-items')"
           >
             返回列表
           </BaseButton>
@@ -214,4 +214,3 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
     </template>
   </BaseDashboardPanel>
 </template>
-

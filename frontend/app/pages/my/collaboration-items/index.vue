@@ -2,10 +2,9 @@
 import { nextTick } from 'vue'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton, BaseTabs } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
 import CollaborationItemTree from '~/components/settings/collaboration-items/CollaborationItemTree.vue'
 import CollaborationItemFormModal from '~/components/settings/collaboration-items/CollaborationItemFormModal.vue'
-import WorkflowManagement from '~/components/settings/collaboration-items/WorkflowManagement.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
 
@@ -13,14 +12,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { items, loading, error, fetchItems, createItem, updateItem, deleteItem, reorderItems } = useCollaborationItems()
+const { items, loading, fetchItems, deleteItem, reorderItems } = useCollaborationItems()
 const { handleError, handleSuccess } = useErrorHandler()
-
-// Tab 狀態
-const activeTab = ref('items')
-
-// WorkflowManagement 組件引用
-const workflowManagementRef = ref<InstanceType<typeof WorkflowManagement> | null>(null)
 
 // 表單狀態
 const showItemForm = ref(false)
@@ -44,13 +37,13 @@ watch(loading, (newValue) => {
 onMounted(async () => {
   // 使用 nextTick 確保組件完全掛載後再執行
   await nextTick()
-  
+
   // 設置超時保護：如果 3 秒後還在載入，強制顯示內容
   const timeoutId = setTimeout(() => {
     pageLoadingTimeout.value = true
     console.debug('Page loading timeout, showing content anyway')
   }, 3000)
-  
+
   try {
     await fetchItems()
   } catch (err: any) {
@@ -68,11 +61,6 @@ const handleAddItem = (parentIdValue?: string | null) => {
   editingItem.value = null
   parentId.value = parentIdValue || null
   showItemForm.value = true
-}
-
-// 處理新增流程
-const handleAddWorkflow = () => {
-  workflowManagementRef.value?.handleAddWorkflow()
 }
 
 // 處理編輯項目
@@ -109,113 +97,58 @@ const handleFormSubmit = () => {
   editingItem.value = null
   parentId.value = null
 }
-
-// Tab 選項
-const tabItems = [
-  { label: '項目管理', value: 'items', icon: 'i-lucide-package' },
-  { label: '流程管理', value: 'workflows', icon: 'i-lucide-list-checks' }
-]
 </script>
 
 <template>
   <BaseDashboardPanel>
     <template #header>
-      <BaseDashboardNavbar title="合作項目管理">
+      <BaseDashboardNavbar title="合作項目">
         <template #leading>
           <BaseDashboardSidebarCollapse />
         </template>
 
         <template #trailing>
           <BaseButton
-            icon="i-lucide-arrow-left"
-            variant="ghost"
-            @click="navigateTo('/cases')"
+            icon="i-lucide-plus"
+            size="sm"
+            @click="handleAddItem()"
           >
-            返回案件列表
+            新增項目
           </BaseButton>
         </template>
       </BaseDashboardNavbar>
     </template>
 
     <template #body>
-      <!-- Tab 導航和新增按鈕 -->
-      <div class="flex items-center justify-between mb-0">
-        <div class="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-          <BaseButton
-            :color="activeTab === 'items' ? 'primary' : 'neutral'"
-            :variant="activeTab === 'items' ? 'solid' : 'ghost'"
-            size="sm"
-            icon="i-lucide-package"
-            @click="activeTab = 'items'"
-          >
-            項目管理
-          </BaseButton>
-          <BaseButton
-            :color="activeTab === 'workflows' ? 'primary' : 'neutral'"
-            :variant="activeTab === 'workflows' ? 'solid' : 'ghost'"
-            size="sm"
-            icon="i-lucide-list-checks"
-            @click="activeTab = 'workflows'"
-          >
-            流程管理
-          </BaseButton>
-        </div>
-        <BaseButton
-          v-if="activeTab === 'items'"
-          icon="i-lucide-plus"
-          size="sm"
-          @click="handleAddItem()"
-        >
-          新增項目
-        </BaseButton>
-        <BaseButton
-          v-else
-          icon="i-lucide-plus"
-          size="sm"
-          @click="handleAddWorkflow"
-        >
-          新增流程
-        </BaseButton>
-      </div>
+      <LoadingState v-if="isActuallyLoading" />
 
-      <!-- 項目管理 Tab -->
-      <div v-if="activeTab === 'items'">
-        <LoadingState v-if="isActuallyLoading" />
-
-        <template v-else>
-          <EmptyState
-            v-if="items.length === 0"
-            icon="i-lucide-package"
-            title="還沒有合作項目"
-            action-label="建立第一個項目"
-            :show-icon-background="false"
-            @action="handleAddItem()"
-          />
-
-          <CollaborationItemTree
-            v-else
-            :items="items"
-            @add-item="handleAddItem"
-            @edit-item="handleEditItem"
-            @delete-item="handleDeleteItem"
-            @reorder="handleReorder"
-          />
-        </template>
-
-        <!-- 項目表單 Modal -->
-        <CollaborationItemFormModal
-          v-model="showItemForm"
-          :item="editingItem"
-          :parent-id="parentId"
-          @submit="handleFormSubmit"
+      <template v-else>
+        <EmptyState
+          v-if="items.length === 0"
+          icon="i-lucide-package"
+          title="還沒有合作項目"
+          action-label="建立第一個項目"
+          :show-icon-background="false"
+          @action="handleAddItem()"
         />
-      </div>
 
-      <!-- 流程管理 Tab -->
-      <div v-if="activeTab === 'workflows'">
-        <WorkflowManagement ref="workflowManagementRef" />
-      </div>
+        <CollaborationItemTree
+          v-else
+          :items="items"
+          @add-item="handleAddItem"
+          @edit-item="handleEditItem"
+          @delete-item="handleDeleteItem"
+          @reorder="handleReorder"
+        />
+      </template>
+
+      <!-- 項目表單 Modal -->
+      <CollaborationItemFormModal
+        v-model="showItemForm"
+        :item="editingItem"
+        :parent-id="parentId"
+        @submit="handleFormSubmit"
+      />
     </template>
   </BaseDashboardPanel>
 </template>
-

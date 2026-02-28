@@ -13,13 +13,13 @@ const handleLogout = async () => {
 
 const items = computed(() => [
   [{
-    label: '個人資料',
+    label: '帳號設定',
     icon: 'i-lucide-user',
-    to: '/settings/profile'
+    to: '/settings'
   }, {
-    label: 'AI 設定',
+    label: 'AI 注意事項',
     icon: 'i-lucide-sparkles',
-    to: '/settings/ai'
+    to: '/my/ai-instructions'
   }], [{
     label: '登出',
     icon: 'i-lucide-log-out',

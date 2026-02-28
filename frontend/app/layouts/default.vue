@@ -46,7 +46,7 @@ const navigationItems: NavigationMenuItem[][] = [[{
   icon: 'i-lucide-house',
   to: '/'
 }, {
-  label: '案件管理',
+  label: '案件',
   icon: 'i-lucide-briefcase',
   to: '/cases',
   type: 'trigger',
@@ -56,17 +56,28 @@ const navigationItems: NavigationMenuItem[][] = [[{
     to: '/cases',
     exact: true
   }, {
-    label: '合作項目',
-    to: '/cases/collaboration-items'
+    label: '日曆',
+    to: '/calendar'
   }]
 }, {
   label: '郵件',
   icon: 'i-lucide-mail',
   to: '/emails'
 }, {
-  label: '日曆',
-  icon: 'i-lucide-calendar',
-  to: '/calendar'
+  label: '我的方案',
+  icon: 'i-lucide-file-text',
+  type: 'trigger',
+  defaultOpen: false,
+  children: [{
+    label: '合作項目',
+    to: '/my/collaboration-items'
+  }, {
+    label: '流程範本',
+    to: '/my/workflows'
+  }, {
+    label: 'AI 注意事項',
+    to: '/my/ai-instructions'
+  }]
 }], [{
   label: '設定',
   icon: 'i-lucide-settings',
