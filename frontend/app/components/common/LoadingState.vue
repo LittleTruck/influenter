@@ -26,7 +26,7 @@ const iconSize = computed(() => {
 <template>
   <div class="flex flex-col items-center justify-center py-12">
     <BaseIcon name="i-lucide-loader-2" :class="[iconSize, 'animate-spin text-primary-500']" />
-    <p v-if="message" class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+    <p v-if="message" class="text-sm text-muted mt-2">
       {{ message }}
     </p>
   </div>

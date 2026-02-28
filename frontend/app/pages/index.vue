@@ -6,22 +6,19 @@
           <BaseDashboardSidebarCollapse />
         </template>
 
-        <template #trailing>
-          <BaseColorModeButton />
-        </template>
       </BaseDashboardNavbar>
     </template>
 
     <template #body>
         <!-- Welcome Section -->
-        <div class="mb-8">
+        <div class="mb-6">
           <div class="flex items-center gap-3 mb-4">
             <BaseIcon name="i-lucide-sparkles" class="w-10 h-10 text-primary" />
             <div>
-              <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 class="text-3xl font-bold text-highlighted">
                 {{ user ? `歡迎回來，${user.name || user.email}` : '歡迎來到 Influenter' }}
               </h1>
-              <p class="text-gray-500 dark:text-gray-400 mt-1">
+              <p class="text-muted mt-1">
                 AI 驅動的網紅案件管理系統
               </p>
             </div>
@@ -29,12 +26,12 @@
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <BaseCard>
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">總案件數</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                <p class="text-sm text-muted">總案件數</p>
+                <p class="text-2xl font-bold text-highlighted">0</p>
               </div>
               <BaseIcon name="i-lucide-briefcase" class="w-8 h-8 text-primary" />
             </div>
@@ -43,8 +40,8 @@
           <BaseCard>
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">未讀郵件</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                <p class="text-sm text-muted">未讀郵件</p>
+                <p class="text-2xl font-bold text-highlighted">0</p>
               </div>
               <BaseIcon name="i-lucide-mail" class="w-8 h-8 text-primary" />
             </div>
@@ -53,8 +50,8 @@
           <BaseCard>
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">本月收入</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">NT$ 0</p>
+                <p class="text-sm text-muted">本月收入</p>
+                <p class="text-2xl font-bold text-highlighted">NT$ 0</p>
               </div>
               <BaseIcon name="i-lucide-dollar-sign" class="w-8 h-8 text-primary" />
             </div>
@@ -94,14 +91,14 @@
                 variant="soft"
                 size="lg"
                 block
-                to="/settings"
+                to="/my/ai-instructions"
               />
             </div>
           </div>
         </BaseCard>
 
         <!-- Features Preview -->
-        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <BaseCard>
             <template #header>
               <div class="flex items-center gap-2">
@@ -109,7 +106,7 @@
                 <h3 class="font-semibold">智能郵件分析</h3>
               </div>
             </template>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-sm text-muted">
               AI 自動分析來信，識別合作邀約並提取關鍵資訊
             </p>
           </BaseCard>
@@ -121,7 +118,7 @@
                 <h3 class="font-semibold">案件管理</h3>
               </div>
             </template>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-sm text-muted">
               追蹤每個合作案件的進度、截止日期和任務清單
             </p>
           </BaseCard>
@@ -133,7 +130,7 @@
                 <h3 class="font-semibold">日曆視圖</h3>
               </div>
             </template>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-sm text-muted">
               清楚掌握所有案件的時程安排和重要日期
             </p>
           </BaseCard>
@@ -145,7 +142,7 @@
                 <h3 class="font-semibold">AI 回覆生成</h3>
               </div>
             </template>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-sm text-muted">
               根據案件狀態和您的偏好，自動生成專業的回覆郵件
             </p>
           </BaseCard>
@@ -155,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseCard, BaseIcon, BaseButton, BaseAlert, BaseColorModeButton } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseCard, BaseIcon, BaseButton, BaseAlert } from '~/components/base'
 
 // 首頁 - Dashboard
 

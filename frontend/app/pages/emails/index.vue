@@ -359,7 +359,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         <!-- Search & Filters -->
         <div class="p-4 border-b border-default bg-elevated/50 space-y-3">
           <!-- 收件匣 / 寄件匣 / 全部 -->
-          <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          <div class="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
             <BaseButton
               :variant="filterDirection === 'incoming' ? 'solid' : 'ghost'"
               :color="filterDirection === 'incoming' ? 'primary' : 'neutral'"
@@ -394,7 +394,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               size="sm"
               class="flex-1"
             />
-            <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+            <div class="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
               <BaseButton
                 :variant="filterIsRead === 'all' ? 'solid' : 'ghost'"
                 :color="filterIsRead === 'all' ? 'primary' : 'neutral'"
@@ -450,7 +450,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
             <div
               v-for="email in emailsStore.emails"
               :key="email.id"
-              class="p-4 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              class="p-4 cursor-pointer transition-colors hover:bg-subtle"
               :class="{
                 'bg-primary-50 dark:bg-primary-900/20 border-l-2 border-l-primary-500': selectedEmailId === email.id
               }"

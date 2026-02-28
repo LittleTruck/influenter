@@ -41,7 +41,7 @@ const avatarText = computed(() => {
   <div
     :class="[
       'case-board-card rounded-lg p-4 transition-all duration-200 cursor-pointer',
-      'bg-white dark:bg-gray-900/50',
+      'bg-elevated',
       'hover:shadow-lg hover:-translate-y-1 border-2',
       statusBorderClass
     ]"
@@ -49,7 +49,7 @@ const avatarText = computed(() => {
   >
     <!-- 標題和狀態 -->
     <div class="flex items-start justify-between gap-2 mb-3">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex-1 line-clamp-2">
+      <h3 class="text-sm font-semibold text-highlighted flex-1 line-clamp-2">
         {{ caseData.title }}
       </h3>
       <CaseStatusBadge :status="caseData.status" size="xs" />
@@ -62,14 +62,14 @@ const avatarText = computed(() => {
       >
         {{ avatarText }}
       </div>
-      <span class="text-xs text-gray-600 dark:text-gray-400 truncate">
+      <span class="text-xs text-muted truncate">
         {{ caseData.brand_name }}
       </span>
     </div>
 
     <!-- 金額 -->
     <div v-if="caseData.quoted_amount" class="mb-2">
-      <div class="text-xs font-semibold text-gray-900 dark:text-white">
+      <div class="text-xs font-semibold text-highlighted">
         {{ formatAmount(caseData.quoted_amount, caseData.currency) }}
       </div>
     </div>
@@ -82,7 +82,7 @@ const avatarText = computed(() => {
           'w-3.5 h-3.5',
           isDeadlineUrgent(caseData.deadline_date)
             ? 'text-red-500'
-            : 'text-gray-400 dark:text-gray-500'
+            : 'text-dimmed'
         ]"
       />
       <span
@@ -90,7 +90,7 @@ const avatarText = computed(() => {
           'text-xs',
           isDeadlineUrgent(caseData.deadline_date)
             ? 'text-red-600 dark:text-red-400 font-semibold'
-            : 'text-gray-500 dark:text-gray-400'
+            : 'text-muted'
         ]"
       >
         {{ formatRelativeDate(caseData.deadline_date) }}
@@ -98,14 +98,14 @@ const avatarText = computed(() => {
     </div>
 
     <!-- 統計資訊 -->
-    <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-      <div v-if="caseData.email_count" class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+    <div class="flex items-center gap-3 mt-3 pt-3 border-t border-default">
+      <div v-if="caseData.email_count" class="flex items-center gap-1 text-xs text-muted">
         <BaseIcon name="i-lucide-mail" class="w-3.5 h-3.5" />
         <span>{{ caseData.email_count }}</span>
       </div>
       <div
         v-if="caseData.task_count !== undefined"
-        class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
+        class="flex items-center gap-1 text-xs text-muted"
       >
         <BaseIcon name="i-lucide-check-square" class="w-3.5 h-3.5" />
         <span>

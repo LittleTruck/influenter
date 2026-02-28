@@ -39,7 +39,7 @@ const isOpen = ref(props.defaultOpen)
               <BaseTooltip v-if="description" :text="description">
                 <BaseIcon
                   name="i-lucide-info"
-                  class="w-4 h-4 text-gray-400 dark:text-gray-500"
+                  class="w-4 h-4 text-dimmed"
                 />
               </BaseTooltip>
             </div>
@@ -53,14 +53,14 @@ const isOpen = ref(props.defaultOpen)
           <slot name="footer" />
         </template>
       </BaseCard>
-      <div v-else class="rounded-md border border-gray-200 dark:border-neutral-700 p-4">
+      <div v-else class="rounded-md border border-default p-4">
         <div class="flex items-center justify-between w-full cursor-pointer mb-4" @click="isOpen = !isOpen">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-semibold">{{ title }}</h2>
             <BaseTooltip v-if="description" :text="description">
               <BaseIcon
                 name="i-lucide-info"
-                class="w-4 h-4 text-gray-400 dark:text-gray-500"
+                class="w-4 h-4 text-dimmed"
               />
             </BaseTooltip>
           </div>
@@ -84,7 +84,7 @@ const isOpen = ref(props.defaultOpen)
             <BaseTooltip v-if="description" :text="description">
               <BaseIcon
                 name="i-lucide-info"
-                class="w-4 h-4 text-gray-400 dark:text-gray-500"
+                class="w-4 h-4 text-dimmed"
               />
             </BaseTooltip>
           </div>
@@ -98,14 +98,14 @@ const isOpen = ref(props.defaultOpen)
         <slot name="footer" />
       </template>
     </BaseCard>
-    <div v-else class="rounded-md border border-gray-200 dark:border-neutral-700 p-4">
+    <div v-else class="rounded-md border border-default p-4">
       <div class="flex items-center justify-between w-full mb-4">
         <div class="flex items-center gap-2">
           <h2 class="text-lg font-semibold">{{ title }}</h2>
           <BaseTooltip v-if="description" :text="description">
             <BaseIcon
               name="i-lucide-info"
-              class="w-4 h-4 text-gray-400 dark:text-gray-500"
+              class="w-4 h-4 text-dimmed"
             />
           </BaseTooltip>
         </div>

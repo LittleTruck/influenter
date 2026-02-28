@@ -19,7 +19,7 @@ withDefaults(defineProps<{
 				<slot name="footer" />
 			</template>
 		</BaseCard>
-		<div v-else class="rounded-md border border-gray-200 dark:border-neutral-700 p-4">
+		<div v-else class="rounded-md border border-default p-4">
 			<slot />
 		</div>
 	</div>

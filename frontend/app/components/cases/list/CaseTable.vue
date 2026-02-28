@@ -106,8 +106,8 @@ const columns: TableColumn<Case>[] = [
       <!-- 案件標題列 -->
       <template #title-data="{ row }">
         <div class="flex flex-col">
-          <p class="font-medium text-gray-900 dark:text-white">{{ row.title }}</p>
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ row.brand_name }}</p>
+          <p class="font-medium text-highlighted">{{ row.title }}</p>
+          <p class="text-sm text-muted">{{ row.brand_name }}</p>
         </div>
       </template>
 
@@ -128,7 +128,7 @@ const columns: TableColumn<Case>[] = [
             name="i-lucide-calendar"
             :class="isDeadlineUrgent(row.deadline_date) ? 'w-4 h-4 text-red-500' : 'w-4 h-4 text-gray-400'"
           />
-          <span :class="isDeadlineUrgent(row.deadline_date) ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-600 dark:text-gray-400'">
+          <span :class="isDeadlineUrgent(row.deadline_date) ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted'">
             {{ formatRelativeDate(row.deadline_date) }}
           </span>
         </div>

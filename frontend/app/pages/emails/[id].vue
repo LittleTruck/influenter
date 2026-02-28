@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea } from '~/components/base'
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea, BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
 import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
@@ -213,83 +213,86 @@ const sendReply = async () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 h-full">
-    <!-- Header -->
-    <div class="flex items-center gap-4 px-6 py-4 border-b border-default">
-      <BaseButton
-        icon="i-lucide-arrow-left"
-        color="neutral"
-        variant="ghost"
-        @click="goBack"
-        aria-label="返回"
-      />
-
-      <h1 class="text-xl font-semibold text-highlighted flex-1">
-        郵件詳情
-      </h1>
-
-      <div v-if="email" class="flex items-center gap-2">
-        <!-- 已關聯：顯示案件；未關聯：加入為案件 -->
-        <BaseButton
-          v-if="email.case_id"
-          icon="i-lucide-external-link"
-          color="primary"
-          size="sm"
-          @click="router.push(`/cases/${email.case_id}`)"
-        >
-          顯示案件
-        </BaseButton>
-        <BaseButton
-          v-else
-          icon="i-lucide-briefcase"
-          color="primary"
-          size="sm"
-          :loading="addingAsCase"
-          :disabled="addingAsCase"
-          @click="addAsCase"
-        >
-          加入為案件
-        </BaseButton>
-
-        <!-- 標記已讀/未讀 -->
-        <BaseButton
-          :icon="email.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
-          color="neutral"
-          variant="outline"
-          size="sm"
-          @click="markAsRead(!email.is_read)"
-        >
-          {{ email.is_read ? '標記未讀' : '標記已讀' }}
-        </BaseButton>
-
-        <!-- 更多操作 -->
-        <BaseDropdownMenu
-          :items="[[
-            {
-              label: '關聯到案件',
-              icon: 'i-lucide-link',
-              onSelect: () => {
-                showLinkDialog.value = true
-              }
-            },
-            {
-              label: '產生回覆',
-              icon: 'i-lucide-reply',
-              onSelect: () => {
-                toast.add({ title: '功能開發中', color: 'info' })
-              }
-            }
-          ]]"
-        >
+  <BaseDashboardPanel>
+    <template #header>
+      <BaseDashboardNavbar title="郵件詳情">
+        <template #leading>
           <BaseButton
-            icon="i-lucide-ellipsis-vertical"
+            icon="i-lucide-arrow-left"
             color="neutral"
             variant="ghost"
-            aria-label="更多操作"
+            @click="goBack"
+            aria-label="返回"
           />
-        </BaseDropdownMenu>
-      </div>
-    </div>
+        </template>
+
+        <template #trailing>
+          <div v-if="email" class="flex items-center gap-2">
+            <!-- 已關聯：顯示案件；未關聯：加入為案件 -->
+            <BaseButton
+              v-if="email.case_id"
+              icon="i-lucide-external-link"
+              color="primary"
+              size="sm"
+              @click="router.push(`/cases/${email.case_id}`)"
+            >
+              顯示案件
+            </BaseButton>
+            <BaseButton
+              v-else
+              icon="i-lucide-briefcase"
+              color="primary"
+              size="sm"
+              :loading="addingAsCase"
+              :disabled="addingAsCase"
+              @click="addAsCase"
+            >
+              加入為案件
+            </BaseButton>
+
+            <!-- 標記已讀/未讀 -->
+            <BaseButton
+              :icon="email.is_read ? 'i-lucide-mail' : 'i-lucide-mail-open'"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              @click="markAsRead(!email.is_read)"
+            >
+              {{ email.is_read ? '標記未讀' : '標記已讀' }}
+            </BaseButton>
+
+            <!-- 更多操作 -->
+            <BaseDropdownMenu
+              :items="[[
+                {
+                  label: '關聯到案件',
+                  icon: 'i-lucide-link',
+                  onSelect: () => {
+                    showLinkDialog.value = true
+                  }
+                },
+                {
+                  label: '產生回覆',
+                  icon: 'i-lucide-reply',
+                  onSelect: () => {
+                    toast.add({ title: '功能開發中', color: 'info' })
+                  }
+                }
+              ]]"
+            >
+              <BaseButton
+                icon="i-lucide-ellipsis-vertical"
+                color="neutral"
+                variant="ghost"
+                aria-label="更多操作"
+              />
+            </BaseDropdownMenu>
+          </div>
+        </template>
+      </BaseDashboardNavbar>
+    </template>
+
+    <template #body>
 
     <!-- Content -->
     <div v-if="emailsStore.loading" class="flex items-center justify-center h-full">
@@ -476,7 +479,8 @@ const sendReply = async () => {
       v-model="showLinkDialog"
       @linked="handleLinked"
     />
-  </div>
+    </template>
+  </BaseDashboardPanel>
 </template>
 
 <style scoped>

@@ -31,23 +31,23 @@ const getSelectLabel = (value: string | number | boolean): string => {
 
 <template>
   <div class="field-renderer">
-    <label v-if="showLabel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    <label v-if="showLabel" class="block text-sm font-medium text-highlighted mb-1">
       {{ field.label }}
       <sup v-if="field.is_required" class="ml-1 text-xs text-red-500 align-top leading-none">*</sup>
     </label>
 
     <!-- 文字類型 -->
-    <div v-if="field.type === 'text'" class="text-sm text-gray-900 dark:text-white">
+    <div v-if="field.type === 'text'" class="text-sm text-highlighted">
       {{ displayValue }}
     </div>
 
     <!-- 數字類型 -->
-    <div v-else-if="field.type === 'number'" class="text-sm text-gray-900 dark:text-white">
+    <div v-else-if="field.type === 'number'" class="text-sm text-highlighted">
       {{ displayValue }}
     </div>
 
     <!-- 日期類型 -->
-    <div v-else-if="field.type === 'date'" class="text-sm text-gray-900 dark:text-white">
+    <div v-else-if="field.type === 'date'" class="text-sm text-highlighted">
       {{ displayValue }}
     </div>
 
@@ -60,7 +60,7 @@ const getSelectLabel = (value: string | number | boolean): string => {
       >
         {{ value }}
       </a>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- URL 類型 -->
@@ -74,7 +74,7 @@ const getSelectLabel = (value: string | number | boolean): string => {
       >
         {{ value }}
       </a>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 電話類型 -->
@@ -86,11 +86,11 @@ const getSelectLabel = (value: string | number | boolean): string => {
       >
         {{ value }}
       </a>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 多行文字類型 -->
-    <div v-else-if="field.type === 'textarea'" class="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
+    <div v-else-if="field.type === 'textarea'" class="text-sm text-highlighted whitespace-pre-wrap">
       {{ value || '-' }}
     </div>
 
@@ -99,7 +99,7 @@ const getSelectLabel = (value: string | number | boolean): string => {
       <BaseBadge v-if="value" color="primary" variant="subtle" size="sm">
         {{ getSelectLabel(value) }}
       </BaseBadge>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 多選類型 -->
@@ -115,7 +115,7 @@ const getSelectLabel = (value: string | number | boolean): string => {
           {{ getSelectLabel(item) }}
         </BaseBadge>
       </div>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 複選框類型 -->
@@ -128,7 +128,7 @@ const getSelectLabel = (value: string | number | boolean): string => {
     </div>
 
     <!-- 預設顯示 -->
-    <div v-else class="text-sm text-gray-900 dark:text-white">
+    <div v-else class="text-sm text-highlighted">
       {{ displayValue }}
     </div>
   </div>

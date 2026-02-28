@@ -28,7 +28,7 @@ const handleToggle = () => {
   <div class="collaboration-item-option">
     <div
       :class="[
-        'flex items-center gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer',
+        'flex items-center gap-2 p-2 rounded hover:bg-subtle cursor-pointer',
         isSelected && 'bg-primary-50 dark:bg-primary-900/20'
       ]"
       :style="{ paddingLeft: `${level * 1.5 + 0.5}rem` }"
@@ -40,10 +40,10 @@ const handleToggle = () => {
         class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         @click.stop="handleToggle"
       />
-      <span class="flex-1 text-sm text-gray-900 dark:text-white">
+      <span class="flex-1 text-sm text-highlighted">
         {{ item.title }}
       </span>
-      <span class="text-xs text-gray-500 dark:text-gray-400">
+      <span class="text-xs text-muted">
         {{ formatAmount(item.price) }}
       </span>
     </div>

@@ -128,7 +128,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
       :ui="{ content: 'pb-0 mb-0' }"
     >
       <!-- 卡片主體 -->
-      <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-white dark:bg-gray-900/50">
+      <div class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-elevated">
         <!-- 展開/收起按鈕 -->
         <BaseIcon
           v-if="localPhases.length > 0"
@@ -140,7 +140,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
         <!-- 拖曳手柄 -->
         <BaseIcon
           name="i-lucide-grip-vertical"
-          class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+          class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
           @click.stop
         />
 
@@ -149,7 +149,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
 
         <!-- 流程名稱 -->
         <div class="flex-1 min-w-0">
-          <h4 class="font-medium text-gray-900 dark:text-white truncate">
+          <h4 class="font-medium text-highlighted truncate">
             {{ workflow.name }}
           </h4>
         </div>
@@ -182,7 +182,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
 
       <!-- 階段列表（展開時顯示） -->
       <template #content>
-        <div class="pl-12 py-2 bg-gray-50 dark:bg-gray-800/30">
+        <div class="pl-12 py-2 bg-subtle">
           <DraggableList
             v-model:items="localPhases"
             group-name="phases"
@@ -197,7 +197,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
               >
                 <template #content="{ item: phase }">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ phase.name }}</h4>
+                    <h4 class="font-medium text-highlighted truncate">{{ phase.name }}</h4>
                     <BaseBadge size="sm" variant="soft" color="neutral">
                       {{ phase.duration_days }} 天
                     </BaseBadge>

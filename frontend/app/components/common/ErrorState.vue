@@ -18,10 +18,10 @@ const props = withDefaults(defineProps<Props>(), {
     <div class="mb-4 p-4 rounded-full bg-red-100 dark:bg-red-900/20">
       <BaseIcon name="i-lucide-alert-circle" class="w-12 h-12 text-red-600 dark:text-red-400" />
     </div>
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+    <h3 class="text-lg font-semibold text-highlighted mb-2">
       {{ title }}
     </h3>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
+    <p class="text-sm text-muted mb-6 max-w-sm">
       {{ message }}
     </p>
   </div>

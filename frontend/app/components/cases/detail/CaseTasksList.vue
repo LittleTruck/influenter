@@ -129,7 +129,7 @@ const formatDate = (dateStr?: string) => {
 <template>
   <div class="case-tasks-list">
     <!-- 進度視覺化 -->
-    <div class="task-progress flex items-center gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+    <div class="task-progress flex items-center gap-3 mb-6 p-4 bg-subtle rounded-lg">
       <!-- 圓形進度 -->
       <div class="relative w-12 h-12 flex-shrink-0">
         <svg class="transform -rotate-90 w-12 h-12">
@@ -160,10 +160,10 @@ const formatDate = (dateStr?: string) => {
       </div>
 
       <div class="flex-1">
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
+        <div class="text-sm font-medium text-highlighted">
           {{ taskStats.completed }}/{{ taskStats.total }} 任務完成
         </div>
-        <div class="text-xs text-gray-500 dark:text-gray-400">進度追蹤</div>
+        <div class="text-xs text-muted">進度追蹤</div>
       </div>
 
       <BaseButton
@@ -199,14 +199,14 @@ const formatDate = (dateStr?: string) => {
           :class="[
             'task-item flex items-center gap-3 p-3 rounded-lg border transition-all',
             task.status === 'completed'
-              ? 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700'
-              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
+              ? 'bg-subtle border-default'
+              : 'bg-elevated border-default hover:shadow-md'
           ]"
         >
           <!-- 拖曳把手 -->
           <BaseIcon
             name="i-lucide-grip-vertical"
-            class="drag-handle w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+            class="drag-handle w-5 h-5 text-dimmed cursor-grab active:cursor-grabbing flex-shrink-0"
           />
 
           <!-- 完成狀態 -->
@@ -224,16 +224,16 @@ const formatDate = (dateStr?: string) => {
               :class="[
                 'text-sm font-medium',
                 task.status === 'completed'
-                  ? 'text-gray-500 dark:text-gray-400 line-through'
-                  : 'text-gray-900 dark:text-white'
+                  ? 'text-muted line-through'
+                  : 'text-highlighted'
               ]"
             >
               {{ task.title }}
             </div>
-            <div v-if="task.description" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div v-if="task.description" class="text-xs text-muted mt-1">
               {{ task.description }}
             </div>
-            <div v-if="task.due_date" class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+            <div v-if="task.due_date" class="text-xs text-muted mt-1 flex items-center gap-1">
               <BaseIcon name="i-lucide-calendar" class="w-3 h-3" />
               {{ formatDate(task.due_date) }}
             </div>

@@ -60,7 +60,7 @@ const selectItems = computed(() => {
 
 <template>
   <div class="field-input">
-    <label v-if="showLabel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    <label v-if="showLabel" class="block text-sm font-medium text-highlighted mb-1">
       {{ field.label }}
       <sup v-if="field.is_required" class="ml-1 text-xs text-red-500 align-top leading-none">*</sup>
     </label>
@@ -73,7 +73,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'text'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'text'" class="text-sm text-highlighted py-2">
       {{ localValue || '-' }}
     </div>
 
@@ -86,7 +86,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'email'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'email'" class="text-sm text-highlighted py-2">
       {{ localValue || '-' }}
     </div>
 
@@ -99,7 +99,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'phone'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'phone'" class="text-sm text-highlighted py-2">
       {{ localValue || '-' }}
     </div>
 
@@ -112,7 +112,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'url'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'url'" class="text-sm text-highlighted py-2">
       {{ localValue || '-' }}
     </div>
 
@@ -125,7 +125,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'number'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'number'" class="text-sm text-highlighted py-2">
       {{ localValue || '-' }}
     </div>
 
@@ -137,7 +137,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'date'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'date'" class="text-sm text-highlighted py-2">
       {{ localValue ? new Date(localValue).toLocaleDateString('zh-TW') : '-' }}
     </div>
 
@@ -150,7 +150,7 @@ const selectItems = computed(() => {
       :required="field.is_required"
       class="w-full"
     />
-    <div v-else-if="field.type === 'textarea'" class="text-sm text-gray-900 dark:text-white py-2 whitespace-pre-wrap">
+    <div v-else-if="field.type === 'textarea'" class="text-sm text-highlighted py-2 whitespace-pre-wrap">
       {{ localValue || '-' }}
     </div>
 
@@ -162,11 +162,11 @@ const selectItems = computed(() => {
       :placeholder="field.placeholder || `請選擇${field.label}`"
       class="w-full"
     />
-    <div v-else-if="field.type === 'select'" class="text-sm text-gray-900 dark:text-white py-2">
+    <div v-else-if="field.type === 'select'" class="text-sm text-highlighted py-2">
       <BaseBadge v-if="localValue" color="primary" variant="subtle" size="sm">
         {{ getOptionLabel(localValue) }}
       </BaseBadge>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 多選 -->
@@ -190,7 +190,7 @@ const selectItems = computed(() => {
           {{ getOptionLabel(item) }}
         </BaseBadge>
       </div>
-      <span v-else class="text-gray-400">-</span>
+      <span v-else class="text-dimmed">-</span>
     </div>
 
     <!-- 複選框 -->

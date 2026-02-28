@@ -101,7 +101,7 @@ const handleAdd = () => {
       <div
         v-for="(phase, index) in sortedPhases"
         :key="phase.id"
-        class="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+        class="flex items-center gap-4 p-3 rounded-lg border border-default hover:bg-subtle"
       >
         <!-- 順序編號 -->
         <div class="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary font-semibold flex-shrink-0">

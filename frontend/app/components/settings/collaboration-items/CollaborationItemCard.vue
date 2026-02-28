@@ -95,7 +95,7 @@ watch(() => isExpanded.value, (newValue) => {
       :ui="{ content: 'pb-0 mb-0' }"
     >
       <!-- 卡片主體 -->
-      <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-white dark:bg-gray-900/50">
+      <div class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-elevated">
         <div class="flex items-center flex-1 min-w-0 gap-3">
           <!-- 展開/收起按鈕 -->
           <BaseIcon
@@ -106,14 +106,14 @@ watch(() => isExpanded.value, (newValue) => {
           <!-- 拖曳手柄 -->
           <BaseIcon
             name="i-lucide-grip-vertical"
-            class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+            class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
             @click.stop
           />
 
           <!-- 項目資訊 -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <h4 class="font-medium text-gray-900 dark:text-white truncate">
+              <h4 class="font-medium text-highlighted truncate">
                 {{ item.title }}
               </h4>
               <BaseBadge color="primary" variant="subtle" size="xs">
@@ -151,7 +151,7 @@ watch(() => isExpanded.value, (newValue) => {
 
       <!-- 子項目列表（展開時顯示） -->
       <template #content>
-        <div class="pl-12 py-2 bg-gray-50 dark:bg-gray-800/30">
+        <div class="pl-12 py-2 bg-subtle">
           <DraggableList
             v-model:items="localChildren"
             group-name="collaboration-items"
@@ -167,7 +167,7 @@ watch(() => isExpanded.value, (newValue) => {
               >
                 <template #content="{ item: element }">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                    <h4 class="font-medium text-highlighted truncate">
                       {{ element.title }}
                     </h4>
                     <BaseBadge color="primary" variant="subtle" size="xs">
@@ -207,16 +207,16 @@ watch(() => isExpanded.value, (newValue) => {
     <!-- 沒有子項目的項目 -->
     <div
       v-else
-      class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50"
+      class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-elevated"
     >
       <div class="w-5 flex-shrink-0" />
       <BaseIcon
         name="i-lucide-grip-vertical"
-        class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+        class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
       />
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <h4 class="font-medium text-gray-900 dark:text-white truncate">
+          <h4 class="font-medium text-highlighted truncate">
             {{ item.title }}
           </h4>
           <BaseBadge color="primary" variant="subtle" size="xs">

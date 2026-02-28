@@ -74,15 +74,15 @@ const handleCardClick = (caseId: string) => {
     ]"
   >
     <div
-      class="flex flex-col h-full bg-gray-50 dark:bg-gray-800/30 rounded-xl p-4 transition-all duration-300"
+      class="flex flex-col h-full bg-subtle rounded-xl p-4 transition-all duration-300"
     >
       <!-- Header -->
-      <div class="flex items-center gap-2 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-2 mb-3 pb-3 border-b border-default">
         <div
           class="h-2 w-2 rounded-full column-indicator flex-shrink-0"
           :style="{ backgroundColor: color }"
         />
-        <span class="font-semibold text-sm text-gray-700 dark:text-gray-300">
+        <span class="font-semibold text-sm text-highlighted">
           {{ label }}
         </span>
         <BaseBadge color="neutral" variant="subtle" size="xs" class="ml-auto">

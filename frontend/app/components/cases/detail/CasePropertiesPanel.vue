@@ -82,11 +82,11 @@ const sortedFields = computed(() => {
       <div
         v-for="field in sortedFields"
         :key="field.id"
-        class="property-row group flex items-center gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        class="property-row group flex items-center gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
       >
         <!-- 左側：屬性名稱 -->
         <div class="property-label flex items-center gap-2 min-w-[150px] flex-shrink-0">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span class="text-sm font-medium text-highlighted">
             {{ field.label }}
           </span>
         </div>

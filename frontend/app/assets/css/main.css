@@ -57,8 +57,19 @@
   .border-default {
     @apply border-gray-200 dark:border-gray-800;
   }
-  
-  
+
+  .bg-muted {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  .bg-subtle {
+    @apply bg-gray-50 dark:bg-gray-800/50;
+  }
+
+  .text-dimmed {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+
   .text-success {
     @apply text-green-600 dark:text-green-400;
   }

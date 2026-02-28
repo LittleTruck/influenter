@@ -94,13 +94,13 @@ const activeEmailIndex = computed(() => {
           <BaseIcon
             v-if="expandedEmails.includes((item as any)._email.id)"
             name="i-lucide-chevron-down"
-            class="w-4 h-4 text-gray-400 cursor-pointer"
+            class="w-4 h-4 text-dimmed cursor-pointer"
             @click.stop="toggleEmail((item as any)._email.id)"
           />
           <BaseIcon
             v-else
             name="i-lucide-chevron-right"
-            class="w-4 h-4 text-gray-400 cursor-pointer"
+            class="w-4 h-4 text-dimmed cursor-pointer"
             @click.stop="toggleEmail((item as any)._email.id)"
           />
         </div>
@@ -114,7 +114,7 @@ const activeEmailIndex = computed(() => {
         >
           <template #content>
             <BaseCard class="mt-2">
-              <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+              <div class="text-sm text-muted space-y-2">
                 <p v-if="(item as any)._email.direction === 'outgoing'">
                   <span class="font-medium">寄給：</span>{{ (item as any)._email.to_email || '—' }}
                 </p>

@@ -154,7 +154,7 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
 
     <div class="case-collaboration-items">
       <div v-if="!isEditing" class="space-y-1">
-        <div v-if="treeItems.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+        <div v-if="treeItems.length === 0" class="text-sm text-muted p-4 text-center">
           尚未選擇合作項目
         </div>
         
@@ -162,21 +162,21 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
         <template v-for="item in treeItems" :key="item.id">
           <div class="collaboration-item">
             <div
-              class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
             >
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 <!-- 展開/收起按鈕 -->
                 <BaseIcon
                   v-if="item.children && item.children.length > 0"
                   :name="expandedItems.includes(item.id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="w-4 h-4 text-gray-400 cursor-pointer flex-shrink-0"
+                  class="w-4 h-4 text-dimmed cursor-pointer flex-shrink-0"
                   @click="toggleItem(item.id)"
                 />
                 <div v-else class="w-4 flex-shrink-0" />
                 
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                    <h4 class="font-medium text-highlighted truncate">
                       {{ item.title }}
                     </h4>
                     <span
@@ -186,7 +186,7 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
                       自訂
                     </span>
                   </div>
-                  <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                  <p v-if="item.description" class="text-sm text-muted mt-0.5 truncate">
                     {{ item.description }}
                   </p>
                 </div>
@@ -207,13 +207,13 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
                 <div class="space-y-1">
                   <template v-for="child in item.children" :key="child.id">
                     <div
-                      class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
                     >
                       <div class="flex items-center gap-2 min-w-0 flex-1">
                         <div class="w-4 flex-shrink-0" />
                         <div class="min-w-0 flex-1">
                           <div class="flex items-center gap-2">
-                            <h4 class="font-medium text-gray-900 dark:text-white truncate">
+                            <h4 class="font-medium text-highlighted truncate">
                               {{ child.title }}
                             </h4>
                             <span
@@ -223,7 +223,7 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
                               自訂
                             </span>
                           </div>
-                          <p v-if="child.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                          <p v-if="child.description" class="text-sm text-muted mt-0.5 truncate">
                             {{ child.description }}
                           </p>
                         </div>
@@ -240,9 +240,9 @@ const renderItem = (item: CollaborationItem & { isCustom?: boolean; children?: a
         </template>
         
         <!-- 總價顯示 -->
-        <div v-if="treeItems.length > 0" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div v-if="treeItems.length > 0" class="mt-4 pt-4 border-t border-default">
           <div class="flex items-center justify-between">
-            <span class="text-base font-semibold text-gray-900 dark:text-white">
+            <span class="text-base font-semibold text-highlighted">
               總價
             </span>
             <span class="text-xl font-bold text-primary-600 dark:text-primary-400">

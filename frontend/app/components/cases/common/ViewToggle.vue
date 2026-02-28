@@ -18,7 +18,7 @@ const handleViewChange = (view: ViewType) => {
 </script>
 
 <template>
-  <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+  <div class="flex items-center gap-1 bg-muted p-1 rounded-lg">
     <BaseButton
       :color="props.modelValue === 'board' ? 'primary' : 'neutral'"
       :variant="props.modelValue === 'board' ? 'solid' : 'ghost'"

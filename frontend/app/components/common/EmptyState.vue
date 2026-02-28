@@ -36,12 +36,12 @@ const handleAction = () => {
     >
       <BaseIcon :name="icon" class="w-16 h-16 text-primary-500" />
     </div>
-    <BaseIcon v-else :name="icon" class="w-12 h-12 mb-3 text-gray-400 dark:text-gray-500" />
+    <BaseIcon v-else :name="icon" class="w-12 h-12 mb-3 text-dimmed" />
     
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+    <h3 class="text-lg font-semibold text-highlighted mb-2">
       {{ title }}
     </h3>
-    <p v-if="description" class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
+    <p v-if="description" class="text-sm text-muted mb-6 max-w-sm">
       {{ description }}
     </p>
     <BaseButton

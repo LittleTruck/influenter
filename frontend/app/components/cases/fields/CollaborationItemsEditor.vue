@@ -157,11 +157,11 @@ const handleCancel = () => {
   <div class="collaboration-items-editor space-y-4">
     <!-- 預設項目選擇 -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+      <label class="block text-sm font-medium text-highlighted mb-2">
         從常用項目選擇
       </label>
-      <div class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2 space-y-1">
-        <div v-if="presetItems.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+      <div class="max-h-48 overflow-y-auto border border-default rounded-lg p-2 space-y-1">
+        <div v-if="presetItems.length === 0" class="text-sm text-muted p-4 text-center">
           還沒有常用項目
         </div>
         <CollaborationItemOption
@@ -178,7 +178,7 @@ const handleCancel = () => {
     <!-- 自訂項目列表 -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="block text-sm font-medium text-highlighted">
           自訂項目
         </label>
         <BaseButton
@@ -191,7 +191,7 @@ const handleCancel = () => {
         </BaseButton>
       </div>
       
-      <div v-if="selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div v-if="selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-muted p-4 text-center border border-default rounded-lg">
         尚未添加自訂項目
       </div>
       
@@ -199,16 +199,16 @@ const handleCancel = () => {
         <div
           v-for="(item, index) in selectedItems.filter(i => i.isCustom)"
           :key="index"
-          class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+          class="flex items-center justify-between p-3 border border-default rounded-lg"
         >
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-900 dark:text-white">{{ item.title }}</span>
+              <span class="font-medium text-highlighted">{{ item.title }}</span>
               <span class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded">
                 自訂
               </span>
             </div>
-            <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p v-if="item.description" class="text-sm text-muted mt-1">
               {{ item.description }}
             </p>
             <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">
@@ -275,9 +275,9 @@ const handleCancel = () => {
     </BaseModal>
 
     <!-- 總價顯示 -->
-    <div v-if="selectedItems.length > 0" class="pt-3 border-t border-gray-200 dark:border-gray-700">
+    <div v-if="selectedItems.length > 0" class="pt-3 border-t border-default">
       <div class="flex items-center justify-between">
-        <span class="text-base font-semibold text-gray-900 dark:text-white">
+        <span class="text-base font-semibold text-highlighted">
           總價
         </span>
         <span class="text-xl font-bold text-primary-600 dark:text-primary-400">

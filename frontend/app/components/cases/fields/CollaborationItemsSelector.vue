@@ -156,20 +156,20 @@ const totalPrice = computed(() => {
     <!-- 預設項目選擇 -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="block text-sm font-medium text-highlighted">
           從常用項目選擇
         </label>
       </div>
-      <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2 space-y-1">
-        <div v-if="loading" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+      <div class="max-h-64 overflow-y-auto border border-default rounded-lg p-2 space-y-1">
+        <div v-if="loading" class="text-sm text-muted p-4 text-center">
           載入中...
         </div>
-        <div v-else-if="!items || items.length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+        <div v-else-if="!items || items.length === 0" class="text-sm text-muted p-4 text-center">
           <p class="mb-2">還沒有合作項目</p>
           <BaseButton
             size="xs"
             variant="outline"
-            to="/cases/collaboration-items"
+            to="/my/collaboration-items"
           >
             前往建立
           </BaseButton>
@@ -190,7 +190,7 @@ const totalPrice = computed(() => {
     <!-- 自訂項目列表 -->
     <div>
       <div class="flex items-center justify-between mb-2">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="block text-sm font-medium text-highlighted">
           自訂項目
         </label>
         <BaseButton
@@ -203,7 +203,7 @@ const totalPrice = computed(() => {
         </BaseButton>
       </div>
       
-      <div v-if="!selectedItems || selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div v-if="!selectedItems || selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-muted p-4 text-center border border-default rounded-lg">
         尚未添加自訂項目
       </div>
       
@@ -211,16 +211,16 @@ const totalPrice = computed(() => {
         <div
           v-for="(item, index) in (selectedItems || []).filter(i => i.isCustom)"
           :key="index"
-          class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+          class="flex items-center justify-between p-3 border border-default rounded-lg"
         >
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-900 dark:text-white">{{ item.title }}</span>
+              <span class="font-medium text-highlighted">{{ item.title }}</span>
               <span class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded">
                 自訂
               </span>
             </div>
-            <p v-if="item.description" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p v-if="item.description" class="text-sm text-muted mt-1">
               {{ item.description }}
             </p>
             <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">
@@ -279,9 +279,9 @@ const totalPrice = computed(() => {
     </BaseModal>
 
     <!-- 總價顯示 -->
-    <div v-if="selectedItems && selectedItems.length > 0" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+    <div v-if="selectedItems && selectedItems.length > 0" class="mt-3 p-3 bg-subtle rounded-lg">
       <div class="flex items-center justify-between">
-        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span class="text-sm font-medium text-highlighted">
           已選 {{ selectedItems.length }} 個項目
         </span>
         <span class="text-lg font-semibold text-primary-600 dark:text-primary-400">

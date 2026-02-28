@@ -33,7 +33,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-900/50">
+  <div class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-elevated">
     <!-- 展開/收起按鈕 -->
     <BaseIcon
       v-if="showExpand"
@@ -46,7 +46,7 @@ const emit = defineEmits<{
     <!-- 拖曳手柄 -->
     <BaseIcon
       :name="dragHandleIcon"
-      class="w-5 h-5 text-gray-400 drag-handle cursor-grab flex-shrink-0"
+      class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
       @click.stop
     />
 
