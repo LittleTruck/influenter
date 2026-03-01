@@ -45,7 +45,7 @@ const shouldShowCalendar = computed(() => {
     </template>
 
     <template #body>
-      <div class="w-full min-h-[600px] flex flex-col p-4 sm:p-6 lg:p-8">
+      <div class="w-full min-h-[600px] flex flex-col">
         <LoadingState v-if="loading" />
         <ErrorState v-else-if="error && cases.length === 0" :message="errorMessage" />
         <div v-else class="w-full min-h-[600px] flex flex-col">

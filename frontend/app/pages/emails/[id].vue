@@ -300,7 +300,7 @@ const sendReply = async () => {
     </div>
 
     <div v-else-if="email" class="flex-1 overflow-y-auto">
-      <div class="max-w-4xl mx-auto p-6">
+      <div class="max-w-4xl mx-auto">
         <!-- Email Header Card -->
         <AppSection class="mb-6">
           <template #header>
