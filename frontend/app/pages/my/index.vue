@@ -1,4 +1,4 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
-navigateTo('/settings/account', { replace: true })
+navigateTo('/my/collaboration-items', { replace: true })
 </script>

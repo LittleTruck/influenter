@@ -64,20 +64,9 @@ const navigationItems: NavigationMenuItem[][] = [[{
   icon: 'i-lucide-mail',
   to: '/emails'
 }, {
-  label: '我的方案',
-  icon: 'i-lucide-file-text',
-  type: 'trigger',
-  defaultOpen: false,
-  children: [{
-    label: '合作項目',
-    to: '/my/collaboration-items'
-  }, {
-    label: '流程範本',
-    to: '/my/workflows'
-  }, {
-    label: 'AI 注意事項',
-    to: '/my/ai-instructions'
-  }]
+  label: '合作管理',
+  icon: 'i-lucide-handshake',
+  to: '/my'
 }], [{
   label: '設定',
   icon: 'i-lucide-settings',

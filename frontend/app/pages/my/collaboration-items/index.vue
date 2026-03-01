@@ -2,7 +2,8 @@
 import { nextTick } from 'vue'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
+import { BaseButton } from '~/components/base'
+import SectionPageHeader from '~/components/ui/SectionPageHeader.vue'
 import CollaborationItemTree from '~/components/settings/collaboration-items/CollaborationItemTree.vue'
 import CollaborationItemFormModal from '~/components/settings/collaboration-items/CollaborationItemFormModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
@@ -100,55 +101,51 @@ const handleFormSubmit = () => {
 </script>
 
 <template>
-  <BaseDashboardPanel>
-    <template #header>
-      <BaseDashboardNavbar title="合作項目">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-
-        <template #trailing>
-          <BaseButton
-            icon="i-lucide-plus"
-            size="sm"
-            @click="handleAddItem()"
-          >
-            新增項目
-          </BaseButton>
-        </template>
-      </BaseDashboardNavbar>
-    </template>
-
-    <template #body>
-      <LoadingState v-if="isActuallyLoading" />
-
-      <template v-else>
-        <EmptyState
-          v-if="items.length === 0"
-          icon="i-lucide-package"
-          title="還沒有合作項目"
-          action-label="建立第一個項目"
-          :show-icon-background="false"
-          @action="handleAddItem()"
-        />
-
-        <CollaborationItemTree
-          v-else
-          :items="items"
-          @add-item="handleAddItem"
-          @edit-item="handleEditItem"
-          @delete-item="handleDeleteItem"
-          @reorder="handleReorder"
-        />
+  <div>
+    <SectionPageHeader
+      icon="i-lucide-package"
+      title="合作項目"
+      description="定義您提供的合作方案與報價，建立案件時可直接套用"
+    >
+      <template #actions>
+        <BaseButton
+          icon="i-lucide-plus"
+          size="sm"
+          @click="handleAddItem()"
+        >
+          新增項目
+        </BaseButton>
       </template>
+    </SectionPageHeader>
 
-      <!-- 項目表單 Modal -->
-      <CollaborationItemFormModal
-        v-model="showItemForm"
-        :item="editingItem"
-        :parent-id="parentId"
-        @submit="handleFormSubmit"
+    <LoadingState v-if="isActuallyLoading" />
+
+    <template v-else>
+      <EmptyState
+        v-if="items.length === 0"
+        icon="i-lucide-package"
+        title="還沒有合作項目"
+        action-label="建立第一個項目"
+        :show-icon-background="false"
+        @action="handleAddItem()"
+      />
+
+      <CollaborationItemTree
+        v-else
+        :items="items"
+        @add-item="handleAddItem"
+        @edit-item="handleEditItem"
+        @delete-item="handleDeleteItem"
+        @reorder="handleReorder"
       />
     </template>
-  </BaseDashboardPanel>
+
+    <!-- 項目表單 Modal -->
+    <CollaborationItemFormModal
+      v-model="showItemForm"
+      :item="editingItem"
+      :parent-id="parentId"
+      @submit="handleFormSubmit"
+    />
+  </div>
 </template>

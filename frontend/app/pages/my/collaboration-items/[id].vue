@@ -2,12 +2,13 @@
 import type { CollaborationItem, CollaborationItemPhase, CreateCollaborationItemPhaseRequest, UpdateCollaborationItemPhaseRequest } from '~/types/collaborationItems'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
+import { BaseButton } from '~/components/base'
+import SectionPageHeader from '~/components/ui/SectionPageHeader.vue'
+import AppSection from '~/components/ui/AppSection.vue'
 import PhaseList from '~/components/collaboration-items/PhaseList.vue'
 import PhaseFormModal from '~/components/collaboration-items/PhaseFormModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
-import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
   middleware: 'auth'
@@ -113,18 +114,10 @@ const handlePhaseSubmit = async (_data: CreateCollaborationItemPhaseRequest | Up
     if (editingPhase.value) {
       // 更新階段
       // TODO: 呼叫 API 更新階段
-      // await $fetch(`/api/v1/collaboration-items/${itemId.value}/phases/${editingPhase.value.id}`, {
-      //   method: 'PATCH',
-      //   body: data
-      // })
       handleSuccess('階段已更新')
     } else {
       // 新增階段
       // TODO: 呼叫 API 新增階段
-      // await $fetch(`/api/v1/collaboration-items/${itemId.value}/phases`, {
-      //   method: 'POST',
-      //   body: data
-      // })
       handleSuccess('階段已新增')
     }
     showPhaseForm.value = false
@@ -137,14 +130,25 @@ const handlePhaseSubmit = async (_data: CreateCollaborationItemPhaseRequest | Up
 </script>
 
 <template>
-  <BaseDashboardPanel>
-    <template #header>
-      <BaseDashboardNavbar :title="currentItem?.title || '合作項目階段管理'">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
+  <div>
+    <!-- 載入中 -->
+    <LoadingState v-if="loadingPhases" />
 
-        <template #trailing>
+    <!-- 錯誤狀態 -->
+    <ErrorState
+      v-else-if="!currentItem"
+      title="找不到合作項目"
+      message="請返回列表選擇一個合作項目"
+    />
+
+    <!-- 內容 -->
+    <template v-else>
+      <SectionPageHeader
+        icon="i-lucide-package"
+        :title="currentItem.title || '合作項目階段管理'"
+        :description="currentItem.description"
+      >
+        <template #actions>
           <BaseButton
             icon="i-lucide-arrow-left"
             variant="ghost"
@@ -153,35 +157,9 @@ const handlePhaseSubmit = async (_data: CreateCollaborationItemPhaseRequest | Up
             返回列表
           </BaseButton>
         </template>
-      </BaseDashboardNavbar>
-    </template>
+      </SectionPageHeader>
 
-    <template #body>
-      <!-- 載入中 -->
-      <LoadingState v-if="loadingPhases" />
-
-      <!-- 錯誤狀態 -->
-      <ErrorState
-        v-else-if="!currentItem"
-        title="找不到合作項目"
-        message="請返回列表選擇一個合作項目"
-      />
-
-      <!-- 內容 -->
-      <div v-else class="space-y-6">
-        <!-- 合作項目資訊 -->
-        <AppSection>
-          <template #header>
-            <h2 class="text-lg font-semibold">合作項目資訊</h2>
-          </template>
-          <div>
-            <h3 class="text-xl font-bold text-highlighted mb-2">{{ currentItem.title }}</h3>
-            <p v-if="currentItem.description" class="text-muted">
-              {{ currentItem.description }}
-            </p>
-          </div>
-        </AppSection>
-
+      <div class="space-y-6">
         <!-- 階段流程管理 -->
         <AppSection>
           <template #header>
@@ -212,5 +190,5 @@ const handlePhaseSubmit = async (_data: CreateCollaborationItemPhaseRequest | Up
         @submit="handlePhaseSubmit"
       />
     </template>
-  </BaseDashboardPanel>
+  </div>
 </template>
