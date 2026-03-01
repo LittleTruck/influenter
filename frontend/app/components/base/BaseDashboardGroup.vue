@@ -21,3 +21,4 @@ const props = withDefaults(defineProps<Props>(), {
     <slot />
   </UDashboardGroup>
 </template>
+

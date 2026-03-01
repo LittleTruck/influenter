@@ -28,3 +28,4 @@ const props = withDefaults(defineProps<Props>(), {
     <slot />
   </UDashboardSidebar>
 </template>
+
