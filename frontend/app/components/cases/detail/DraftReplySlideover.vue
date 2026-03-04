@@ -13,14 +13,12 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'sent': []
 }>()
 
 const config = useRuntimeConfig()
 const authStore = useAuthStore()
 const toast = useToast()
-const router = useRouter()
-
-const DRAFT_STORAGE_KEY_PREFIX = 'email-reply-draft-'
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -29,8 +27,9 @@ const isOpen = computed({
 
 const selectedEmailId = ref<string>('')
 const instruction = ref('')
-const loading = ref(false)
-const draft = ref('')
+const replyBody = ref('')
+const generating = ref(false)
+const sending = ref(false)
 
 const emailOptions = computed(() => {
   return props.emails.map((e) => ({
@@ -46,17 +45,15 @@ const defaultEmailId = computed(() => {
   return last ? last.id : ''
 })
 
-const hasDraft = computed(() => draft.value.length > 0)
+const activeEmailId = computed(() => selectedEmailId.value || defaultEmailId.value)
 
 const handleGenerate = async () => {
-  const emailId = selectedEmailId.value || defaultEmailId.value
-  if (!emailId) {
+  if (!activeEmailId.value) {
     toast.add({ title: '請選擇要回覆的郵件', color: 'warning' })
     return
   }
 
-  loading.value = true
-  draft.value = ''
+  generating.value = true
   try {
     const res = await $fetch<{ draft: string }>(
       `${config.public.apiBase}/api/v1/cases/${props.caseId}/draft-reply`,
@@ -67,44 +64,59 @@ const handleGenerate = async () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email_id: emailId,
+          email_id: activeEmailId.value,
           instruction: instruction.value || undefined
         })
       }
     )
-    const draftText = res.draft ?? ''
-    draft.value = draftText
+    replyBody.value = res.draft ?? ''
     toast.add({ title: '草稿已產生', color: 'success' })
-
-    // 存入 sessionStorage 並導向該信件的回覆頁
-    try {
-      sessionStorage.setItem(`${DRAFT_STORAGE_KEY_PREFIX}${emailId}`, draftText)
-      isOpen.value = false
-      router.push(`/emails/${emailId}?reply=draft`)
-    } catch {
-      // 導向失敗時草稿仍顯示在 slideover 內
-    }
   } catch (e: any) {
     const msg = e?.data?.message || e?.message || '產生草稿失敗'
     toast.add({ title: msg, color: 'error' })
   } finally {
-    loading.value = false
+    generating.value = false
   }
 }
 
-const handleCopy = async () => {
+const handleSend = async () => {
+  const body = replyBody.value?.trim()
+  if (!body) {
+    toast.add({ title: '請輸入回信內容', color: 'warning' })
+    return
+  }
+  if (!activeEmailId.value) {
+    toast.add({ title: '請選擇要回覆的郵件', color: 'warning' })
+    return
+  }
+
+  sending.value = true
   try {
-    await navigator.clipboard.writeText(draft.value)
-    toast.add({ title: '已複製到剪貼簿', color: 'success' })
-  } catch {
-    toast.add({ title: '複製失敗', color: 'error' })
+    await $fetch(
+      `${config.public.apiBase}/api/v1/emails/${activeEmailId.value}/send-reply`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ body })
+      }
+    )
+    toast.add({ title: '回信已寄出', color: 'success' })
+    replyBody.value = ''
+    instruction.value = ''
+    isOpen.value = false
+    emit('sent')
+  } catch (e: any) {
+    const msg = e?.data?.message || e?.message || '寄出失敗'
+    toast.add({ title: msg, color: 'error' })
+  } finally {
+    sending.value = false
   }
 }
 
-const handleCancel = () => {
-  selectedEmailId.value = defaultEmailId.value
-  instruction.value = ''
-  draft.value = ''
+const handleClose = () => {
   isOpen.value = false
 }
 
@@ -112,7 +124,7 @@ watch(isOpen, (open) => {
   if (open) {
     selectedEmailId.value = defaultEmailId.value
     instruction.value = ''
-    draft.value = ''
+    replyBody.value = ''
   }
 })
 </script>
@@ -120,8 +132,8 @@ watch(isOpen, (open) => {
 <template>
   <BaseSlideover
     v-model="isOpen"
-    title="AI 擬信"
-    description="選擇要回覆的郵件，AI 將根據案件與來信內容產生回信草稿"
+    title="回覆郵件"
+    description="撰寫回信內容，或使用 AI 產生草稿"
     side="right"
     size="lg"
   >
@@ -133,39 +145,37 @@ watch(isOpen, (open) => {
             :options="emailOptions"
             placeholder="請選擇郵件"
             class="w-full"
-            :disabled="loading"
+            :disabled="generating || sending"
           />
         </BaseFormField>
 
-        <BaseFormField label="補充說明（選填）">
+        <BaseFormField label="AI 補充說明（選填）">
           <BaseTextarea
             v-model="instruction"
             placeholder="例如：希望婉拒報價、或強調可配合的檔期…"
             :rows="2"
-            :disabled="loading"
+            :disabled="generating || sending"
           />
         </BaseFormField>
 
-        <div v-if="hasDraft" class="space-y-2">
-          <BaseFormField label="回信草稿">
-            <BaseTextarea
-              v-model="draft"
-              :rows="10"
-              placeholder="草稿將顯示於此，可編輯後複製使用"
-              class="font-mono text-sm"
-            />
-          </BaseFormField>
-          <div class="flex justify-end">
-            <BaseButton
-              icon="i-lucide-copy"
-              variant="outline"
-              size="sm"
-              @click="handleCopy"
-            >
-              複製
-            </BaseButton>
-          </div>
-        </div>
+        <BaseButton
+          icon="i-lucide-sparkles"
+          variant="outline"
+          :loading="generating"
+          :disabled="emails.length === 0 || sending"
+          @click="handleGenerate"
+        >
+          AI 產生草稿
+        </BaseButton>
+
+        <BaseFormField label="回信內容">
+          <BaseTextarea
+            v-model="replyBody"
+            placeholder="可手動輸入或點「AI 產生草稿」填入"
+            :rows="10"
+            :disabled="generating || sending"
+          />
+        </BaseFormField>
       </div>
     </template>
 
@@ -174,29 +184,19 @@ watch(isOpen, (open) => {
         <BaseButton
           color="neutral"
           variant="outline"
-          :disabled="loading"
-          @click="handleCancel"
+          :disabled="generating || sending"
+          @click="handleClose"
         >
-          {{ hasDraft ? '關閉' : '取消' }}
+          取消
         </BaseButton>
         <BaseButton
-          v-if="!hasDraft"
           color="primary"
-          icon="i-lucide-sparkles"
-          :loading="loading"
-          :disabled="emails.length === 0"
-          @click="handleGenerate"
+          icon="i-lucide-send"
+          :loading="sending"
+          :disabled="!replyBody?.trim() || generating"
+          @click="handleSend"
         >
-          產生草稿
-        </BaseButton>
-        <BaseButton
-          v-else
-          color="primary"
-          icon="i-lucide-sparkles"
-          :loading="loading"
-          @click="handleGenerate"
-        >
-          重新產生
+          寄出
         </BaseButton>
       </div>
     </template>

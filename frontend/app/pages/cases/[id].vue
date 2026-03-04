@@ -433,13 +433,12 @@ const handleViewEmail = (emailId: string) => {
             <div class="space-y-4">
               <CaseEmailsTimeline :emails="caseEmails" :case-id="caseId" @view-email="handleViewEmail" />
               <BaseButton
-                icon="i-lucide-sparkles"
+                icon="i-lucide-reply"
                 variant="outline"
-                block
                 :disabled="caseEmails.length === 0"
                 @click="showDraftReply = true"
               >
-                AI 擬信
+                回覆
               </BaseButton>
             </div>
           </AppSectionWithHeader>
@@ -451,7 +450,7 @@ const handleViewEmail = (emailId: string) => {
       <!-- Modals & Slideovers -->
       <PhaseDateEditor v-model="showPhaseDateEditor" :phase="editingPhase" @submit="handlePhaseDateUpdate" />
       <ApplyTemplateModal v-model="showApplyTemplate" :case-start-date="caseStartDate" :case-id="caseId" @submit="handleApplyTemplate" />
-      <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" />
+      <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
     </template>
   </BaseDashboardPanel>
