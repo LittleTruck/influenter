@@ -78,6 +78,7 @@ secrets/
 *.md
 !CLAUDE.md
 .cursor/
+.claude/
 
 #reference
 reference/
