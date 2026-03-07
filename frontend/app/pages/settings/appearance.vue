@@ -1,8 +1,31 @@
 <script setup lang="ts">
 import { BaseButton } from '~/components/base'
 import SectionPageHeader from '~/components/ui/SectionPageHeader.vue'
+import { THEME_COLORS, useThemeColor } from '~/composables/useThemeColor'
+import type { ThemeColor } from '~/composables/useThemeColor'
 
 const colorMode = useColorMode()
+const { primaryColor, setPrimaryColor } = useThemeColor()
+
+const colorClasses: Record<ThemeColor, string> = {
+  green: 'bg-green-500',
+  blue: 'bg-blue-500',
+  violet: 'bg-violet-500',
+  rose: 'bg-rose-500',
+  amber: 'bg-amber-500',
+  cyan: 'bg-cyan-500',
+  indigo: 'bg-indigo-500',
+}
+
+const ringClasses: Record<ThemeColor, string> = {
+  green: 'ring-green-500',
+  blue: 'ring-blue-500',
+  violet: 'ring-violet-500',
+  rose: 'ring-rose-500',
+  amber: 'ring-amber-500',
+  cyan: 'ring-cyan-500',
+  indigo: 'ring-indigo-500',
+}
 
 definePageMeta({
   middleware: 'auth'
@@ -17,7 +40,7 @@ definePageMeta({
       description="自訂介面顯示偏好"
     />
 
-    <div class="space-y-4">
+    <div class="space-y-6">
       <div class="flex items-center justify-between">
         <div>
           <h3 class="font-medium text-highlighted">深色模式</h3>
@@ -51,6 +74,31 @@ definePageMeta({
           >
             系統
           </BaseButton>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="font-medium text-highlighted">主題配色</h3>
+        <p class="text-sm text-muted mb-3">選擇介面的主題顏色</p>
+        <div class="flex items-center gap-3">
+          <button
+            v-for="color in THEME_COLORS"
+            :key="color.value"
+            :title="color.label"
+            class="relative w-8 h-8 rounded-full cursor-pointer transition-transform hover:scale-110 focus:outline-none"
+            :class="[
+              colorClasses[color.value],
+              primaryColor === color.value ? `ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900 ${ringClasses[color.value]}` : ''
+            ]"
+            @click="setPrimaryColor(color.value)"
+          >
+            <span
+              v-if="primaryColor === color.value"
+              class="absolute inset-0 flex items-center justify-center text-white"
+            >
+              <UIcon name="i-lucide-check" class="w-4 h-4" />
+            </span>
+          </button>
         </div>
       </div>
     </div>
