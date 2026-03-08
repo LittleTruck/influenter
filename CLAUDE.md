@@ -106,3 +106,5 @@ See `.env.example`. Key vars: `JWT_SECRET`, `ENCRYPTION_KEY`, `DB_*`, `REDIS_ADD
 ## Language
 
 This project's UI and comments are in Traditional Chinese (zh-TW). Commit messages and code identifiers are in English.
+
+**重要：Claude 與使用者對話時必須永遠使用正體中文（繁體中文）回覆。所有說明、摘要、問題、狀態更新皆使用正體中文。**

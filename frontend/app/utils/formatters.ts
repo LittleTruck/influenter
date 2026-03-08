@@ -6,11 +6,12 @@
 /**
  * 格式化金額
  */
-export const formatAmount = (amount?: number, currency = 'TWD'): string => {
+export const formatAmount = (amount?: number, currency?: string | null): string => {
   if (!amount) return '-'
+  const currencyCode = currency || 'TWD'
   return new Intl.NumberFormat('zh-TW', {
     style: 'currency',
-    currency: currency === 'TWD' ? 'TWD' : currency,
+    currency: currencyCode,
     minimumFractionDigits: 0
   }).format(amount)
 }

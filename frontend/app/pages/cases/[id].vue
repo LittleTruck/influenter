@@ -32,25 +32,22 @@ const toast = useToast()
 
 const caseId = computed(() => route.params.id as string)
 
+// 頁面載入守衛：避免在 onMounted 前渲染殘留的舊資料
+const pageReady = ref(false)
+
 // 載入案件詳情和屬性
 onMounted(async () => {
   try {
     await Promise.all([
-      fetchCase(caseId.value).catch((err: any) => {
-        if (err?.statusCode !== 404) console.error('載入案件失敗:', err)
-      }),
-      fetchFields().catch((err: any) => {
-        if (err?.statusCode !== 404) console.error('載入案件屬性失敗:', err)
-      })
+      fetchCase(caseId.value).catch(() => {}),
+      fetchFields().catch(() => {})
     ])
     const caseData = currentCase.value
     if (caseData && caseData.status !== 'other') {
-      await fetchCaseEmails(caseId.value).catch((err: any) => {
-        if (err?.statusCode !== 404) console.error('載入案件郵件失敗:', err)
-      })
+      await fetchCaseEmails(caseId.value).catch(() => {})
     }
-  } catch (err) {
-    console.error('載入失敗:', err)
+  } finally {
+    pageReady.value = true
   }
 })
 
@@ -279,7 +276,7 @@ const handleViewEmail = (emailId: string) => {
     </template>
 
     <template #body>
-      <LoadingState v-if="loading" />
+      <LoadingState v-if="loading || !pageReady" />
 
       <div v-else-if="currentCase" class="space-y-6">
         <!-- 非合作案件 -->

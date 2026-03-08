@@ -23,28 +23,20 @@ const loading = ref(false)
 
 const email = computed(() => emailsStore.currentEmail)
 
-// 載入郵件詳情
-watch(() => props.emailId, async (id) => {
-  if (id && isOpen.value) {
-    loading.value = true
-    try {
-      await emailsStore.fetchEmail(id)
-    } finally {
-      loading.value = false
+// 載入郵件詳情（合併為單一 watcher，避免雙重觸發）
+watch(
+  [() => props.emailId, isOpen],
+  async ([id, open]) => {
+    if (id && open) {
+      loading.value = true
+      try {
+        await emailsStore.fetchEmail(id)
+      } finally {
+        loading.value = false
+      }
     }
   }
-})
-
-watch(isOpen, async (open) => {
-  if (open && props.emailId) {
-    loading.value = true
-    try {
-      await emailsStore.fetchEmail(props.emailId)
-    } finally {
-      loading.value = false
-    }
-  }
-})
+)
 
 // 使用郵件清理 composable
 const { sanitizeHtml } = useEmailSanitizer()

@@ -67,9 +67,11 @@ const timelineItems = computed<TimelineItem[]>(() => {
   })
 })
 
-// 計算當前活動的郵件（最後一封）
-const activeEmailIndex = computed(() => {
-  return props.emails.length > 0 ? props.emails.length - 1 : undefined
+// 計算當前活動的郵件（最後一封的 value）
+const activeEmailValue = computed(() => {
+  if (props.emails.length === 0) return undefined
+  const last = props.emails[props.emails.length - 1]
+  return last?.id
 })
 </script>
 
@@ -78,7 +80,7 @@ const activeEmailIndex = computed(() => {
     <UTimeline
       v-if="emails.length > 0"
       :items="timelineItems"
-      :default-value="activeEmailIndex"
+      :default-value="activeEmailValue"
       color="primary"
       :ui="{ separator: 'bg-gray-200 dark:bg-gray-700' }"
     >
