@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse } from '~/components/base'
 import CalendarView from '~/components/calendar/CalendarView.vue'
-import { useCases } from '~/composables/useCases'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
 
@@ -9,14 +8,15 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { fetchCases, loading, error, cases } = useCases()
+const { loading, error, cases } = useCases()
+const { fetchAllCaseDetails } = useCalendar()
 
-// 載入案件數據
+// 載入案件數據（含階段詳情）
 onMounted(async () => {
   try {
-    await fetchCases()
+    await fetchAllCaseDetails()
   } catch (e) {
-    console.error('載入案件失敗:', e)
+    // error 由 store 處理
   }
 })
 
@@ -35,7 +35,7 @@ const shouldShowCalendar = computed(() => {
 </script>
 
 <template>
-  <BaseDashboardPanel>
+  <BaseDashboardPanel grow>
     <template #header>
       <BaseDashboardNavbar title="日曆">
         <template #leading>
@@ -45,12 +45,10 @@ const shouldShowCalendar = computed(() => {
     </template>
 
     <template #body>
-      <div class="w-full min-h-[600px] flex flex-col">
+      <div class="w-full flex flex-col flex-1 min-h-0 p-4">
         <LoadingState v-if="loading" />
         <ErrorState v-else-if="error && cases.length === 0" :message="errorMessage" />
-        <div v-else class="w-full min-h-[600px] flex flex-col">
-          <CalendarView />
-        </div>
+        <CalendarView v-else class="flex-1 min-h-0" />
       </div>
     </template>
   </BaseDashboardPanel>

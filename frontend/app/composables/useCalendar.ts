@@ -4,14 +4,14 @@ import type { EventInput, EventDropArg } from '@fullcalendar/core'
 /**
  * 日曆視圖類型
  */
-export type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
+export type CalendarView = 'dayGridMonth' | 'dayGridWeek' | 'dayGridDay'
 
 /**
  * 日曆相關 composable
  * 提供日曆狀態管理和數據轉換功能
  */
 export const useCalendar = () => {
-  const { cases, fetchCases, updateCase } = useCases()
+  const { cases, fetchCases, fetchCase, updateCase } = useCases()
   const { handleError, handleSuccess } = useErrorHandler()
 
   // 當前視圖
@@ -23,25 +23,37 @@ export const useCalendar = () => {
   // 載入狀態
   const loading = ref(false)
 
-  /**
-   * 取得階段狀態顏色
-   */
-  const getPhaseStatusColor = (phase: CasePhase): string => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const startDate = new Date(phase.start_date)
-    startDate.setHours(0, 0, 0, 0)
-    
-    const endDate = new Date(phase.end_date)
-    endDate.setHours(23, 59, 59, 999)
+  // 含階段資料的案件（由 fetchAllCaseDetails 填充）
+  const enrichedCases = ref<Case[]>([])
 
-    if (today > endDate) {
-      return '#10b981' // success/green - 已完成
-    } else if (today >= startDate && today <= endDate) {
-      return '#3b82f6' // primary/blue - 進行中
-    } else {
-      return '#6b7280' // neutral/gray - 待開始
+  /**
+   * 載入所有案件及其階段資料
+   * 先 fetchCases 取得列表，再逐一 fetchCase 取得 phases
+   */
+  const fetchAllCaseDetails = async () => {
+    loading.value = true
+    try {
+      await fetchCases()
+      // 先用列表資料讓日曆有東西顯示
+      enrichedCases.value = [...cases.value]
+
+      // 背景逐一取得每個案件的詳情（含 phases）
+      const details = await Promise.all(
+        cases.value.map(c =>
+          fetchCase(c.id).catch(() => null)
+        )
+      )
+
+      // 合併 phases 到 enrichedCases
+      enrichedCases.value = cases.value.map((c, i) => {
+        const detail = details[i] as CaseDetail | null
+        if (detail?.phases && detail.phases.length > 0) {
+          return { ...c, phases: detail.phases }
+        }
+        return c
+      })
+    } finally {
+      loading.value = false
     }
   }
 
@@ -53,22 +65,15 @@ export const useCalendar = () => {
     const events: EventInput[] = []
 
     casesList.forEach(caseItem => {
-      const caseDetail = caseItem as CaseDetail
-      
-      // 如果有階段，顯示階段事件
-      if (caseDetail.phases && caseDetail.phases.length > 0) {
-        caseDetail.phases.forEach((phase: CasePhase) => {
-          const startDate = new Date(phase.start_date)
-          const endDate = new Date(phase.end_date)
-          
+      // 如果有階段，為每個階段的截止日（end_date）建立事件
+      if (caseItem.phases && caseItem.phases.length > 0) {
+        caseItem.phases.forEach((phase: CasePhase) => {
+          if (!phase.end_date) return
           events.push({
             id: `phase-${phase.id}`,
             title: `${caseItem.title} - ${phase.name}`,
-            start: startDate.toISOString(),
-            end: new Date(endDate.getTime() + 86400000).toISOString(), // 加一天因為 end_date 是包含的
+            start: phase.end_date,
             allDay: true,
-            backgroundColor: getPhaseStatusColor(phase),
-            borderColor: getPhaseStatusColor(phase),
             extendedProps: {
               case: caseItem,
               phase: phase,
@@ -78,32 +83,11 @@ export const useCalendar = () => {
         })
       } else if (caseItem.deadline_date) {
         // 如果沒有階段但有截止日期，顯示截止日期事件
-        const deadlineDate = new Date(caseItem.deadline_date)
-        
-        // 根據案件狀態設定顏色
-        const getEventColor = (status: Case['status']) => {
-          switch (status) {
-            case 'to_confirm':
-              return '#f59e0b' // warning/amber
-            case 'in_progress':
-              return '#3b82f6' // primary/blue
-            case 'completed':
-              return '#10b981' // success/green
-            case 'cancelled':
-            case 'other':
-              return '#6b7280' // neutral/gray
-            default:
-              return '#3b82f6'
-          }
-        }
-
         events.push({
           id: caseItem.id,
           title: `${caseItem.title} - ${caseItem.brand_name}`,
-          start: deadlineDate.toISOString(),
+          start: caseItem.deadline_date,
           allDay: true,
-          backgroundColor: getEventColor(caseItem.status),
-          borderColor: getEventColor(caseItem.status),
           extendedProps: {
             case: caseItem,
             type: 'case'
@@ -116,11 +100,12 @@ export const useCalendar = () => {
   }
 
   /**
-   * 計算事件（從案件列表）
+   * 計算事件（從含階段的案件列表）
    */
   const events = computed(() => {
-    if (!cases.value) return []
-    return casesToEvents(cases.value, currentView.value)
+    const source = enrichedCases.value.length > 0 ? enrichedCases.value : cases.value
+    if (!source) return []
+    return casesToEvents(source, currentView.value)
   })
 
   /**
@@ -189,7 +174,7 @@ export const useCalendar = () => {
     const newDate = new Date(currentDate.value)
     if (currentView.value === 'dayGridMonth') {
       newDate.setMonth(newDate.getMonth() - 1)
-    } else if (currentView.value === 'timeGridWeek') {
+    } else if (currentView.value === 'dayGridWeek') {
       newDate.setDate(newDate.getDate() - 7)
     } else {
       newDate.setDate(newDate.getDate() - 1)
@@ -204,7 +189,7 @@ export const useCalendar = () => {
     const newDate = new Date(currentDate.value)
     if (currentView.value === 'dayGridMonth') {
       newDate.setMonth(newDate.getMonth() + 1)
-    } else if (currentView.value === 'timeGridWeek') {
+    } else if (currentView.value === 'dayGridWeek') {
       newDate.setDate(newDate.getDate() + 7)
     } else {
       newDate.setDate(newDate.getDate() + 1)
@@ -226,7 +211,7 @@ export const useCalendar = () => {
     prev,
     next,
     handleEventDrop,
+    fetchAllCaseDetails,
     casesToEvents
   }
 }
-

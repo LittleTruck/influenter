@@ -37,6 +37,7 @@ export interface Case {
   task_count?: number
   completed_task_count?: number
   collaboration_items?: string[] // 選中的合作項目 ID 列表
+  phases?: CasePhase[] // 案件階段列表（列表 API 也會回傳）
   created_at: string
   updated_at: string
 }

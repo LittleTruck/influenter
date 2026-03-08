@@ -1,134 +1,197 @@
 <script setup lang="ts">
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
-import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { CalendarView } from '~/composables/useCalendar'
 import type { EventDropArg } from '@fullcalendar/core'
 import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
-import { BaseButton, BaseIcon } from '~/components/base'
+import { STATUS_LABELS, STATUS_COLOR_HEX } from '~/utils/caseStatus'
+import type { CaseStatus } from '~/types/cases'
+
+const colorMode = useColorMode()
+const isDark = computed(() => colorMode.value === 'dark')
 
 const {
-  currentView,
   currentDate,
+  currentView,
   events,
-  loading,
-  setView,
   goToToday,
   prev,
   next,
+  setView,
   handleEventDrop
 } = useCalendar()
 
-// FullCalendar 選項
+// Header title
+const headerTitle = computed(() => format(currentDate.value, 'MMMM yyyy'))
+
+// 視圖切換選項（全部使用 dayGrid，因為案件都是全天事件）
+type CalendarViewType = 'dayGridMonth' | 'dayGridWeek' | 'dayGridDay'
+const viewOptions: { label: string; value: CalendarViewType }[] = [
+  { label: '月', value: 'dayGridMonth' },
+  { label: '週', value: 'dayGridWeek' },
+  { label: '日', value: 'dayGridDay' }
+]
+
+const handleViewChange = (view: CalendarViewType) => {
+  setView(view as any)
+  nextTick(() => {
+    if (calendarRef.value?.getApi) {
+      const api = calendarRef.value.getApi()
+      api.changeView(view)
+    }
+  })
+}
+
+// FullCalendar options
 const calendarOptions = computed(() => ({
-  plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+  plugins: [dayGridPlugin, interactionPlugin],
   initialView: currentView.value,
   initialDate: currentDate.value,
-  headerToolbar: false, // 我們自己實作工具列
+  headerToolbar: false as const,
   events: events.value,
   editable: true,
   droppable: false,
   eventStartEditable: true,
-  eventDurationEditable: false, // 不允許調整事件長度
+  eventDurationEditable: false,
   eventDrop: (dropInfo: EventDropArg) => {
     handleEventDrop(dropInfo)
   },
   eventClick: (clickInfo: any) => {
-    // 點擊事件時導航到案件詳情
     const caseId = clickInfo.event.extendedProps?.case?.id || clickInfo.event.id
     navigateTo(`/cases/${caseId}`)
   },
-  height: 'auto', // 讓 FullCalendar 自動計算高度
-  contentHeight: 'auto', // 自動填滿容器
-  firstDay: 1, // 週一為第一天
-  dayMaxEvents: 10, // 增加顯示的事件數量
-  moreLinkClick: 'popover', // 點擊「更多」時顯示彈窗
+  height: '100%',
+  firstDay: 0,
+  dayMaxEvents: false,
+  fixedWeekCount: false,
   eventDisplay: 'block',
-  eventTimeFormat: {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
+  eventDragMinDistance: 5,
+  dragScroll: true,
+  // Custom event rendering
+  eventContent: (arg: any) => {
+    const props = arg.event.extendedProps
+    const caseItem = props.case
+    const phase = props.phase
+    const type = props.type
+
+    const status = (caseItem?.status || 'other') as CaseStatus
+    const statusLabel = STATUS_LABELS[status] || status
+    const statusColor = STATUS_COLOR_HEX[status] || '#6b7280'
+    const caseTitle = caseItem?.title || ''
+    const brandName = caseItem?.brand_name || ''
+
+    // Build DOM nodes (inline styles 確保所有視圖一致)
+    const dark = isDark.value
+    const cardBg = dark ? 'rgb(31 41 55)' : 'rgb(249 250 251)'
+    const cardBgHover = dark ? 'rgb(55 65 81)' : 'rgb(243 244 246)'
+    const cardBorder = dark ? 'rgb(55 65 81)' : 'rgb(229 231 235)'
+    const titleColor = dark ? 'rgb(243 244 246)' : 'rgb(17 24 39)'
+    const brandColor = dark ? 'rgb(107 114 128)' : 'rgb(156 163 175)'
+
+    const container = document.createElement('div')
+    Object.assign(container.style, {
+      background: cardBg,
+      border: `1px solid ${cardBorder}`,
+      borderLeft: `3px solid ${statusColor}`,
+      borderRadius: '6px',
+      padding: '5px 8px',
+      cursor: 'pointer',
+      overflow: 'hidden',
+      transition: 'all 0.15s ease'
+    })
+    container.onmouseenter = () => {
+      container.style.background = cardBgHover
+      container.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'
+    }
+    container.onmouseleave = () => {
+      container.style.background = cardBg
+      container.style.boxShadow = 'none'
+    }
+
+    // Top line: status badge + brand/case name
+    const topLine = document.createElement('div')
+    Object.assign(topLine.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      lineHeight: '1'
+    })
+
+    const badge = document.createElement('span')
+    Object.assign(badge.style, {
+      fontSize: '0.625rem',
+      fontWeight: '600',
+      padding: '1px 4px',
+      border: `1px solid ${statusColor}`,
+      borderRadius: '3px',
+      whiteSpace: 'nowrap',
+      lineHeight: '1.4',
+      color: statusColor
+    })
+    badge.textContent = statusLabel
+    topLine.appendChild(badge)
+
+    const topLabel = brandName || caseTitle
+    if (topLabel) {
+      const brand = document.createElement('span')
+      Object.assign(brand.style, {
+        fontSize: '0.68rem',
+        color: brandColor,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        lineHeight: '1.4'
+      })
+      brand.textContent = topLabel
+      topLine.appendChild(brand)
+    }
+
+    container.appendChild(topLine)
+
+    // Title line
+    const titleLine = document.createElement('div')
+    Object.assign(titleLine.style, {
+      fontSize: '0.78rem',
+      fontWeight: '600',
+      color: titleColor,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      lineHeight: '1.5',
+      marginTop: '1px'
+    })
+    if (type === 'phase') {
+      titleLine.textContent = `${phase?.name || ''} DL`
+    } else {
+      titleLine.textContent = caseTitle || arg.event.title || ''
+    }
+    container.appendChild(titleLine)
+
+    return { domNodes: [container] }
   },
-  // 拖曳相關設定
-  eventDragMinDistance: 5, // 最小拖曳距離
-  dragScroll: true, // 啟用拖曳時自動滾動
-  // 樣式相關
-  eventClassNames: 'calendar-event',
-  dayCellClassNames: 'calendar-day-cell',
-  // 週視圖和日視圖設定 - 顯示完整時間軸（0:00-24:00），填滿空間
-  allDaySlot: true, // 顯示全天事件區域
-  allDayText: '全天',
-  // 時間軸設定
-  slotLabelFormat: {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  },
-  // 確保週/日視圖顯示時間軸並填滿空間
   views: {
-    timeGridWeek: {
-      slotMinTime: '00:00:00',
-      slotMaxTime: '24:00:00',
-      slotDuration: '01:00:00', // 每個小時一個 slot
-      slotLabelInterval: '01:00:00', // 每小時顯示一次標籤
-      allDaySlot: true,
-      allDayText: '全天',
-      height: 'auto', // 自動填滿
-      contentHeight: 'auto' // 自動計算內容高度
-    },
-    timeGridDay: {
-      slotMinTime: '00:00:00',
-      slotMaxTime: '24:00:00',
-      slotDuration: '01:00:00', // 每個小時一個 slot
-      slotLabelInterval: '01:00:00',
-      allDaySlot: true,
-      allDayText: '全天',
-      height: 'auto',
-      contentHeight: 'auto'
-    },
     dayGridMonth: {
-      fixedWeekCount: false, // 不固定週數，讓月視圖完整顯示所有週
-      dayMaxEvents: 10,
-      moreLinkClick: 'popover',
-      height: 'auto',
-      contentHeight: 'auto'
+      fixedWeekCount: false,
+      dayMaxEvents: false,
+      eventDisplay: 'block'
+    },
+    dayGridWeek: {
+      eventDisplay: 'block'
+    },
+    dayGridDay: {
+      eventDisplay: 'block'
     }
   }
 }))
 
-// 視圖選項
-const viewOptions: Array<{ value: CalendarView; label: string; icon: string }> = [
-  { value: 'dayGridMonth', label: '月', icon: 'i-lucide-calendar' },
-  { value: 'timeGridWeek', label: '週', icon: 'i-lucide-calendar-days' },
-  { value: 'timeGridDay', label: '日', icon: 'i-lucide-calendar-days' }
-]
-
-// 視圖切換
-const handleViewChange = (view: CalendarView) => {
-  setView(view)
-}
-
-// 監聽視圖變化，更新日曆
-watch(currentView, () => {
-  // FullCalendar 會自動處理視圖切換
-})
-
-// 監聽日期變化
-watch(currentDate, () => {
-  // FullCalendar 會自動處理日期導航
-})
-
-// 日曆實例引用
+// Calendar instance ref
 const calendarRef = ref<InstanceType<typeof FullCalendar>>()
 
-// 當視圖或日期變化時，更新日曆
-watch([currentView, currentDate], () => {
+// Sync date changes to FullCalendar
+watch(currentDate, () => {
   nextTick(() => {
     if (calendarRef.value?.getApi) {
       const calendarApi = calendarRef.value.getApi()
-      calendarApi.changeView(currentView.value)
       calendarApi.gotoDate(currentDate.value)
     }
   })
@@ -136,426 +199,279 @@ watch([currentView, currentDate], () => {
 </script>
 
 <template>
-  <div class="flex flex-col w-full min-h-[600px]">
-    <!-- 工具列和日曆連在一起 -->
-    <div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm overflow-visible w-full flex flex-col">
-      <!-- 工具列 -->
-      <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-800">
-        <!-- 左側：導航按鈕 -->
-        <div class="flex items-center gap-2">
-          <BaseButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            square
-            icon="i-lucide-chevron-left"
+  <div class="flex flex-col w-full h-full min-h-0">
+    <!-- Header toolbar -->
+    <div class="flex items-center justify-between px-1 pb-3 shrink-0">
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-semibold text-highlighted">
+          {{ headerTitle }}
+        </h2>
+        <div class="flex items-center gap-0.5">
+          <button
+            class="p-1.5 rounded-md hover:bg-muted text-dimmed transition-colors"
             @click="prev"
-          />
-          <BaseButton
-            color="neutral"
-            variant="outline"
-            size="sm"
-            label="今天"
+          >
+            <UIcon name="i-lucide-chevron-left" class="w-4 h-4" />
+          </button>
+          <button
+            class="px-3 py-1 text-sm font-medium text-muted hover:bg-muted rounded-md transition-colors"
             @click="goToToday"
-          />
-          <BaseButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            square
-            icon="i-lucide-chevron-right"
+          >
+            今天
+          </button>
+          <button
+            class="p-1.5 rounded-md hover:bg-muted text-dimmed transition-colors"
             @click="next"
-          />
-          <div class="ml-3 text-base font-semibold text-gray-900 dark:text-white">
-            {{ format(currentDate, 'yyyy年MM月', { locale: zhTW }) }}
-          </div>
-        </div>
-
-        <!-- 右側：視圖切換 -->
-        <div class="flex items-center gap-1">
-          <BaseButton
-            v-for="option in viewOptions"
-            :key="option.value"
-            :color="currentView === option.value ? 'primary' : 'neutral'"
-            :variant="currentView === option.value ? 'solid' : 'ghost'"
-            size="sm"
-            :icon="option.icon"
-            :label="option.label"
-            @click="handleViewChange(option.value)"
-          />
+          >
+            <UIcon name="i-lucide-chevron-right" class="w-4 h-4" />
+          </button>
         </div>
       </div>
-
-      <!-- 日曆主體 -->
-      <div class="calendar-wrapper flex-1 min-h-0 w-full">
-        <FullCalendar
-          ref="calendarRef"
-          :options="calendarOptions"
-          class="calendar-container w-full h-full"
-        />
+      <!-- 視圖切換 -->
+      <div class="flex items-center bg-muted rounded-lg p-0.5">
+        <button
+          v-for="opt in viewOptions"
+          :key="opt.value"
+          class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+          :class="currentView === opt.value
+            ? 'bg-elevated text-highlighted shadow-sm'
+            : 'text-muted hover:text-highlighted'"
+          @click="handleViewChange(opt.value)"
+        >
+          {{ opt.label }}
+        </button>
       </div>
+    </div>
+
+    <!-- Calendar grid -->
+    <div class="calendar-wrapper flex-1 min-h-0">
+      <FullCalendar
+        ref="calendarRef"
+        :options="calendarOptions"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
-/* FullCalendar 樣式客製化 - 使用 CSS 變數和直接屬性 */
+/* ========== Calendar Wrapper ========== */
 .calendar-wrapper {
-  flex: 1; /* 佔滿剩餘空間 */
-  min-height: 0; /* 允許 flex 收縮 */
-  overflow: visible; /* 避免裁切 */
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-  width: 100%; /* 撐滿寬度 */
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgb(229 231 235); /* gray-200 */
+  border-radius: 8px;
+  overflow: hidden;
 }
 
+/* ========== FullCalendar Base ========== */
 :deep(.fc) {
   font-family: inherit;
-  height: 100% !important;
-  width: 100% !important; /* 撐滿寬度 */
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-  overflow: visible !important; /* 避免裁切 */
-  max-width: 100% !important; /* 確保不超出父元素 */
-}
-
-:deep(.fc-view-harness) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-:deep(.fc-view-harness-active) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
 }
 
 :deep(.fc-header-toolbar) {
   display: none;
 }
 
-/* 移除日曆的邊框和圓角，因為已經在外層容器處理 */
+/* ========== Grid Structure — 移除 fc 自帶外框，由 wrapper 控制 ========== */
 :deep(.fc-scrollgrid) {
   border: none !important;
-  border-radius: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-  width: 100% !important; /* 撐滿寬度 */
-  overflow: visible !important; /* 避免裁切 */
 }
 
-:deep(.fc-scrollgrid-section) {
-  flex-shrink: 0;
+/* ========== Column Headers ========== */
+:deep(.fc-col-header-cell) {
+  padding: 10px 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgb(107 114 128);
+  background: rgb(249 250 251); /* gray-50 */
+  text-transform: capitalize;
 }
 
-:deep(.fc-scrollgrid-section-liquid) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+:deep(.fc-col-header-cell-cushion) {
+  text-decoration: none !important;
+  color: inherit !important;
 }
 
-/* 移除月視圖底部的白色區域 */
-:deep(.fc-daygrid-body) {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-:deep(.fc-daygrid) {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-:deep(.fc-scrollgrid-sync-table) {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-/* 月視圖 - 讓格子更方，完整顯示 */
-:deep(.fc-daygrid-day-frame) {
-  min-height: 140px;
-}
-
+/* ========== Day Cells ========== */
 :deep(.fc-daygrid-day) {
-  min-height: 140px;
-}
-
-/* 事件容器調整 - 案件置頂並撐滿寬度 */
-:deep(.fc-daygrid-day-events) {
-  /* margin-top: 1.75rem; */
-  /* margin-bottom: 0.25rem; */
-  padding: 0 !important; /* 移除所有 padding */
-  width: 100%;
-  box-sizing: border-box;
-}
-
-:deep(.fc-daygrid-day-event) {
-  width: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  box-sizing: border-box !important;
-}
-
-/* 移除事件 harness 的所有 margin - 使用更具體的選擇器提高優先級 */
-:deep(.fc-daygrid-day-events .fc-daygrid-event-harness) {
-  margin: 0 !important;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  width: 100% !important;
-}
-
-/* 使用屬性選擇器覆蓋內聯樣式 - 提高優先級 */
-:deep(.fc-daygrid-day-events .fc-daygrid-event-harness[style]) {
-  margin: 0 !important;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-
-:deep(.fc-daygrid-event) {
-  margin: 0 !important; /* 移除所有 margin */
-  width: 100% !important; /* 撐滿寬度 */
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  vertical-align: top !important;
-}
-
-/* 移除 day-bottom 的 margin - 使用更具體的選擇器 */
-:deep(.fc-daygrid-day-events .fc-daygrid-day-bottom) {
-  margin: 0 !important;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-:deep(.fc-daygrid-day-events .fc-daygrid-day-bottom[style]) {
-  margin: 0 !important;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* 月視圖整體 - 確保完整顯示，可以滾動 */
-:deep(.fc-daygrid-body) {
   min-height: auto;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+  vertical-align: top;
 }
 
-:deep(.fc-daygrid) {
-  height: auto !important;
-  overflow-y: auto;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+:deep(.fc-daygrid-day-frame) {
+  min-height: 130px;
+  padding: 0;
 }
 
-/* 確保月視圖可以完整顯示所有週 */
-:deep(.fc-daygrid-body .fc-scroller) {
-  overflow-y: auto !important;
-  height: auto !important;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* 移除月視圖底部的白色區域 */
-:deep(.fc-scrollgrid-sync-table) {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-:deep(.fc-scroller) {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-:deep(.fc-scroller-liquid-absolute) {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* 移除月視圖最後一行的底部邊距 */
-:deep(.fc-daygrid-body tr:last-child td) {
-  border-bottom: none !important;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* 移除月視圖容器底部的空白 */
-:deep(.fc-daygrid-container) {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* 週視圖和日視圖 - 完整時間軸顯示（0:00-24:00），填滿空間 */
-:deep(.fc-timegrid-body) {
-  flex: 1;
-  min-height: 0;
+/* Day number - right aligned */
+:deep(.fc-daygrid-day-top) {
   display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
+  padding: 6px 8px 4px;
 }
 
-:deep(.fc-timegrid-body .fc-scroller) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: 100% !important;
-  max-height: none !important; /* 移除 max-height 限制 */
-  -webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
-  position: relative !important;
+:deep(.fc-daygrid-day-number) {
+  font-size: 0.85rem;
+  color: rgb(107 114 128);
+  text-decoration: none !important;
+  padding: 0;
+  line-height: 1;
 }
 
-/* 確保時間網格內容可以滾動 */
-:deep(.fc-timegrid-body .fc-scroller-liquid-absolute) {
-  position: relative !important;
-  height: auto !important;
-  min-height: calc(24 * 4rem) !important; /* 24小時，每個slot 4rem */
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+/* Other month days - dimmed */
+:deep(.fc-day-other .fc-daygrid-day-number) {
+  color: rgb(209 213 219);
 }
 
-/* 確保 scroller 可以正確滾動 */
-:deep(.fc-timegrid-body .fc-scroller) {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: 100% !important;
-  max-height: none !important; /* 移除 max-height 限制 */
-  position: relative !important;
+/* ========== Today Indicator (green primary) ========== */
+:deep(.fc-day-today) {
+  background: rgb(240 253 244) !important;
 }
 
-/* 確保時間網格表格有足夠高度 */
-:deep(.fc-timegrid-slot-table) {
-  height: auto !important;
-  min-height: calc(24 * 4rem) !important;
+:deep(.fc-day-today .fc-daygrid-day-number) {
+  background: rgb(22 163 74);
+  color: white !important;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-/* 確保時間網格容器可以滾動 */
-:deep(.fc-timegrid-body) {
-  overflow: hidden !important; /* 讓 scroller 處理滾動 */
-  position: relative !important;
+/* ========== Events Container — 加大間距 ========== */
+:deep(.fc-daygrid-day-events) {
+  padding: 8px 16px 12px !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
 }
 
-:deep(.fc-timegrid-body .fc-scroller-liquid) {
-  height: 100% !important;
-  overflow-y: auto !important;
-  position: relative !important;
+:deep(.fc-daygrid-event-harness) {
+  margin: 0 !important;
 }
 
-/* 確保 scroller harness 可以正確滾動 */
-:deep(.fc-scroller-harness) {
-  height: 100% !important;
-  overflow: hidden !important;
+:deep(.fc-daygrid-event-harness[style]) {
+  margin-top: 0 !important;
 }
 
-:deep(.fc-scroller-harness-liquid) {
-  height: 100% !important;
-  overflow: hidden !important;
+:deep(.fc-daygrid-day-bottom) {
+  margin: 0 !important;
+  padding: 0 4px !important;
 }
 
-/* 時間 slot - 每個小時一個大格 */
-:deep(.fc-timegrid-slot) {
-  min-height: 4rem;
-  height: auto;
+/* ========== Remove Default Event Styling（覆蓋全域 main.css）========== */
+:deep(.fc-event),
+:deep(.fc-h-event),
+:deep(.fc-daygrid-event),
+:deep(.fc-daygrid-block-event),
+:deep(.fc-daygrid-dot-event),
+:deep(.fc-daygrid-day-event),
+:deep(.fc-event.fc-daygrid-event),
+:deep(.fc-event.fc-daygrid-dot-event),
+:deep(.fc-event.fc-h-event) {
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-left: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  display: block !important;
 }
 
-:deep(.fc-timegrid-slot-label) {
-  font-size: 0.875rem; /* text-sm */
-  color: rgb(100 116 139);
+:deep(.fc-event:hover),
+:deep(.fc-h-event:hover),
+:deep(.fc-daygrid-dot-event:hover),
+:deep(.fc-daygrid-event:hover) {
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+:deep(.fc-event-main),
+:deep(.fc-event-main-frame),
+:deep(.fc-event-title-container) {
+  padding: 0 !important;
+  color: inherit !important;
+}
+
+:deep(.fc-event-title) {
+  font-weight: inherit !important;
+  padding: 0 !important;
+}
+
+:deep(.fc-event-selected),
+:deep(.fc-event:focus) {
+  box-shadow: none !important;
+}
+
+:deep(.fc-event-selected:after),
+:deep(.fc-event:focus:after) {
+  display: none !important;
+}
+
+:deep(.fc-daygrid-event-dot) {
+  display: none !important;
+}
+
+:deep(.fc-event-time) {
+  display: none !important;
+}
+
+/* ========== Custom Event Card（樣式由 JS inline style 控制，確保所有視圖一致） ========== */
+
+/* ========== More Link ========== */
+:deep(.fc-daygrid-more-link) {
+  font-size: 0.75rem;
+  color: rgb(22 163 74);
   font-weight: 500;
-  line-height: 1.5;
-  font-family: inherit;
+  padding: 2px 4px;
 }
 
-.dark :deep(.fc-timegrid-slot-label) {
-  color: rgb(148 163 184);
+/* ========== Dark Mode ========== */
+.dark .calendar-wrapper {
+  border-color: rgb(55 65 81);
 }
 
-/* 確保時間軸可見且完整 */
-:deep(.fc-timegrid-axis) {
-  width: 4rem !important;
-  min-width: 4rem;
-  flex-shrink: 0;
+.dark :deep(.fc-col-header-cell) {
+  color: rgb(107 114 128);
+  background: rgb(31 41 55);
 }
 
-:deep(.fc-timegrid-axis-cushion) {
-  font-size: 0.875rem; /* text-sm */
-  font-weight: 500;
-  line-height: 1.5;
-  padding: 0.5rem;
-  font-family: inherit;
+.dark :deep(.fc-scrollgrid td),
+.dark :deep(.fc-scrollgrid th) {
+  border-color: rgb(55 65 81) !important;
 }
 
-/* 週視圖和日視圖的列 - 使用 flex 填滿空間 */
-:deep(.fc-timegrid-col-frame) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.dark :deep(.fc-daygrid-day-number) {
+  color: rgb(156 163 175);
 }
 
-:deep(.fc-timegrid-col) {
-  flex: 1;
-  min-height: 0;
+.dark :deep(.fc-day-other .fc-daygrid-day-number) {
+  color: rgb(75 85 99);
 }
 
-/* 時間網格表格 - 確保有足夠高度顯示完整 24 小時（每個小時一個 slot） */
-:deep(.fc-timegrid-slot-table) {
-  height: auto !important;
-  min-height: calc(24 * 4rem); /* 24小時，每個slot 4rem */
+.dark :deep(.fc-day-today) {
+  background: rgba(20, 83, 45, 0.15) !important;
 }
 
-:deep(.fc-timegrid-slot-table tbody) {
-  height: auto !important;
-  min-height: calc(24 * 4rem);
+.dark :deep(.fc-day-today .fc-daygrid-day-number) {
+  background: rgb(74 222 128);
+  color: rgb(17 24 39) !important;
 }
 
-/* 確保每個 slot 有最小高度（每個小時一個大格） */
-:deep(.fc-timegrid-slot) {
-  min-height: 4rem !important;
-  height: 4rem !important;
-}
+/* Dark mode event card 由 JS 處理 */
 
-/* 確保 slot 的 tr 也有正確高度 */
-:deep(.fc-timegrid-slot-table tbody tr) {
-  height: 4rem !important;
-  min-height: 4rem !important;
-}
-
-/* 全天事件區域 */
-:deep(.fc-all-day) {
-  border-bottom: 2px solid rgb(229 231 235);
-}
-
-.dark :deep(.fc-all-day) {
-  border-bottom-color: rgb(55 65 81);
-}
-
-/* 移除底部多餘的 padding */
-:deep(.fc-scrollgrid-section-footer) {
-  display: none;
-}
-
-/* 確保內容可以滾動 */
-:deep(.fc-scrollgrid-sync-table) {
-  height: auto !important;
+.dark :deep(.fc-daygrid-more-link) {
+  color: rgb(74 222 128);
 }
 </style>
-
