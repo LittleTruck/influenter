@@ -343,12 +343,18 @@ watch(currentDate, () => {
   font-weight: 600;
 }
 
-/* ========== Events Container — 加大間距 ========== */
+/* ========== Events Container ========== */
 :deep(.fc-daygrid-day-events) {
-  padding: 8px 16px 12px !important;
+  padding: 2px 4px 4px !important;
   margin: 0 !important;
   display: flex !important;
   flex-direction: column !important;
+  gap: 4px !important;
+}
+
+/* 日視圖加大 padding 與間距 */
+:deep(.fc-dayGridDay-view .fc-daygrid-day-events) {
+  padding: 8px 16px 12px !important;
   gap: 8px !important;
 }
 
