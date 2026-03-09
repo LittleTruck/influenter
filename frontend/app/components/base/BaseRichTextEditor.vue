@@ -256,6 +256,37 @@ defineExpose({
             <UIcon :name="item.icon" class="w-4 h-4" />
           </button>
         </template>
+
+        <!-- 文字顏色（緊接在第一組文字格式後面） -->
+        <UPopover v-if="gi === 0">
+          <button
+            type="button"
+            class="base-rich-editor__btn"
+            title="文字顏色"
+            :disabled="disabled"
+          >
+            <UIcon name="i-lucide-palette" class="w-4 h-4" />
+          </button>
+          <template #content>
+            <div class="p-2 grid grid-cols-4 gap-1">
+              <button
+                v-for="c in colorOptions"
+                :key="c.value"
+                type="button"
+                class="w-7 h-7 rounded-md border border-gray-200 dark:border-gray-700 hover:scale-110 transition-transform flex items-center justify-center"
+                :title="c.label"
+                @click="setColor(c.value)"
+              >
+                <span
+                  v-if="c.value"
+                  class="w-4 h-4 rounded-full"
+                  :style="{ backgroundColor: c.value }"
+                />
+                <UIcon v-else name="i-lucide-ban" class="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          </template>
+        </UPopover>
       </template>
 
       <!-- 表格下拉選單 -->
@@ -271,38 +302,6 @@ defineExpose({
           <UIcon name="i-lucide-table" class="w-4 h-4" />
         </button>
       </UDropdownMenu>
-
-      <!-- 文字顏色下拉 -->
-      <div class="base-rich-editor__divider" />
-      <UPopover>
-        <button
-          type="button"
-          class="base-rich-editor__btn"
-          title="文字顏色"
-          :disabled="disabled"
-        >
-          <UIcon name="i-lucide-palette" class="w-4 h-4" />
-        </button>
-        <template #content>
-          <div class="p-2 grid grid-cols-4 gap-1">
-            <button
-              v-for="c in colorOptions"
-              :key="c.value"
-              type="button"
-              class="w-7 h-7 rounded-md border border-gray-200 dark:border-gray-700 hover:scale-110 transition-transform flex items-center justify-center"
-              :title="c.label"
-              @click="setColor(c.value)"
-            >
-              <span
-                v-if="c.value"
-                class="w-4 h-4 rounded-full"
-                :style="{ backgroundColor: c.value }"
-              />
-              <UIcon v-else name="i-lucide-ban" class="w-4 h-4 text-gray-400" />
-            </button>
-          </div>
-        </template>
-      </UPopover>
 
       <!-- 連結 Popover -->
       <UPopover v-model:open="isLinkPopoverOpen">
