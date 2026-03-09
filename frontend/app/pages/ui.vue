@@ -7,11 +7,12 @@
  * 訪問路徑: /ui
  */
 
-import { 
-  BaseButton, BaseInput, BaseTextarea, BaseSelect, BaseCard, 
-  BaseBadge, BaseAvatar, BaseProgress, BaseTabs, BaseTable, 
+import {
+  BaseButton, BaseInput, BaseTextarea, BaseSelect, BaseCard,
+  BaseBadge, BaseAvatar, BaseProgress, BaseTabs, BaseTable,
   BasePagination, BaseAlert, BaseCollapsible, BaseIcon,
-  BaseCheckbox, BaseSwitch, BaseModal, BaseSlideover, BaseFormField
+  BaseCheckbox, BaseSwitch, BaseModal, BaseSlideover, BaseFormField,
+  BaseRichTextEditor
 } from '~/components/base'
 import draggable from 'vuedraggable'
 import CalendarView from '~/components/calendar/CalendarView.vue'
@@ -37,6 +38,7 @@ const collapsibleStates = reactive({
   button: true,
   input: true,
   textarea: true,
+  richTextEditor: true,
   select: true,
   checkboxSwitch: true,
   card: true,
@@ -67,6 +69,8 @@ const formData = reactive({
   checkbox: false,
   switch: false,
   date: '',
+  richText: '<p>這是一段<strong>粗體</strong>和<em>斜體</em>的示範文字。</p><table style="border-collapse: collapse; border: 1px solid #d1d5db;"><thead><tr><th style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top; background-color: #f3f4f6; font-weight: 600;">項目</th><th style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top; background-color: #f3f4f6; font-weight: 600;">費用</th><th style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top; background-color: #f3f4f6; font-weight: 600;">備註</th></tr></thead><tbody><tr><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">IG 貼文 x1</td><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">$10,000</td><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">含一次修改</td></tr><tr><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">限動 x3</td><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">$5,000</td><td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top;">連續三天</td></tr></tbody></table>',
+  richTextEmpty: '',
 })
 
 // 選擇器選項
@@ -454,6 +458,68 @@ onMounted(async () => {
                     <BaseFormField label="必填欄位" required>
                       <BaseTextarea placeholder="必填欄位" required :rows="4" class="w-full" />
                     </BaseFormField>
+                </div>
+              </div>
+            </template>
+          </BaseCollapsible>
+        </BaseCard>
+
+        <!-- BaseRichTextEditor 富文本編輯器 -->
+        <BaseCard>
+          <BaseCollapsible v-model:open="collapsibleStates.richTextEditor">
+            <div class="flex items-center gap-2 cursor-pointer p-4">
+              <BaseIcon name="i-lucide-file-pen-line" class="w-5 h-5" />
+              <h2 class="text-2xl font-bold">BaseRichTextEditor 富文本編輯器</h2>
+              <BaseIcon
+                :name="collapsibleStates.richTextEditor ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                class="w-5 h-5 ml-auto"
+              />
+            </div>
+            <template #content>
+              <div class="px-4 pb-4 space-y-6">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  基於 TipTap 的富文本編輯器，提供類似 Gmail 的編輯體驗。支援粗體、斜體、底線、刪除線、連結、對齊、列表、引用、文字顏色等格式。
+                </p>
+
+                <!-- 基本用法 -->
+                <BaseFormField label="基本用法">
+                  <BaseRichTextEditor v-model="formData.richText" placeholder="請輸入內容..." />
+                </BaseFormField>
+
+                <!-- 空白狀態（顯示 placeholder） -->
+                <BaseFormField label="Placeholder 狀態">
+                  <BaseRichTextEditor v-model="formData.richTextEmpty" placeholder="撰寫你的回信內容..." min-height="100px" />
+                </BaseFormField>
+
+                <!-- 禁用狀態 -->
+                <BaseFormField label="禁用狀態">
+                  <BaseRichTextEditor model-value="<p>這段內容無法編輯。</p>" disabled min-height="80px" />
+                </BaseFormField>
+
+                <!-- 無工具列 -->
+                <BaseFormField label="無工具列">
+                  <BaseRichTextEditor v-model="formData.richTextEmpty" :toolbar="false" placeholder="純編輯區，無工具列..." min-height="80px" />
+                </BaseFormField>
+
+                <!-- HTML 輸出預覽 -->
+                <div class="p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg space-y-2">
+                  <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">HTML 輸出預覽：</p>
+                  <pre class="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all">{{ formData.richText }}</pre>
+                </div>
+
+                <!-- 功能說明 -->
+                <div class="p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                  <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">支援的格式：</p>
+                  <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    <li>• <strong>文字格式</strong>：粗體、斜體、底線、刪除線</li>
+                    <li>• <strong>列表</strong>：項目符號列表、編號列表</li>
+                    <li>• <strong>對齊</strong>：靠左、置中、靠右</li>
+                    <li>• <strong>區塊</strong>：引用、水平線、程式碼</li>
+                    <li>• <strong>表格</strong>：插入表格、新增/刪除行列、合併/分割儲存格（email-safe inline styles）</li>
+                    <li>• <strong>連結</strong>：插入 / 移除超連結</li>
+                    <li>• <strong>顏色</strong>：8 種預設文字顏色</li>
+                    <li>• <strong>清除</strong>：一鍵清除所有格式</li>
+                  </ul>
                 </div>
               </div>
             </template>
