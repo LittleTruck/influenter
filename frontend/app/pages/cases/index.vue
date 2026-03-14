@@ -2,7 +2,7 @@
 import type { Case, ViewType } from '~/types/cases'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton } from '~/components/base'
 import CaseBoardView from '~/components/cases/board/CaseBoardView.vue'
 import CaseTable from '~/components/cases/list/CaseTable.vue'
 import CaseFormModal from '~/components/cases/forms/CaseFormModal.vue'
@@ -66,11 +66,7 @@ const handleFormSubmit = () => {
   <BaseDashboardPanel>
     <template #header>
       <BaseDashboardNavbar title="案件管理">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-
-        <template #trailing>
+        <template #right>
           <div class="flex items-center gap-3">
             <ViewToggle :model-value="currentView" @update:model-value="handleViewChange" />
             <BaseButton

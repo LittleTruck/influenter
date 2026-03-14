@@ -5,7 +5,7 @@ import { useCaseFields } from '~/composables/useCaseFields'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
 import { getStatusColor, getStatusLabel } from '~/utils/caseStatus'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseButton, BaseCard, BaseBadge, BaseIcon, BaseInput } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton, BaseCard, BaseBadge, BaseIcon, BaseInput } from '~/components/base'
 import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
 import CasePropertiesPanel from '~/components/cases/detail/CasePropertiesPanel.vue'
 import CaseEmailsTimeline from '~/components/cases/detail/CaseEmailsTimeline.vue'
@@ -254,10 +254,7 @@ const handleViewEmail = (emailId: string) => {
   <BaseDashboardPanel>
     <template #header>
       <BaseDashboardNavbar :title="currentCase?.title || '案件詳情'">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-        <template #trailing>
+        <template #right>
           <div class="flex items-center gap-2">
             <BaseBadge
               v-if="currentCase"

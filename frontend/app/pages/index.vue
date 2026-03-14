@@ -1,12 +1,7 @@
 <template>
   <BaseDashboardPanel>
     <template #header>
-      <BaseDashboardNavbar title="歡迎使用 Influenter">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-
-      </BaseDashboardNavbar>
+      <BaseDashboardNavbar title="歡迎使用 Influenter" />
     </template>
 
     <template #body>
@@ -152,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse, BaseCard, BaseIcon, BaseButton, BaseAlert } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseCard, BaseIcon, BaseButton, BaseAlert } from '~/components/base'
 
 // 首頁 - Dashboard
 

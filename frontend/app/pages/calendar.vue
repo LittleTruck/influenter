@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
 import CalendarView from '~/components/calendar/CalendarView.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
@@ -37,11 +37,7 @@ const shouldShowCalendar = computed(() => {
 <template>
   <BaseDashboardPanel grow>
     <template #header>
-      <BaseDashboardNavbar title="日曆">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-      </BaseDashboardNavbar>
+      <BaseDashboardNavbar title="日曆" />
     </template>
 
     <template #body>

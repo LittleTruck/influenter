@@ -23,7 +23,9 @@ export function useThemeColor() {
   })
 
   function setPrimaryColor(color: ThemeColor) {
-    if (appConfig.ui.colors) {
+    if (!appConfig.ui.colors) {
+      appConfig.ui.colors = { primary: color, neutral: 'slate' }
+    } else {
       appConfig.ui.colors.primary = color
     }
     if (import.meta.client) {

@@ -2,21 +2,34 @@
   <BaseDashboardGroup>
     <BaseDashboardSidebar collapsible resizable>
       <template #header="{ collapsed }">
-        <div v-if="!collapsed" class="flex items-center gap-2">
-          <BaseIcon name="i-lucide-sparkles" class="w-6 h-6" />
-          <span class="font-bold text-lg">Influenter</span>
+        <div v-if="!collapsed" class="flex items-center justify-between w-full">
+          <div class="flex items-center gap-2">
+            <BaseIcon name="i-lucide-sparkles" class="w-6 h-6" />
+            <span class="font-bold text-lg">Influenter</span>
+          </div>
+          <BaseDashboardSidebarCollapse />
         </div>
-        <BaseIcon v-else name="i-lucide-sparkles" class="w-6 h-6 mx-auto" />
+        <BaseDashboardSidebarCollapse v-else />
       </template>
 
       <template #default="{ collapsed }">
+        <UTooltip v-if="collapsed" text="搜尋" :delay-duration="0">
+          <BaseButton
+            icon="i-lucide-search"
+            color="neutral"
+            variant="outline"
+            block
+            square
+            class="mb-4"
+          />
+        </UTooltip>
         <BaseButton
-          :label="collapsed ? undefined : '搜尋...'"
+          v-else
+          label="搜尋..."
           icon="i-lucide-search"
           color="neutral"
           variant="outline"
           block
-          :square="collapsed"
           class="mb-4"
         />
 
@@ -24,6 +37,14 @@
           :collapsed="collapsed"
           :items="navigationItems"
           orientation="vertical"
+          tooltip
+          popover
+          :ui="{
+            link: 'text-base',
+            linkLeadingIcon: 'size-5',
+            childLabel: 'font-semibold text-xs text-muted uppercase tracking-wide px-2 py-1.5 border-b border-default mb-1',
+            childLink: 'text-sm',
+          }"
         />
       </template>
 
@@ -38,7 +59,7 @@
 
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { BaseButton, BaseIcon, BaseDashboardGroup, BaseDashboardSidebar, BaseNavigationMenu } from '~/components/base'
+import { BaseButton, BaseIcon, BaseDashboardGroup, BaseDashboardSidebar, BaseDashboardSidebarCollapse, BaseNavigationMenu } from '~/components/base'
 import UserDropdown from '~/components/UserDropdown.vue'
 
 const navigationItems: NavigationMenuItem[][] = [[{

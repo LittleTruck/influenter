@@ -226,7 +226,7 @@ const sendReply = async () => {
           />
         </template>
 
-        <template #trailing>
+        <template #right>
           <div v-if="email" class="flex items-center gap-2">
             <!-- 已關聯：顯示案件；未關聯：加入為案件 -->
             <BaseButton

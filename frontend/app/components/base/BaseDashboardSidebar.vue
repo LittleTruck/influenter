@@ -25,7 +25,17 @@ const props = withDefaults(defineProps<Props>(), {
     :collapsible="props.collapsible"
     :resizable="props.resizable"
   >
-    <slot />
+    <template #header="slotProps">
+      <slot name="header" v-bind="slotProps" />
+    </template>
+
+    <template #default="slotProps">
+      <slot v-bind="slotProps" />
+    </template>
+
+    <template #footer="slotProps">
+      <slot name="footer" v-bind="slotProps" />
+    </template>
   </UDashboardSidebar>
 </template>
 

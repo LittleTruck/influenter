@@ -15,10 +15,16 @@ interface Props {
   collapsed?: boolean
   /** 方向 */
   orientation?: 'vertical' | 'horizontal'
+  /** 摺疊時是否顯示 tooltip */
+  tooltip?: boolean
+  /** 摺疊時是否顯示 popover（用於有子項目的導航） */
+  popover?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  orientation: 'vertical'
+  orientation: 'vertical',
+  tooltip: false,
+  popover: false,
 })
 </script>
 
@@ -28,6 +34,8 @@ const props = withDefaults(defineProps<Props>(), {
     :items="props.items"
     :collapsed="props.collapsed"
     :orientation="props.orientation"
+    :tooltip="props.tooltip"
+    :popover="props.popover"
   >
     <slot />
   </UNavigationMenu>

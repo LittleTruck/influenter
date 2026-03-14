@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseDashboardSidebarCollapse } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
 import SubNav from '~/components/ui/SubNav.vue'
 
 const navItems = [
@@ -12,11 +12,7 @@ const navItems = [
 <template>
   <BaseDashboardPanel :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
-      <BaseDashboardNavbar title="合作管理">
-        <template #leading>
-          <BaseDashboardSidebarCollapse />
-        </template>
-      </BaseDashboardNavbar>
+      <BaseDashboardNavbar title="合作管理" />
     </template>
     <template #body>
       <div class="flex h-full">
