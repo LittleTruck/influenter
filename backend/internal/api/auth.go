@@ -279,9 +279,11 @@ func (h *AuthHandler) GoogleOAuthCallback(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// UpdateAIInstructionsRequest AI 注意事項更新請求
+// UpdateAIInstructionsRequest AI 助理設定更新請求
 type UpdateAIInstructionsRequest struct {
 	AIInstructions *string `json:"ai_instructions"`
+	AIReplyHeader  *string `json:"ai_reply_header"`
+	AIReplyFooter  *string `json:"ai_reply_footer"`
 }
 
 // UpdateAIInstructions 更新使用者的 AI 注意事項
@@ -327,23 +329,23 @@ func (h *AuthHandler) UpdateAIInstructions(c *gin.Context) {
 
 	logger := middleware.GetLogger(c)
 
-	if err := h.authService.UpdateAIInstructions(userID, req.AIInstructions); err != nil {
+	if err := h.authService.UpdateAISettings(userID, req.AIInstructions, req.AIReplyHeader, req.AIReplyFooter); err != nil {
 		logger.Error().
 			Err(err).
 			Str("user_id", userID.String()).
-			Msg("Failed to update AI instructions")
+			Msg("Failed to update AI settings")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
-			Message: "Failed to update AI instructions",
+			Message: "Failed to update AI settings",
 		})
 		return
 	}
 
 	logger.Info().
 		Str("user_id", userID.String()).
-		Msg("AI instructions updated")
+		Msg("AI settings updated")
 
-	c.JSON(http.StatusOK, gin.H{"message": "AI instructions updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "AI settings updated"})
 }
 
 // Logout 登出

@@ -489,23 +489,35 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		contactEmail = *cs.ContactEmail
 	}
 
-	// 取得使用者 AI 注意事項
+	// 取得使用者 AI 助理設定
 	userAIInstructions := ""
+	userAIReplyHeader := ""
+	userAIReplyFooter := ""
 	var user models.User
-	if err := h.db.Where("id = ?", userID).First(&user).Error; err == nil && user.AIInstructions != nil {
-		userAIInstructions = *user.AIInstructions
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err == nil {
+		if user.AIInstructions != nil {
+			userAIInstructions = *user.AIInstructions
+		}
+		if user.AIReplyHeader != nil {
+			userAIReplyHeader = *user.AIReplyHeader
+		}
+		if user.AIReplyFooter != nil {
+			userAIReplyFooter = *user.AIReplyFooter
+		}
 	}
 
 	req := openai.DraftReplyRequest{
-		CaseTitle:          cs.Title,
-		BrandName:          cs.BrandName,
-		ContactName:        contactName,
-		ContactEmail:       contactEmail,
-		EmailFrom:          fromName,
-		EmailSubject:       subject,
-		EmailBody:          bodyText,
-		Instruction:        body.Instruction,
-		UserAIInstructions: userAIInstructions,
+		CaseTitle:           cs.Title,
+		BrandName:           cs.BrandName,
+		ContactName:         contactName,
+		ContactEmail:        contactEmail,
+		EmailFrom:           fromName,
+		EmailSubject:        subject,
+		EmailBody:           bodyText,
+		Instruction:         body.Instruction,
+		UserAIInstructions:  userAIInstructions,
+		UserAIReplyHeader:   userAIReplyHeader,
+		UserAIReplyFooter:   userAIReplyFooter,
 	}
 
 	result, err := h.openaiService.DraftReply(c.Request.Context(), req)

@@ -88,6 +88,8 @@ type DraftReplyRequest struct {
 	EmailBody    string // 內文（純文字）
 	Instruction         string // 使用者補充說明（選填）
 	UserAIInstructions  string // 使用者 AI 注意事項（全域設定）
+	UserAIReplyHeader   string // 使用者信件標頭
+	UserAIReplyFooter   string // 使用者信件標尾
 }
 
 // DraftReplyResult 擬回信結果

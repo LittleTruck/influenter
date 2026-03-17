@@ -14,6 +14,8 @@ type User struct {
 	Name              string         `gorm:"not null" json:"name"`
 	ProfilePictureURL *string        `json:"profile_picture_url,omitempty"`
 	AIInstructions    *string        `json:"ai_instructions,omitempty"`
+	AIReplyHeader     *string        `json:"ai_reply_header,omitempty"`
+	AIReplyFooter     *string        `json:"ai_reply_footer,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`

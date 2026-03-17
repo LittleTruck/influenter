@@ -5,7 +5,7 @@ import SubNav from '~/components/ui/SubNav.vue'
 const navItems = [
   { label: '合作項目', icon: 'i-lucide-package', to: '/my/collaboration-items' },
   { label: '流程範本', icon: 'i-lucide-list-checks', to: '/my/workflows' },
-  { label: 'AI 注意事項', icon: 'i-lucide-brain', to: '/my/ai-instructions' },
+  { label: 'AI 助理設定', icon: 'i-lucide-brain', to: '/my/ai-instructions' },
 ]
 </script>
 

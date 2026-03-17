@@ -6,6 +6,8 @@ export interface User {
   name: string
   profile_picture_url?: string
   ai_instructions?: string
+  ai_reply_header?: string
+  ai_reply_footer?: string
   googleId?: string
   aiReplyTone?: string
   timezone?: string

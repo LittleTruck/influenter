@@ -420,9 +420,14 @@ func (s *AuthService) generateLoginResponse(user *models.User) (*LoginResponse, 
 	}, nil
 }
 
-// UpdateAIInstructions 更新使用者的 AI 注意事項
-func (s *AuthService) UpdateAIInstructions(userID uuid.UUID, instructions *string) error {
-	return s.db.Model(&models.User{}).Where("id = ?", userID).Update("ai_instructions", instructions).Error
+// UpdateAISettings 更新使用者的 AI 助理設定（注意事項、標頭、標尾）
+func (s *AuthService) UpdateAISettings(userID uuid.UUID, instructions *string, header *string, footer *string) error {
+	updates := map[string]interface{}{
+		"ai_instructions": instructions,
+		"ai_reply_header": header,
+		"ai_reply_footer": footer,
+	}
+	return s.db.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
 // GetUserByID 根據 ID 取得使用者

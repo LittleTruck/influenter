@@ -17,7 +17,7 @@ const items = computed(() => [
     icon: 'i-lucide-user',
     to: '/settings'
   }, {
-    label: 'AI 注意事項',
+    label: 'AI 助理設定',
     icon: 'i-lucide-sparkles',
     to: '/my/ai-instructions'
   }], [{

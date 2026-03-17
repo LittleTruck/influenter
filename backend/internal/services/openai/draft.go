@@ -21,6 +21,14 @@ func (s *Service) DraftReply(ctx context.Context, req DraftReplyRequest) (*Draft
 		systemPrompt += fmt.Sprintf("\n\n## 使用者常規注意事項（請務必遵守）\n%s", req.UserAIInstructions)
 	}
 
+	if req.UserAIReplyHeader != "" {
+		systemPrompt += fmt.Sprintf("\n\n## 信件標頭（請在回信開頭加上以下內容）\n%s", req.UserAIReplyHeader)
+	}
+
+	if req.UserAIReplyFooter != "" {
+		systemPrompt += fmt.Sprintf("\n\n## 信件標尾（請在回信結尾加上以下內容）\n%s", req.UserAIReplyFooter)
+	}
+
 	userPrompt := fmt.Sprintf(`## 案件摘要
 - 標題：%s
 - 品牌：%s
