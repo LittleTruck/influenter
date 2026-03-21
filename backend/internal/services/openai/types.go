@@ -90,6 +90,7 @@ type DraftReplyRequest struct {
 	UserAIInstructions  string // 使用者 AI 注意事項（全域設定）
 	UserAIReplyHeader   string // 使用者信件標頭
 	UserAIReplyFooter   string // 使用者信件標尾
+	TemplatePrompt      string // 回覆範本提示詞
 }
 
 // DraftReplyResult 擬回信結果

@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { BaseButton } from '~/components/base'
+import { BaseButton, BaseInput, BaseModal } from '~/components/base'
 import SectionPageHeader from '~/components/ui/SectionPageHeader.vue'
 
 definePageMeta({
   middleware: 'auth'
 })
+
+interface ReplyTemplate {
+  id: string
+  title: string
+  prompt: string
+  order: number
+}
 
 const authStore = useAuthStore()
 const toast = useToast()
@@ -28,7 +35,6 @@ const saveSettings = async () => {
         ai_reply_footer: aiReplyFooter.value || null,
       },
     })
-    // 同步到 store
     if (authStore.user) {
       authStore.user.ai_instructions = aiInstructions.value || undefined
       authStore.user.ai_reply_header = aiReplyHeader.value || undefined
@@ -41,6 +47,89 @@ const saveSettings = async () => {
     saving.value = false
   }
 }
+
+// 回覆範本
+const templates = ref<ReplyTemplate[]>([])
+const loadingTemplates = ref(false)
+const showTemplateModal = ref(false)
+const editingTemplate = ref<ReplyTemplate | null>(null)
+const templateForm = ref({ title: '', prompt: '' })
+const savingTemplate = ref(false)
+
+const fetchTemplates = async () => {
+  loadingTemplates.value = true
+  try {
+    const res = await $fetch<{ data: ReplyTemplate[] }>(`${config.public.apiBase}/api/v1/reply-templates`, {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    templates.value = res.data || []
+  } catch {
+    // silent
+  } finally {
+    loadingTemplates.value = false
+  }
+}
+
+const openCreateModal = () => {
+  editingTemplate.value = null
+  templateForm.value = { title: '', prompt: '' }
+  showTemplateModal.value = true
+}
+
+const openEditModal = (tpl: ReplyTemplate) => {
+  editingTemplate.value = tpl
+  templateForm.value = { title: tpl.title, prompt: tpl.prompt }
+  showTemplateModal.value = true
+}
+
+const saveTemplate = async () => {
+  if (!templateForm.value.title.trim() || !templateForm.value.prompt.trim()) {
+    toast.add({ title: '請填寫標題和提示詞', color: 'error' })
+    return
+  }
+  savingTemplate.value = true
+  try {
+    if (editingTemplate.value) {
+      await $fetch(`${config.public.apiBase}/api/v1/reply-templates/${editingTemplate.value.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authStore.token}` },
+        body: templateForm.value,
+      })
+      toast.add({ title: '已更新', description: '範本已更新' })
+    } else {
+      await $fetch(`${config.public.apiBase}/api/v1/reply-templates`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authStore.token}` },
+        body: templateForm.value,
+      })
+      toast.add({ title: '已新增', description: '範本已建立' })
+    }
+    showTemplateModal.value = false
+    await fetchTemplates()
+  } catch (e: any) {
+    toast.add({ title: '儲存失敗', description: e?.message || '請稍後再試', color: 'error' })
+  } finally {
+    savingTemplate.value = false
+  }
+}
+
+const deleteTemplate = async (tpl: ReplyTemplate) => {
+  if (!confirm(`確定要刪除「${tpl.title}」範本嗎？`)) return
+  try {
+    await $fetch(`${config.public.apiBase}/api/v1/reply-templates/${tpl.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    toast.add({ title: '已刪除', description: '範本已刪除' })
+    await fetchTemplates()
+  } catch (e: any) {
+    toast.add({ title: '刪除失敗', description: e?.message || '請稍後再試', color: 'error' })
+  }
+}
+
+onMounted(() => {
+  fetchTemplates()
+})
 </script>
 
 <template>
@@ -101,16 +190,99 @@ const saveSettings = async () => {
         />
       </div>
 
-      <!-- 範本設定（稍後開發） -->
-      <div class="space-y-2 opacity-50">
-        <label class="block text-sm font-medium text-highlighted">回覆範本</label>
-        <p class="text-sm text-muted">
-          預設的回覆範本，AI 可參考範本格式產生草稿（即將推出）
-        </p>
-        <div class="w-full min-h-[80px] p-4 rounded-lg border border-dashed border-default bg-elevated/30 flex items-center justify-center">
-          <span class="text-sm text-muted">即將推出</span>
+      <!-- 回覆範本 -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="block text-sm font-medium text-highlighted">回覆範本</label>
+            <p class="text-sm text-muted mt-1">
+              建立常用的回覆範本，AI 擬信時可選擇範本來產生對應風格的草稿
+            </p>
+          </div>
+          <BaseButton
+            icon="i-lucide-plus"
+            size="sm"
+            variant="outline"
+            @click="openCreateModal"
+          >
+            新增範本
+          </BaseButton>
+        </div>
+
+        <!-- 範本列表 -->
+        <div v-if="loadingTemplates" class="py-8 text-center text-sm text-muted">
+          載入中...
+        </div>
+        <div v-else-if="templates.length === 0" class="py-8 text-center">
+          <div class="text-muted text-sm">尚未建立任何範本</div>
+          <div class="text-muted text-xs mt-1">點擊「新增範本」開始建立</div>
+        </div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="tpl in templates"
+            :key="tpl.id"
+            class="rounded-lg border border-default bg-elevated/50 p-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <h4 class="text-sm font-medium text-highlighted">{{ tpl.title }}</h4>
+                <p class="text-xs text-muted mt-1 line-clamp-2 whitespace-pre-line">{{ tpl.prompt }}</p>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <BaseButton
+                  icon="i-lucide-pencil"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  @click="openEditModal(tpl)"
+                />
+                <BaseButton
+                  icon="i-lucide-trash-2"
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  @click="deleteTemplate(tpl)"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 新增/編輯範本 Modal -->
+    <BaseModal
+      v-model="showTemplateModal"
+      :title="editingTemplate ? '編輯範本' : '新增範本'"
+    >
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="block text-sm font-medium text-highlighted">範本標題</label>
+          <BaseInput
+            v-model="templateForm.title"
+            placeholder="例如：初次回覆、報價回覆、婉拒回覆"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="block text-sm font-medium text-highlighted">提示詞</label>
+          <p class="text-xs text-muted">
+            描述這個範本的回覆風格、內容重點，AI 會根據此提示詞產生對應的草稿
+          </p>
+          <textarea
+            v-model="templateForm.prompt"
+            class="w-full min-h-[200px] p-3 rounded-lg border border-default bg-elevated/50 text-highlighted placeholder-muted text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            placeholder="例如：&#10;請以正式但友善的語氣回覆，先感謝對方的邀約，接著表達有興趣合作，並詢問更多細節如時程、預算和合作形式。"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <BaseButton variant="ghost" @click="showTemplateModal = false">取消</BaseButton>
+          <BaseButton color="primary" :loading="savingTemplate" @click="saveTemplate">
+            {{ editingTemplate ? '更新' : '建立' }}
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>

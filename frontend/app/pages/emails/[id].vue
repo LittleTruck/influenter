@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea, BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea, BaseSelect, BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
 import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
@@ -19,12 +19,33 @@ const emailId = route.params.id as string
 const replyBody = ref('')
 const draftInstruction = ref('')
 const draftLoading = ref(false)
+const selectedTemplateId = ref<string | undefined>(undefined)
+const replyTemplates = ref<{ id: string; title: string; prompt: string }[]>([])
+
+const templateOptions = computed(() =>
+  replyTemplates.value.map((t) => ({
+    label: t.title,
+    value: t.id
+  }))
+)
+
+const fetchReplyTemplates = async () => {
+  try {
+    const res = await $fetch<{ data: { id: string; title: string; prompt: string }[] }>(`${config.public.apiBase}/api/v1/reply-templates`, {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    replyTemplates.value = res.data || []
+  } catch {
+    // silent
+  }
+}
 const sendLoading = ref(false)
 const replySectionRef = ref<HTMLElement | null>(null)
 
 // 載入郵件詳情
 onMounted(async () => {
   await emailsStore.fetchEmail(emailId)
+  fetchReplyTemplates()
   if (route.query.reply === '1') {
     await nextTick()
     replySectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -153,7 +174,7 @@ const generateDraft = async () => {
           Authorization: `Bearer ${authStore.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email_id: emailId, instruction: draftInstruction.value || undefined })
+        body: JSON.stringify({ email_id: emailId, instruction: draftInstruction.value || undefined, template_id: selectedTemplateId.value || undefined })
       }
     )
     replyBody.value = res.draft ?? ''
@@ -442,6 +463,16 @@ const sendReply = async () => {
           </template>
 
           <div class="space-y-3">
+            <div v-if="replyTemplates.length > 0">
+              <label class="block text-sm font-medium text-muted mb-1">回覆範本（選填）</label>
+              <BaseSelect
+                v-model="selectedTemplateId"
+                :options="templateOptions"
+                placeholder="選擇範本"
+                class="w-full"
+                :disabled="draftLoading || sendLoading"
+              />
+            </div>
             <div>
               <label class="block text-sm font-medium text-muted mb-1">AI 補充說明（選填）</label>
               <BaseTextarea

@@ -51,6 +51,10 @@ func (s *Service) DraftReply(ctx context.Context, req DraftReplyRequest) (*Draft
 		s.TruncateContent(req.EmailBody, 3000),
 	)
 
+	if req.TemplatePrompt != "" {
+		userPrompt += fmt.Sprintf("\n## 回覆範本（請參考以下範本的風格與格式撰寫回信）\n%s", req.TemplatePrompt)
+	}
+
 	if req.Instruction != "" {
 		userPrompt += fmt.Sprintf("\n## 使用者補充說明\n%s\n\n請在草稿中適當反映以上說明。", req.Instruction)
 	}

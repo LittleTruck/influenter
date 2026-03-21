@@ -27,10 +27,18 @@ const isOpen = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
+interface ReplyTemplate {
+  id: string
+  title: string
+  prompt: string
+}
+
 const selectedEmailId = ref<string>('')
 const instruction = ref('')
 const loading = ref(false)
 const draft = ref('')
+const selectedTemplateId = ref<string | undefined>(undefined)
+const templates = ref<ReplyTemplate[]>([])
 
 const emailOptions = computed(() => {
   return props.emails.map((e) => ({
@@ -38,6 +46,24 @@ const emailOptions = computed(() => {
     value: e.id
   }))
 })
+
+const templateOptions = computed(() =>
+  templates.value.map((t) => ({
+    label: t.title,
+    value: t.id
+  }))
+)
+
+const fetchTemplates = async () => {
+  try {
+    const res = await $fetch<{ data: ReplyTemplate[] }>(`${config.public.apiBase}/api/v1/reply-templates`, {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    templates.value = res.data || []
+  } catch {
+    // silent
+  }
+}
 
 const defaultEmailId = computed(() => {
   const list = props.emails
@@ -68,7 +94,8 @@ const handleGenerate = async () => {
         },
         body: JSON.stringify({
           email_id: emailId,
-          instruction: instruction.value || undefined
+          instruction: instruction.value || undefined,
+          template_id: selectedTemplateId.value || undefined
         })
       }
     )
@@ -113,6 +140,8 @@ watch(isOpen, (open) => {
     selectedEmailId.value = defaultEmailId.value
     instruction.value = ''
     draft.value = ''
+    selectedTemplateId.value = undefined
+    fetchTemplates()
   }
 })
 </script>
@@ -131,6 +160,16 @@ watch(isOpen, (open) => {
             v-model="selectedEmailId"
             :options="emailOptions"
             placeholder="請選擇郵件"
+            class="w-full"
+            :disabled="loading"
+          />
+        </BaseFormField>
+
+        <BaseFormField v-if="templates.length > 0" label="回覆範本（選填）">
+          <BaseSelect
+            v-model="selectedTemplateId"
+            :options="templateOptions"
+            placeholder="選擇範本"
             class="w-full"
             :disabled="loading"
           />

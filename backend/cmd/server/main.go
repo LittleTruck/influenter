@@ -136,6 +136,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	caseHandler := api.NewCaseHandler(db.DB, openaiSvc)
 	collaborationItemHandler := api.NewCollaborationItemHandler(db.DB)
 	workflowTemplateHandler := api.NewWorkflowTemplateHandler(db.DB)
+	replyTemplateHandler := api.NewReplyTemplateHandler(db.DB)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -207,6 +208,15 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				collabGroup.PATCH("/reorder", collaborationItemHandler.ReorderItems)
 				collabGroup.PATCH("/:id", collaborationItemHandler.UpdateItem)
 				collabGroup.DELETE("/:id", collaborationItemHandler.DeleteItem)
+			}
+
+			// Reply templates
+			replyTplGroup := protected.Group("/reply-templates")
+			{
+				replyTplGroup.GET("", replyTemplateHandler.ListTemplates)
+				replyTplGroup.POST("", replyTemplateHandler.CreateTemplate)
+				replyTplGroup.PATCH("/:id", replyTemplateHandler.UpdateTemplate)
+				replyTplGroup.DELETE("/:id", replyTemplateHandler.DeleteTemplate)
 			}
 
 			// Workflow templates

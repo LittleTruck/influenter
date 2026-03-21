@@ -332,8 +332,9 @@ type CaseEmailResponse struct {
 
 // DraftReplyRequest 擬回信 API 請求 body
 type DraftReplyRequest struct {
-	EmailID    string `json:"email_id"`    // 要回覆的郵件 ID，可選；未傳則用該案件最新一封
-	Instruction string `json:"instruction"` // 使用者補充說明，可選
+	EmailID      string `json:"email_id"`      // 要回覆的郵件 ID，可選；未傳則用該案件最新一封
+	Instruction  string `json:"instruction"`   // 使用者補充說明，可選
+	TemplateID   string `json:"template_id"`   // 回覆範本 ID，可選
 }
 
 // ListCaseEmails 取得案件關聯的郵件列表
@@ -506,6 +507,18 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		}
 	}
 
+	// 取得回覆範本（如有選擇）
+	templatePrompt := ""
+	if body.TemplateID != "" {
+		tplID, err := uuid.Parse(body.TemplateID)
+		if err == nil {
+			var tpl models.ReplyTemplate
+			if err := h.db.Where("id = ? AND user_id = ?", tplID, userID).First(&tpl).Error; err == nil {
+				templatePrompt = tpl.Prompt
+			}
+		}
+	}
+
 	req := openai.DraftReplyRequest{
 		CaseTitle:           cs.Title,
 		BrandName:           cs.BrandName,
@@ -518,6 +531,7 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		UserAIInstructions:  userAIInstructions,
 		UserAIReplyHeader:   userAIReplyHeader,
 		UserAIReplyFooter:   userAIReplyFooter,
+		TemplatePrompt:      templatePrompt,
 	}
 
 	result, err := h.openaiService.DraftReply(c.Request.Context(), req)
