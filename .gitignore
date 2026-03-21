@@ -11,6 +11,7 @@ frontend/.output/
 frontend/dist/
 frontend/.cache/
 frontend/.env
+frontend/frontend/
 
 # Backend
 backend/tmp/
