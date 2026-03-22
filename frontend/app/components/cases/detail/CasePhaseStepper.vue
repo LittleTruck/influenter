@@ -96,13 +96,11 @@ const closePopover = () => {
               name="i-lucide-check"
               class="w-5 h-5"
             />
-            <!-- 進行中：pulse 動畫 -->
-            <template v-else-if="getPhaseStatus(phase) === 'in_progress'">
-              <span class="absolute inset-0 rounded-full bg-primary animate-ping opacity-20" />
-              <BaseIcon name="i-lucide-play" class="w-4 h-4 relative z-10" />
+            <!-- 進行中 / 待開始：數字 -->
+            <template v-else>
+              <span v-if="getPhaseStatus(phase) === 'in_progress'" class="absolute inset-0 rounded-full bg-primary animate-ping opacity-20" />
+              <span class="relative z-10">{{ startIndex + index }}</span>
             </template>
-            <!-- 待開始：數字 -->
-            <span v-else>{{ startIndex + index }}</span>
           </button>
 
           <!-- 階段名稱 -->
