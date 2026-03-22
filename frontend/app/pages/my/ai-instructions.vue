@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseButton, BaseInput, BaseModal } from '~/components/base'
+import { BaseButton, BaseInput, BaseModal, BaseRichTextEditor } from '~/components/base'
 import SectionPageHeader from '~/components/ui/SectionPageHeader.vue'
 
 definePageMeta({
@@ -83,7 +83,7 @@ const openEditModal = (tpl: ReplyTemplate) => {
 }
 
 const saveTemplate = async () => {
-  if (!templateForm.value.title.trim() || !templateForm.value.prompt.trim()) {
+  if (!templateForm.value.title.trim() || isHtmlEmpty(templateForm.value.prompt)) {
     toast.add({ title: '請填寫標題和提示詞', color: 'error' })
     return
   }
@@ -127,6 +127,12 @@ const deleteTemplate = async (tpl: ReplyTemplate) => {
   }
 }
 
+/** 檢查 HTML 內容是否實質為空 */
+const isHtmlEmpty = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, '').trim()
+  return !text
+}
+
 onMounted(() => {
   fetchTemplates()
 })
@@ -157,10 +163,10 @@ onMounted(() => {
         <p class="text-sm text-muted">
           AI 擬信時會自動加在回覆開頭的固定文字（例如：問候語、開場白）
         </p>
-        <textarea
+        <BaseRichTextEditor
           v-model="aiReplyHeader"
-          class="w-full min-h-[100px] p-3 rounded-lg border border-default bg-elevated/50 text-highlighted placeholder-muted text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          placeholder="例如：&#10;您好，感謝您的來信！"
+          placeholder="例如：您好，感謝您的來信！"
+          min-height="100px"
         />
       </div>
 
@@ -170,10 +176,10 @@ onMounted(() => {
         <p class="text-sm text-muted">
           AI 擬信時會自動加在回覆結尾的固定文字（例如：簽名檔、結尾問候）
         </p>
-        <textarea
+        <BaseRichTextEditor
           v-model="aiReplyFooter"
-          class="w-full min-h-[100px] p-3 rounded-lg border border-default bg-elevated/50 text-highlighted placeholder-muted text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          placeholder="例如：&#10;Best regards,&#10;[您的名字]"
+          placeholder="例如：Best regards, [您的名字]"
+          min-height="100px"
         />
       </div>
 
@@ -183,10 +189,10 @@ onMounted(() => {
         <p class="text-sm text-muted">
           AI 擬信時會參考的合作注意事項（例如：修改規則、授權範圍、報價標準等）
         </p>
-        <textarea
+        <BaseRichTextEditor
           v-model="aiInstructions"
-          class="w-full min-h-[200px] p-3 rounded-lg border border-default bg-elevated/50 text-highlighted placeholder-muted text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          placeholder="例如：&#10;- 影片修改次數上限為 2 次&#10;- 不接受買斷授權&#10;- 報價以粉絲數 × 0.5 為基準"
+          placeholder="例如：影片修改次數上限為 2 次、不接受買斷授權、報價以粉絲數 × 0.5 為基準"
+          min-height="200px"
         />
       </div>
 
@@ -268,10 +274,10 @@ onMounted(() => {
           <p class="text-xs text-muted">
             描述這個範本的回覆風格、內容重點，AI 會根據此提示詞產生對應的草稿
           </p>
-          <textarea
+          <BaseRichTextEditor
             v-model="templateForm.prompt"
-            class="w-full min-h-[200px] p-3 rounded-lg border border-default bg-elevated/50 text-highlighted placeholder-muted text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-            placeholder="例如：&#10;請以正式但友善的語氣回覆，先感謝對方的邀約，接著表達有興趣合作，並詢問更多細節如時程、預算和合作形式。"
+            placeholder="例如：請以正式但友善的語氣回覆，先感謝對方的邀約，接著表達有興趣合作，並詢問更多細節如時程、預算和合作形式。"
+            min-height="200px"
           />
         </div>
       </div>

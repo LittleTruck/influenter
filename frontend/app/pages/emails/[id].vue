@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea, BaseSelect, BaseDashboardPanel, BaseDashboardNavbar } from '~/components/base'
+import { BaseButton, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu, BaseTextarea, BaseSelect, BaseDashboardPanel, BaseDashboardNavbar, BaseRichTextEditor } from '~/components/base'
 import AppSection from '~/components/ui/AppSection.vue'
 
 definePageMeta({
@@ -187,8 +187,14 @@ const generateDraft = async () => {
   }
 }
 
+/** 檢查 HTML 內容是否實質為空 */
+const isHtmlEmpty = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, '').trim()
+  return !text
+}
+
 const copyReplyBody = async () => {
-  if (!replyBody.value) return
+  if (!replyBody.value || isHtmlEmpty(replyBody.value)) return
   try {
     await navigator.clipboard.writeText(replyBody.value)
     toast.add({ title: '已複製到剪貼簿', color: 'success' })
@@ -199,8 +205,8 @@ const copyReplyBody = async () => {
 
 // 寄出回信
 const sendReply = async () => {
-  const body = replyBody.value?.trim()
-  if (!body) {
+  const body = replyBody.value
+  if (!body || isHtmlEmpty(body)) {
     toast.add({ title: '請輸入回信內容', color: 'warning' })
     return
   }
@@ -440,7 +446,7 @@ const sendReply = async () => {
                   AI 產生草稿
                 </BaseButton>
                 <BaseButton
-                  v-if="replyBody"
+                  v-if="replyBody && !isHtmlEmpty(replyBody)"
                   icon="i-lucide-copy"
                   variant="outline"
                   size="sm"
@@ -453,7 +459,7 @@ const sendReply = async () => {
                   icon="i-lucide-send"
                   size="sm"
                   :loading="sendLoading"
-                  :disabled="sendLoading || draftLoading || !replyBody?.trim()"
+                  :disabled="sendLoading || draftLoading || isHtmlEmpty(replyBody || '')"
                   @click="sendReply"
                 >
                   寄出
@@ -482,11 +488,10 @@ const sendReply = async () => {
                 :disabled="draftLoading || sendLoading"
               />
             </div>
-            <BaseTextarea
+            <BaseRichTextEditor
               v-model="replyBody"
-              :rows="12"
               placeholder="回信內容（可手動輸入或點「AI 產生草稿」填入）"
-              class="font-mono text-sm"
+              min-height="300px"
             />
           </div>
         </AppSection>

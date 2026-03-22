@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// DraftReply 根據案件與對方郵件產生回信草稿（純文字）
+// DraftReply 根據案件與對方郵件產生回信草稿（HTML 格式）
 func (s *Service) DraftReply(ctx context.Context, req DraftReplyRequest) (*DraftReplyResult, error) {
 	s.logger.Info().
 		Str("case_title", req.CaseTitle).
@@ -14,8 +14,14 @@ func (s *Service) DraftReply(ctx context.Context, req DraftReplyRequest) (*Draft
 
 	systemPrompt := `你是一位協助影響者（influencer）回覆合作邀約的專業助手。
 你的任務是根據案件資訊與對方來信，撰寫一封禮貌、專業的回信草稿。
-請直接產出回信「內文」純文字，不要包含主旨或稱謂以外的多餘說明。
-語氣要專業且友善，適合商業合作往來。`
+請直接產出回信「內文」的 HTML 格式，不要包含主旨或稱謂以外的多餘說明。
+語氣要專業且友善，適合商業合作往來。
+
+## 格式要求
+- 請使用 HTML 標籤來格式化回信內容（如 <p>、<strong>、<em>、<ul>、<ol>、<li>、<br> 等）
+- 每個段落請用 <p> 標籤包裹
+- 不要包含 <html>、<head>、<body> 等外層標籤，只需要內文的 HTML 片段
+- 如果信件標頭或標尾包含 HTML 標籤，請保留其原始格式直接嵌入`
 
 	if req.UserAIInstructions != "" {
 		systemPrompt += fmt.Sprintf("\n\n## 使用者常規注意事項（請務必遵守）\n%s", req.UserAIInstructions)

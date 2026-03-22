@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CaseDetail, CaseEmail } from '~/types/cases'
-import { BaseSlideover, BaseButton, BaseFormField, BaseSelect, BaseTextarea } from '~/components/base'
+import { BaseSlideover, BaseButton, BaseFormField, BaseSelect, BaseTextarea, BaseRichTextEditor } from '~/components/base'
 
 interface Props {
   modelValue: boolean
@@ -107,8 +107,8 @@ const handleGenerate = async () => {
 }
 
 const handleSend = async () => {
-  const body = replyBody.value?.trim()
-  if (!body) {
+  const body = replyBody.value
+  if (!body || isHtmlEmpty(body)) {
     toast.add({ title: '請輸入回信內容', color: 'warning' })
     return
   }
@@ -141,6 +141,12 @@ const handleSend = async () => {
   } finally {
     sending.value = false
   }
+}
+
+/** 檢查 HTML 內容是否實質為空 */
+const isHtmlEmpty = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, '').trim()
+  return !text
 }
 
 const handleClose = () => {
@@ -208,10 +214,10 @@ watch(isOpen, (open) => {
         </BaseButton>
 
         <BaseFormField label="回信內容">
-          <BaseTextarea
+          <BaseRichTextEditor
             v-model="replyBody"
             placeholder="可手動輸入或點「AI 產生草稿」填入"
-            :rows="10"
+            min-height="250px"
             :disabled="generating || sending"
           />
         </BaseFormField>
@@ -232,7 +238,7 @@ watch(isOpen, (open) => {
           color="primary"
           icon="i-lucide-send"
           :loading="sending"
-          :disabled="!replyBody?.trim() || generating"
+          :disabled="isHtmlEmpty(replyBody || '') || generating"
           @click="handleSend"
         >
           寄出
