@@ -115,6 +115,17 @@ const editingPhase = ref<any>(null)
 const showApplyTemplate = ref(false)
 const showPhaseDetail = ref(false)
 
+// 未開案 = to_confirm，專案流程預設收合
+const isCaseConfirmed = computed(() => currentCase.value?.status !== 'to_confirm')
+const isFlowSectionExpanded = ref(false)
+
+// 當案件載入後，根據狀態決定是否展開
+watch(() => currentCase.value?.status, (status) => {
+  if (status && status !== 'to_confirm') {
+    isFlowSectionExpanded.value = true
+  }
+}, { immediate: true })
+
 const handleEditPhase = (phase: any) => {
   editingPhase.value = phase
   showPhaseDateEditor.value = true
@@ -639,26 +650,49 @@ const handleViewEmail = (emailId: string) => {
             <template #header>
               <div class="flex items-center justify-between w-full">
                 <div class="flex items-center gap-3">
-                  <h2 class="text-lg font-semibold">專案流程</h2>
+                  <!-- 點擊標題可展開/收合 -->
+                  <button
+                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    @click="isFlowSectionExpanded = !isFlowSectionExpanded"
+                  >
+                    <UIcon
+                      :name="isFlowSectionExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                      class="w-4 h-4 text-muted"
+                    />
+                    <h2 class="text-lg font-semibold">專案流程</h2>
+                  </button>
+                  <!-- 未開案標籤 -->
+                  <BaseBadge
+                    v-if="!isCaseConfirmed"
+                    color="warning"
+                    variant="subtle"
+                    size="xs"
+                  >
+                    未開案
+                  </BaseBadge>
+                  <!-- 階段數量（收合時顯示） -->
+                  <span v-if="!isFlowSectionExpanded && casePhases.length > 0" class="text-xs text-muted">
+                    {{ casePhases.length }} 個階段
+                  </span>
                   <!-- 並聯/串聯切換 -->
-                  <div v-if="casePhases.length > 0 && phasesGroupedByItem.length > 1" class="flex items-center gap-1 bg-subtle rounded-lg p-0.5">
+                  <div v-if="isFlowSectionExpanded && casePhases.length > 0 && phasesGroupedByItem.length > 1" class="flex items-center gap-1 bg-subtle rounded-lg p-0.5">
                     <button
                       class="text-xs px-2 py-1 rounded-md transition-colors"
                       :class="currentCase?.flow_layout === 'parallel' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
-                      @click="handleToggleFlowLayout('parallel')"
+                      @click.stop="handleToggleFlowLayout('parallel')"
                     >
                       並聯
                     </button>
                     <button
                       class="text-xs px-2 py-1 rounded-md transition-colors"
                       :class="currentCase?.flow_layout === 'sequential' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
-                      @click="handleToggleFlowLayout('sequential')"
+                      @click.stop="handleToggleFlowLayout('sequential')"
                     >
                       串聯
                     </button>
                   </div>
                 </div>
-                <div class="flex gap-2">
+                <div v-if="isFlowSectionExpanded" class="flex gap-2">
                   <BaseButton icon="i-lucide-sparkles" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
                     AI 自動套用
                   </BaseButton>
@@ -669,47 +703,64 @@ const handleViewEmail = (emailId: string) => {
                     新增階段
                   </BaseButton>
                 </div>
-              </div>
-            </template>
-
-            <!-- 按合作項目分組顯示流程 -->
-            <template v-if="phasesGroupedByItem.length > 1">
-              <div v-for="group in phasesGroupedByItem" :key="group.itemId || '__none__'" class="mb-5 last:mb-0">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="flex items-center gap-2">
-                    <BaseBadge color="primary" variant="subtle" size="xs">
-                      {{ group.itemName }}
-                    </BaseBadge>
-                    <span class="text-xs text-muted">{{ group.phases.length }} 個階段</span>
-                  </div>
+                <!-- 收合狀態下的快捷操作 -->
+                <div v-else class="flex gap-2">
+                  <BaseButton icon="i-lucide-sparkles" size="xs" variant="ghost" :loading="autoApplying" @click.stop="handleAutoApplyTemplate">
+                    AI 套用
+                  </BaseButton>
                   <BaseButton
-                    icon="i-lucide-plus"
+                    icon="i-lucide-chevron-down"
                     size="xs"
                     variant="ghost"
-                    @click="handleAddPhaseForItem(group.itemId)"
+                    @click="isFlowSectionExpanded = true"
                   >
-                    新增
+                    展開
                   </BaseButton>
                 </div>
-                <CasePhaseStepper :phases="group.phases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
               </div>
-            </template>
-            <template v-else>
-              <CasePhaseStepper :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
             </template>
 
-            <div v-if="casePhases.length > 0" class="border-t border-default pt-3 mt-3">
-              <button
-                class="flex items-center gap-1.5 text-sm text-muted hover:text-highlighted transition-colors"
-                @click="showPhaseDetail = !showPhaseDetail"
-              >
-                <UIcon :name="showPhaseDetail ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="w-4 h-4" />
-                {{ showPhaseDetail ? '收合詳情' : '展開階段詳情' }}
-              </button>
-              <div v-if="showPhaseDetail" class="mt-3">
-                <CasePhaseTimeline :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" @add-phase="handleAddPhase" />
+            <!-- 展開的流程內容 -->
+            <template v-if="isFlowSectionExpanded">
+              <!-- 按合作項目分組顯示流程 -->
+              <template v-if="phasesGroupedByItem.length > 1">
+                <div v-for="group in phasesGroupedByItem" :key="group.itemId || '__none__'" class="mb-5 last:mb-0">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <BaseBadge color="primary" variant="subtle" size="xs">
+                        {{ group.itemName }}
+                      </BaseBadge>
+                      <span class="text-xs text-muted">{{ group.phases.length }} 個階段</span>
+                    </div>
+                    <BaseButton
+                      icon="i-lucide-plus"
+                      size="xs"
+                      variant="ghost"
+                      @click="handleAddPhaseForItem(group.itemId)"
+                    >
+                      新增
+                    </BaseButton>
+                  </div>
+                  <CasePhaseStepper :phases="group.phases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+                </div>
+              </template>
+              <template v-else>
+                <CasePhaseStepper :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+              </template>
+
+              <div v-if="casePhases.length > 0" class="border-t border-default pt-3 mt-3">
+                <button
+                  class="flex items-center gap-1.5 text-sm text-muted hover:text-highlighted transition-colors"
+                  @click="showPhaseDetail = !showPhaseDetail"
+                >
+                  <UIcon :name="showPhaseDetail ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="w-4 h-4" />
+                  {{ showPhaseDetail ? '收合詳情' : '展開階段詳情' }}
+                </button>
+                <div v-if="showPhaseDetail" class="mt-3">
+                  <CasePhaseTimeline :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" @add-phase="handleAddPhase" />
+                </div>
               </div>
-            </div>
+            </template>
           </BaseCard>
 
         </template>
