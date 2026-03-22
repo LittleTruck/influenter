@@ -839,17 +839,13 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 		return
 	}
 
+	// 取得目前最大 order，新階段 append 到最後
+	var maxOrder int
+	h.db.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).
+		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
+
 	tx := h.db.Begin()
 
-	// 刪除既有的案件階段
-	if err := tx.Where("case_id = ?", caseUUID).Delete(&models.CasePhase{}).Error; err != nil {
-		tx.Rollback()
-		logger.Error().Err(err).Msg("Failed to delete existing case phases")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to apply template"})
-		return
-	}
-
-	// 從開始日期計算每個階段的日期
 	currentDate := startDate
 	var createdPhases []models.CasePhase
 
@@ -862,7 +858,7 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 			StartDate:       &currentDate,
 			EndDate:         &endDate,
 			DurationDays:    wp.DurationDays,
-			Order:           i,
+			Order:           maxOrder + 1 + i,
 			WorkflowPhaseID: &wpID,
 		}
 		if err := tx.Create(&phase).Error; err != nil {
@@ -877,12 +873,16 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 
 	tx.Commit()
 
-	data := make([]CasePhaseResponse, 0, len(createdPhases))
-	for _, p := range createdPhases {
+	// 回傳所有階段（包含既有的）
+	var allPhases []models.CasePhase
+	h.db.Where("case_id = ?", caseUUID).Order(`"order" ASC`).Find(&allPhases)
+
+	data := make([]CasePhaseResponse, 0, len(allPhases))
+	for _, p := range allPhases {
 		data = append(data, casePhaseToResponse(&p))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": data, "message": fmt.Sprintf("Applied %d phases from template '%s'", len(createdPhases), tmpl.Name)})
+	c.JSON(http.StatusOK, gin.H{"data": data, "message": fmt.Sprintf("已新增「%s」流程（%d 個階段）", tmpl.Name, len(createdPhases))})
 }
 
 // UpdateCasePhase 更新案件階段

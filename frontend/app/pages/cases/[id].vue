@@ -741,7 +741,7 @@ const handleViewEmail = (emailId: string) => {
                     自動套用
                   </BaseButton>
                   <BaseButton icon="i-lucide-layout-template" size="sm" variant="outline" @click="showApplyTemplate = true">
-                    {{ casePhases.length === 0 ? '手動套用' : '重新套用' }}
+                    手動套用
                   </BaseButton>
                   <BaseButton icon="i-lucide-plus" size="sm" variant="ghost" @click="handleAddPhase">
                     新增階段
