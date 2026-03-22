@@ -303,13 +303,25 @@ const handleRemoveCollaborationItem = async (itemId: string) => {
   }
 }
 
-const handleToggleFlowLayout = async (layout: 'parallel' | 'sequential') => {
+const pendingFlowLayout = ref<'parallel' | 'sequential' | null>(null)
+const showFlowLayoutConfirm = ref(false)
+
+const handleToggleFlowLayout = (layout: 'parallel' | 'sequential') => {
   if (currentCase.value?.flow_layout === layout) return
+  pendingFlowLayout.value = layout
+  showFlowLayoutConfirm.value = true
+}
+
+const confirmToggleFlowLayout = async () => {
+  if (!pendingFlowLayout.value) return
   try {
-    await updateFlowLayout(caseId.value, layout)
-    handleSuccess(layout === 'parallel' ? '已切換為並聯模式' : '已切換為串聯模式')
+    await updateFlowLayout(caseId.value, pendingFlowLayout.value)
+    handleSuccess(pendingFlowLayout.value === 'parallel' ? '已切換為並聯模式' : '已切換為串聯模式')
   } catch (error: any) {
     handleError(error, '切換失敗')
+  } finally {
+    showFlowLayoutConfirm.value = false
+    pendingFlowLayout.value = null
   }
 }
 
@@ -864,6 +876,40 @@ const handleViewEmail = (emailId: string) => {
               </BaseButton>
               <BaseButton color="error" @click="handleClearPhases">
                 確認清空
+              </BaseButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
+      <!-- 切換並聯/串聯確認對話框 -->
+      <UModal v-model:open="showFlowLayoutConfirm">
+        <template #content>
+          <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <BaseIcon name="i-lucide-shuffle" class="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-highlighted">
+                  確認切換為{{ pendingFlowLayout === 'parallel' ? '並聯' : '串聯' }}模式？
+                </h3>
+                <p class="text-sm text-muted mt-0.5">
+                  <template v-if="pendingFlowLayout === 'parallel'">
+                    所有項目的流程將從同一天開始，各自獨立進行。
+                  </template>
+                  <template v-else>
+                    所有項目的流程將依序串接，前一個完成後才開始下一個。
+                  </template>
+                </p>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+              <BaseButton variant="outline" @click="showFlowLayoutConfirm = false; pendingFlowLayout = null">
+                取消
+              </BaseButton>
+              <BaseButton @click="confirmToggleFlowLayout">
+                確認切換
               </BaseButton>
             </div>
           </div>
