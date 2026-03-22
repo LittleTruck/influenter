@@ -364,10 +364,23 @@ const collaborationItemsTotal = computed(() => {
 })
 
 // 取得合作項目名稱 by ID（用於流程階段標註）
+// 需要同時查直接關聯的項目和 bundle 內含的項目
 const getItemNameById = (itemId: string | undefined): string | null => {
   if (!itemId) return null
+  // 先查直接關聯的
   const cci = caseCollaborationItems.value.find((c: any) => c.collaboration_item_id === itemId)
-  return cci?.collaboration_item?.title || null
+  if (cci?.collaboration_item?.title) return cci.collaboration_item.title
+  // 再查 bundle 內含的 individual 項目
+  for (const c of caseCollaborationItems.value) {
+    const item = (c as any).collaboration_item
+    if (item?.type === 'bundle' && item?.bundle_items) {
+      const bi = item.bundle_items.find((b: any) => b.item_id === itemId)
+      if (bi?.item?.title) return bi.item.title
+    }
+  }
+  // 最後從全域項目列表查
+  const globalItem = allCollaborationItems.value.find(i => i.id === itemId)
+  return globalItem?.title || null
 }
 
 // 按合作項目分組的流程階段（含起始編號）
