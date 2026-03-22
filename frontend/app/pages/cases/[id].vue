@@ -45,10 +45,8 @@ onMounted(async () => {
       fetchFields().catch(() => {}),
       fetchCollaborationItems().catch(() => {})
     ])
-    const caseData = currentCase.value
-    if (caseData && caseData.status !== 'other') {
-      await fetchCaseEmails(caseId.value).catch(() => {})
-    }
+    // 永遠載入郵件往來
+    await fetchCaseEmails(caseId.value).catch(() => {})
   } finally {
     pageReady.value = true
   }
@@ -208,6 +206,33 @@ const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
     await fetchCase(caseId.value)
   } catch (error: any) {
     handleError(error, '套用失敗')
+  }
+}
+
+// ── AI 自動匹配合作項目 ──
+const autoMatchingItems = ref(false)
+const handleAutoMatchItems = async () => {
+  autoMatchingItems.value = true
+  try {
+    const result = await $fetch<{ matched: boolean; message?: string; reason?: string; matched_names?: string[] }>(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/auto-match-items`,
+      { method: 'POST', headers: apiHeaders.value }
+    )
+    if (result.matched) {
+      handleSuccess(result.message || 'AI 已自動匹配合作項目')
+      await fetchCase(caseId.value)
+    } else {
+      toast.add({ title: 'AI 無法匹配', description: result.reason || '找不到適合的合作項目', color: 'warning' })
+    }
+  } catch (error: any) {
+    const serverMsg = error?.data?.message || error?.response?._data?.message
+    if (serverMsg) {
+      toast.add({ title: 'AI 匹配失敗', description: serverMsg, color: 'error' })
+    } else {
+      handleError(error, 'AI 匹配失敗')
+    }
+  } finally {
+    autoMatchingItems.value = false
   }
 }
 
@@ -516,6 +541,16 @@ const handleViewEmail = (emailId: string) => {
                   <span v-if="hasCollaborationItems" class="text-sm font-semibold text-primary-600 dark:text-primary-400">
                     合計 {{ formatAmount(collaborationItemsTotal) }}
                   </span>
+                  <!-- AI 自動匹配 -->
+                  <BaseButton
+                    icon="i-lucide-sparkles"
+                    size="sm"
+                    variant="outline"
+                    :loading="autoMatchingItems"
+                    @click="handleAutoMatchItems"
+                  >
+                    AI 匹配
+                  </BaseButton>
                   <!-- 新增項目 -->
                   <div ref="addItemBtnRef">
                     <BaseButton
@@ -677,21 +712,22 @@ const handleViewEmail = (emailId: string) => {
             </div>
           </BaseCard>
 
-          <!-- ③ 郵件往來 -->
-          <AppSectionWithHeader title="郵件往來">
-            <div class="space-y-4">
-              <CaseEmailsTimeline :emails="caseEmails" :case-id="caseId" @view-email="handleViewEmail" />
-              <BaseButton
-                icon="i-lucide-reply"
-                variant="outline"
-                :disabled="caseEmails.length === 0"
-                @click="showDraftReply = true"
-              >
-                回覆
-              </BaseButton>
-            </div>
-          </AppSectionWithHeader>
         </template>
+
+        <!-- 郵件往來（所有案件類型都顯示） -->
+        <AppSectionWithHeader title="郵件往來">
+          <div class="space-y-4">
+            <CaseEmailsTimeline :emails="caseEmails" :case-id="caseId" @view-email="handleViewEmail" />
+            <BaseButton
+              icon="i-lucide-reply"
+              variant="outline"
+              :disabled="caseEmails.length === 0"
+              @click="showDraftReply = true"
+            >
+              回覆
+            </BaseButton>
+          </div>
+        </AppSectionWithHeader>
       </div>
 
       <ErrorState v-else title="無法載入案件詳情" message="請重新整理頁面或返回列表" />

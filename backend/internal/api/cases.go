@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -177,6 +178,10 @@ func (h *CaseHandler) CreateCase(c *gin.Context) {
 	tx.Commit()
 
 	logger.Info().Str("case_id", cs.ID.String()).Str("user_id", userIDStr).Msg("Case created")
+
+	// 背景觸發 AI 自動匹配合作項目（如果案件有關聯郵件）
+	go h.autoMatchCollaborationItemsForCase(cs.ID, userID)
+
 	c.JSON(http.StatusCreated, caseToResponse(&cs, 0, 0, 0))
 }
 
@@ -1207,6 +1212,284 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 		"data":          data,
 		"message":       fmt.Sprintf("AI 自動套用了「%s」流程（%d 個階段）", matchedTmpl.Name, len(createdPhases)),
 	})
+}
+
+// --- AI Auto-Match Collaboration Items ---
+
+// AutoMatchCollaborationItems 手動觸發 AI 自動匹配合作項目
+func (h *CaseHandler) AutoMatchCollaborationItems(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	if h.openaiService == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{Error: "openai_unavailable", Message: "AI 服務未設定"})
+		return
+	}
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	userUUID, _ := uuid.Parse(userID)
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	// 取得案件關聯的郵件內容（用於 AI 分析）
+	emailSubject, emailBody, emailFrom := h.getLatestEmailContent(caseUUID, userUUID)
+
+	// 如果沒有郵件，用案件自身資訊
+	if emailSubject == "" && emailBody == "" {
+		emailSubject = cs.Title
+		if cs.Description != nil {
+			emailBody = *cs.Description
+		}
+		emailFrom = cs.BrandName
+	}
+
+	// 讀取使用者合作項目
+	var items []models.CollaborationItem
+	if err := h.db.Where("user_id = ?", userID).
+		Preload("Workflow").
+		Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems.Item").
+		Preload("BundleItems.Item.Workflow").
+		Preload("BundleItems.Item.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Find(&items).Error; err != nil || len(items) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"matched":    false,
+			"reason":     "沒有可用的合作項目",
+			"matched_ids": []string{},
+		})
+		return
+	}
+
+	// 準備 AI 匹配請求
+	itemInfos := make([]openai.CollaborationItemInfo, 0, len(items))
+	for _, item := range items {
+		desc := ""
+		if item.Description != nil {
+			desc = *item.Description
+		}
+		info := openai.CollaborationItemInfo{
+			ID:          item.ID.String(),
+			Title:       item.Title,
+			Description: desc,
+			Price:       item.Price,
+			Type:        string(item.Type),
+		}
+		if item.Type == models.CollaborationItemTypeBundle {
+			for _, bi := range item.BundleItems {
+				info.ItemNames = append(info.ItemNames, bi.Item.Title)
+			}
+		}
+		itemInfos = append(itemInfos, info)
+	}
+
+	matchResult, err := h.openaiService.MatchCollaborationItems(c.Request.Context(), openai.MatchCollaborationItemsRequest{
+		EmailSubject: emailSubject,
+		EmailBody:    emailBody,
+		EmailFrom:    emailFrom,
+		Items:        itemInfos,
+	})
+	if err != nil {
+		logger.Error().Err(err).Msg("AI collaboration item matching failed")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ai_error", Message: "AI 分析失敗"})
+		return
+	}
+
+	if matchResult.Confidence < 0.5 || len(matchResult.MatchedItemIDs) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"matched":     false,
+			"confidence":  matchResult.Confidence,
+			"reason":      matchResult.Reason,
+			"matched_ids": []string{},
+		})
+		return
+	}
+
+	// 建立關聯 + 套用流程
+	matchedNames := []string{}
+	for i, matchedID := range matchResult.MatchedItemIDs {
+		itemUUID, err := uuid.Parse(matchedID)
+		if err != nil {
+			continue
+		}
+
+		// 建立關聯（忽略已存在的）
+		cci := models.CaseCollaborationItem{
+			CaseID:              caseUUID,
+			CollaborationItemID: itemUUID,
+			Order:               i,
+		}
+		h.db.Create(&cci) // ignore duplicate errors
+
+		// 找到對應的項目並套用流程
+		for idx := range items {
+			if items[idx].ID.String() == matchedID {
+				matchedNames = append(matchedNames, items[idx].Title)
+				// 建立流程階段
+				h.createPhasesForItem(h.db, caseUUID, &items[idx], cs.FlowLayout)
+				break
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"matched":       true,
+		"confidence":    matchResult.Confidence,
+		"reason":        matchResult.Reason,
+		"matched_ids":   matchResult.MatchedItemIDs,
+		"matched_names": matchedNames,
+		"message":       fmt.Sprintf("AI 自動匹配了 %d 個合作項目", len(matchResult.MatchedItemIDs)),
+	})
+}
+
+// autoMatchCollaborationItemsForCase 背景自動匹配（案件建立後觸發）
+func (h *CaseHandler) autoMatchCollaborationItemsForCase(caseID, userID uuid.UUID) {
+	if h.openaiService == nil {
+		return
+	}
+
+	// 檢查是否已有合作項目關聯
+	var count int64
+	h.db.Model(&models.CaseCollaborationItem{}).Where("case_id = ?", caseID).Count(&count)
+	if count > 0 {
+		return // 已有關聯，不自動匹配
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseID, userID).First(&cs).Error; err != nil {
+		return
+	}
+
+	emailSubject, emailBody, emailFrom := h.getLatestEmailContent(caseID, userID)
+	if emailSubject == "" && emailBody == "" {
+		emailSubject = cs.Title
+		if cs.Description != nil {
+			emailBody = *cs.Description
+		}
+		emailFrom = cs.BrandName
+	}
+
+	// 如果完全沒有內容可供分析，跳過
+	if emailSubject == "" && emailBody == "" {
+		return
+	}
+
+	var items []models.CollaborationItem
+	if err := h.db.Where("user_id = ?", userID).
+		Preload("Workflow").
+		Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems.Item").
+		Preload("BundleItems.Item.Workflow").
+		Preload("BundleItems.Item.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Find(&items).Error; err != nil || len(items) == 0 {
+		return
+	}
+
+	itemInfos := make([]openai.CollaborationItemInfo, 0, len(items))
+	for _, item := range items {
+		desc := ""
+		if item.Description != nil {
+			desc = *item.Description
+		}
+		info := openai.CollaborationItemInfo{
+			ID:          item.ID.String(),
+			Title:       item.Title,
+			Description: desc,
+			Price:       item.Price,
+			Type:        string(item.Type),
+		}
+		if item.Type == models.CollaborationItemTypeBundle {
+			for _, bi := range item.BundleItems {
+				info.ItemNames = append(info.ItemNames, bi.Item.Title)
+			}
+		}
+		itemInfos = append(itemInfos, info)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	matchResult, err := h.openaiService.MatchCollaborationItems(ctx, openai.MatchCollaborationItemsRequest{
+		EmailSubject: emailSubject,
+		EmailBody:    emailBody,
+		EmailFrom:    emailFrom,
+		Items:        itemInfos,
+	})
+	if err != nil || matchResult.Confidence < 0.5 || len(matchResult.MatchedItemIDs) == 0 {
+		return
+	}
+
+	for i, matchedID := range matchResult.MatchedItemIDs {
+		itemUUID, err := uuid.Parse(matchedID)
+		if err != nil {
+			continue
+		}
+		cci := models.CaseCollaborationItem{
+			CaseID:              caseID,
+			CollaborationItemID: itemUUID,
+			Order:               i,
+		}
+		h.db.Create(&cci)
+
+		for idx := range items {
+			if items[idx].ID.String() == matchedID {
+				h.createPhasesForItem(h.db, caseID, &items[idx], cs.FlowLayout)
+				break
+			}
+		}
+	}
+}
+
+// getLatestEmailContent 取得案件最新郵件內容
+func (h *CaseHandler) getLatestEmailContent(caseID, userID uuid.UUID) (subject, body, from string) {
+	var email models.Email
+	err := h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
+		Where("emails.case_id = ? AND oauth_accounts.user_id = ?", caseID, userID).
+		Order("emails.received_at DESC").
+		First(&email).Error
+	if err != nil {
+		return "", "", ""
+	}
+	if email.Subject != nil {
+		subject = *email.Subject
+	}
+	if email.BodyText != nil {
+		body = *email.BodyText
+	} else if email.Snippet != nil {
+		body = *email.Snippet
+	}
+	from = email.FromEmail
+	if email.FromName != nil && *email.FromName != "" {
+		from = *email.FromName
+	}
+	return
 }
 
 // --- Case Collaboration Items (many-to-many) ---

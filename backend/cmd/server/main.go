@@ -192,6 +192,8 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
 				casesGroup.POST("/:id/draft-reply", caseHandler.DraftReply)
 				// Case phases
+				// AI auto-match collaboration items
+				casesGroup.POST("/:id/auto-match-items", caseHandler.AutoMatchCollaborationItems)
 				// Case collaboration items (many-to-many)
 				casesGroup.GET("/:id/collaboration-items", caseHandler.ListCaseCollaborationItems)
 				casesGroup.POST("/:id/collaboration-items", caseHandler.AddCaseCollaborationItem)
