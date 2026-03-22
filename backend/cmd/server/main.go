@@ -208,6 +208,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.POST("/:id/phases/auto-apply", caseHandler.AutoApplyTemplate)
 				casesGroup.PATCH("/:id/phases/:phaseId", caseHandler.UpdateCasePhase)
 				casesGroup.DELETE("/:id/phases/:phaseId", caseHandler.DeleteCasePhase)
+				casesGroup.DELETE("/:id/phases", caseHandler.ClearCasePhases)
 			}
 
 			// Collaboration items

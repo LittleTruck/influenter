@@ -1011,14 +1011,6 @@ func (h *CaseHandler) DeleteCasePhase(c *gin.Context) {
 		return
 	}
 
-	// Enforce at least one phase per case
-	var phaseCount int64
-	h.db.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).Count(&phaseCount)
-	if phaseCount <= 1 {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "min_phases", Message: "案件至少需要保留一個流程階段"})
-		return
-	}
-
 	if err := h.db.Delete(&phase).Error; err != nil {
 		logger.Error().Err(err).Msg("Failed to delete case phase")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to delete case phase"})
@@ -1026,6 +1018,39 @@ func (h *CaseHandler) DeleteCasePhase(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Case phase deleted"})
+}
+
+// ClearCasePhases 清空案件所有流程階段
+func (h *CaseHandler) ClearCasePhases(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	result := h.db.Where("case_id = ?", caseUUID).Delete(&models.CasePhase{})
+	if result.Error != nil {
+		logger.Error().Err(result.Error).Msg("Failed to clear case phases")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to clear phases"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "所有流程階段已清空", "deleted_count": result.RowsAffected})
 }
 
 // AutoApplyTemplate AI 自動選擇並套用流程範本

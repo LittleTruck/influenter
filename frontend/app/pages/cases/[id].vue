@@ -150,6 +150,22 @@ const handleDeletePhase = async (phase: any) => {
   }
 }
 
+// 清空流程 double check
+const showClearPhasesConfirm = ref(false)
+const handleClearPhases = async () => {
+  try {
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases`,
+      { method: 'DELETE', headers: apiHeaders.value }
+    )
+    handleSuccess('所有流程階段已清空')
+    showClearPhasesConfirm.value = false
+    await fetchCase(caseId.value)
+  } catch (error: any) {
+    handleError(error, '清空失敗')
+  }
+}
+
 const handleAddPhase = async () => {
   try {
     await $fetch(
@@ -708,6 +724,16 @@ const handleViewEmail = (emailId: string) => {
                   <BaseButton icon="i-lucide-plus" size="sm" variant="ghost" @click="handleAddPhase">
                     新增階段
                   </BaseButton>
+                  <BaseButton
+                    v-if="casePhases.length > 0"
+                    icon="i-lucide-trash-2"
+                    size="sm"
+                    variant="ghost"
+                    color="error"
+                    @click="showClearPhasesConfirm = true"
+                  >
+                    清空
+                  </BaseButton>
                 </div>
                 <!-- 收合狀態下的快捷操作 -->
                 <div v-else class="flex gap-2">
@@ -796,6 +822,31 @@ const handleViewEmail = (emailId: string) => {
       <ApplyTemplateModal v-model="showApplyTemplate" :case-start-date="caseStartDate" :case-id="caseId" @submit="handleApplyTemplate" />
       <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
+
+      <!-- 清空流程確認對話框 -->
+      <UModal v-model:open="showClearPhasesConfirm">
+        <template #content>
+          <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center">
+                <BaseIcon name="i-lucide-alert-triangle" class="w-5 h-5 text-error" />
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-highlighted">確認清空所有流程階段？</h3>
+                <p class="text-sm text-muted mt-0.5">此操作將刪除案件中的所有 {{ casePhases.length }} 個流程階段，無法復原。</p>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+              <BaseButton variant="outline" @click="showClearPhasesConfirm = false">
+                取消
+              </BaseButton>
+              <BaseButton color="error" @click="handleClearPhases">
+                確認清空
+              </BaseButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
 
       <!-- 新增合作項目下拉選單（Teleport 到 body 避免被 overflow 截斷） -->
       <Teleport to="body">
