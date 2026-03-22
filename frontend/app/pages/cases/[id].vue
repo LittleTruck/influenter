@@ -5,6 +5,7 @@ import { useCaseFields } from '~/composables/useCaseFields'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
 import { getStatusColor, getStatusLabel } from '~/utils/caseStatus'
+import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton, BaseCard, BaseBadge, BaseIcon, BaseInput } from '~/components/base'
 import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
 import CasePropertiesPanel from '~/components/cases/detail/CasePropertiesPanel.vue'
@@ -24,7 +25,8 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase } = useCases()
+const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase, addCaseCollaborationItem, removeCaseCollaborationItem, updateFlowLayout } = useCases()
+const { items: allCollaborationItems, individualItems: allIndividualItems, bundleItems: allBundleItems, fetchItems: fetchCollaborationItems } = useCollaborationItems()
 const { allFields, fetchFields } = useCaseFields()
 
 const { handleError, handleSuccess } = useErrorHandler()
@@ -40,7 +42,8 @@ onMounted(async () => {
   try {
     await Promise.all([
       fetchCase(caseId.value).catch(() => {}),
-      fetchFields().catch(() => {})
+      fetchFields().catch(() => {}),
+      fetchCollaborationItems().catch(() => {})
     ])
     const caseData = currentCase.value
     if (caseData && caseData.status !== 'other') {
@@ -155,6 +158,28 @@ const handleAddPhase = async () => {
   }
 }
 
+const handleAddPhaseForItem = async (itemId: string | null) => {
+  try {
+    await $fetch(
+      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases`,
+      {
+        method: 'POST',
+        body: {
+          name: '新階段',
+          start_date: new Date().toISOString().split('T')[0],
+          duration_days: 7,
+          collaboration_item_id: itemId
+        },
+        headers: apiHeaders.value
+      }
+    )
+    handleSuccess('階段已新增')
+    await fetchCase(caseId.value)
+  } catch (error: any) {
+    handleError(error, '新增失敗')
+  }
+}
+
 const handlePhaseDateUpdate = async (data: any) => {
   try {
     const phaseId = editingPhase.value?.id
@@ -183,6 +208,56 @@ const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
     await fetchCase(caseId.value)
   } catch (error: any) {
     handleError(error, '套用失敗')
+  }
+}
+
+// ── 合作項目管理 ──
+const showAddItemDropdown = ref(false)
+const addItemBtnRef = ref<HTMLElement | null>(null)
+const addItemDropdownRef = ref<HTMLElement | null>(null)
+
+// 計算下拉選單位置（基於按鈕位置）
+const addItemDropdownStyle = computed(() => {
+  if (!addItemBtnRef.value) return {}
+  const rect = addItemBtnRef.value.getBoundingClientRect()
+  return {
+    top: `${rect.bottom + 4}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+})
+
+// 可新增的項目（排除已關聯的）
+const availableItems = computed(() => {
+  const linkedIds = new Set(caseCollaborationItems.value.map((c: any) => c.collaboration_item_id))
+  return allCollaborationItems.value.filter(item => !linkedIds.has(item.id))
+})
+
+const handleAddCollaborationItem = async (itemId: string) => {
+  try {
+    await addCaseCollaborationItem(caseId.value, itemId)
+    handleSuccess('已新增合作項目')
+    showAddItemDropdown.value = false
+  } catch (error: any) {
+    handleError(error, '新增失敗')
+  }
+}
+
+const handleRemoveCollaborationItem = async (itemId: string) => {
+  try {
+    await removeCaseCollaborationItem(caseId.value, itemId)
+    handleSuccess('已移除合作項目')
+  } catch (error: any) {
+    handleError(error, '移除失敗')
+  }
+}
+
+const handleToggleFlowLayout = async (layout: 'parallel' | 'sequential') => {
+  if (currentCase.value?.flow_layout === layout) return
+  try {
+    await updateFlowLayout(caseId.value, layout)
+    handleSuccess(layout === 'parallel' ? '已切換為並聯模式' : '已切換為串聯模式')
+  } catch (error: any) {
+    handleError(error, '切換失敗')
   }
 }
 
@@ -216,6 +291,49 @@ const casePhases = computed(() => (currentCase.value as any)?.phases ?? [])
 const caseStartDate = computed(() => (currentCase.value as any)?.start_date || new Date().toISOString().split('T')[0])
 const caseEmails = computed(() => currentCase.value?.emails ?? [])
 
+// ── 合作項目 ──
+const caseCollaborationItems = computed(() => currentCase.value?.case_collaboration_items ?? [])
+const hasCollaborationItems = computed(() => caseCollaborationItems.value.length > 0)
+
+// 合作項目總價
+const collaborationItemsTotal = computed(() => {
+  return caseCollaborationItems.value.reduce((sum: number, cci: any) => {
+    return sum + (cci.collaboration_item?.price || 0)
+  }, 0)
+})
+
+// 取得合作項目名稱 by ID（用於流程階段標註）
+const getItemNameById = (itemId: string | undefined): string | null => {
+  if (!itemId) return null
+  const cci = caseCollaborationItems.value.find((c: any) => c.collaboration_item_id === itemId)
+  return cci?.collaboration_item?.title || null
+}
+
+// 按合作項目分組的流程階段
+const phasesGroupedByItem = computed(() => {
+  const groups: Array<{ itemId: string | null; itemName: string; phases: any[] }> = []
+  const phasesByItem = new Map<string, any[]>()
+
+  for (const phase of casePhases.value) {
+    const key = phase.collaboration_item_id || '__none__'
+    if (!phasesByItem.has(key)) {
+      phasesByItem.set(key, [])
+    }
+    phasesByItem.get(key)!.push(phase)
+  }
+
+  for (const [key, phases] of phasesByItem) {
+    const itemName = key === '__none__' ? '未分類' : (getItemNameById(key) || '未知項目')
+    groups.push({
+      itemId: key === '__none__' ? null : key,
+      itemName,
+      phases: phases.sort((a: any, b: any) => a.order - b.order)
+    })
+  }
+
+  return groups
+})
+
 // ── 摘要列 computed ──
 const deadlineDaysText = computed(() => {
   if (!currentCase.value?.deadline_date) return null
@@ -233,7 +351,9 @@ const formattedDeadline = computed(() => {
 const displayTotal = computed(() => {
   const c = currentCase.value
   if (!c) return '-'
-  const amount = c.collaboration_items_total || c.quoted_amount
+  // 優先使用合作項目合計
+  if (collaborationItemsTotal.value > 0) return formatAmount(collaborationItemsTotal.value)
+  const amount = c.quoted_amount
   return amount ? formatAmount(amount) : '-'
 })
 
@@ -387,11 +507,122 @@ const handleViewEmail = (emailId: string) => {
             </div>
           </div>
 
-          <!-- ② 專案流程 -->
+          <!-- ② 合作項目 -->
           <BaseCard>
             <template #header>
               <div class="flex items-center justify-between w-full">
-                <h2 class="text-lg font-semibold">專案流程</h2>
+                <h2 class="text-lg font-semibold">合作項目</h2>
+                <div class="flex items-center gap-3">
+                  <span v-if="hasCollaborationItems" class="text-sm font-semibold text-primary-600 dark:text-primary-400">
+                    合計 {{ formatAmount(collaborationItemsTotal) }}
+                  </span>
+                  <!-- 新增項目 -->
+                  <div ref="addItemBtnRef">
+                    <BaseButton
+                      icon="i-lucide-plus"
+                      size="sm"
+                      variant="outline"
+                      :disabled="availableItems.length === 0"
+                      @click="showAddItemDropdown = !showAddItemDropdown"
+                    >
+                      新增項目
+                    </BaseButton>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 已關聯的項目列表 -->
+            <div v-if="hasCollaborationItems" class="space-y-1">
+              <div
+                v-for="cci in caseCollaborationItems"
+                :key="cci.id"
+                class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors group"
+              >
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <BaseIcon
+                    :name="cci.collaboration_item?.type === 'bundle' ? 'i-lucide-package' : 'i-lucide-file-text'"
+                    class="w-4 h-4 text-muted flex-shrink-0"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-highlighted truncate">
+                        {{ cci.collaboration_item?.title || '未知項目' }}
+                      </span>
+                      <BaseBadge
+                        v-if="cci.collaboration_item?.type === 'bundle'"
+                        color="info"
+                        variant="subtle"
+                        size="xs"
+                      >
+                        組合
+                      </BaseBadge>
+                      <BaseBadge
+                        v-if="cci.collaboration_item?.workflow"
+                        color="neutral"
+                        variant="subtle"
+                        size="xs"
+                      >
+                        {{ cci.collaboration_item.workflow.name }}
+                      </BaseBadge>
+                    </div>
+                    <!-- Bundle 內含項目 -->
+                    <p
+                      v-if="cci.collaboration_item?.type === 'bundle' && cci.collaboration_item?.bundle_items?.length"
+                      class="text-xs text-muted mt-0.5"
+                    >
+                      包含：{{ cci.collaboration_item.bundle_items.map((bi: any) => bi.item?.title).filter(Boolean).join('、') }}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                    {{ formatAmount(cci.collaboration_item?.price || 0) }}
+                  </span>
+                  <BaseButton
+                    icon="i-lucide-x"
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="handleRemoveCollaborationItem(cci.collaboration_item_id)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 空狀態 -->
+            <div v-else class="text-center py-6 text-muted">
+              <BaseIcon name="i-lucide-package" class="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <p class="text-sm">尚未選擇合作項目</p>
+              <p class="text-xs text-dimmed mt-0.5">點擊「新增項目」加入合作項目</p>
+            </div>
+          </BaseCard>
+
+          <!-- ③ 專案流程 -->
+          <BaseCard>
+            <template #header>
+              <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-3">
+                  <h2 class="text-lg font-semibold">專案流程</h2>
+                  <!-- 並聯/串聯切換 -->
+                  <div v-if="casePhases.length > 0 && phasesGroupedByItem.length > 1" class="flex items-center gap-1 bg-subtle rounded-lg p-0.5">
+                    <button
+                      class="text-xs px-2 py-1 rounded-md transition-colors"
+                      :class="currentCase?.flow_layout === 'parallel' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
+                      @click="handleToggleFlowLayout('parallel')"
+                    >
+                      並聯
+                    </button>
+                    <button
+                      class="text-xs px-2 py-1 rounded-md transition-colors"
+                      :class="currentCase?.flow_layout === 'sequential' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
+                      @click="handleToggleFlowLayout('sequential')"
+                    >
+                      串聯
+                    </button>
+                  </div>
+                </div>
                 <div class="flex gap-2">
                   <BaseButton icon="i-lucide-sparkles" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
                     AI 自動套用
@@ -406,7 +637,31 @@ const handleViewEmail = (emailId: string) => {
               </div>
             </template>
 
-            <CasePhaseStepper :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+            <!-- 按合作項目分組顯示流程 -->
+            <template v-if="phasesGroupedByItem.length > 1">
+              <div v-for="group in phasesGroupedByItem" :key="group.itemId || '__none__'" class="mb-5 last:mb-0">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <BaseBadge color="primary" variant="subtle" size="xs">
+                      {{ group.itemName }}
+                    </BaseBadge>
+                    <span class="text-xs text-muted">{{ group.phases.length }} 個階段</span>
+                  </div>
+                  <BaseButton
+                    icon="i-lucide-plus"
+                    size="xs"
+                    variant="ghost"
+                    @click="handleAddPhaseForItem(group.itemId)"
+                  >
+                    新增
+                  </BaseButton>
+                </div>
+                <CasePhaseStepper :phases="group.phases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+              </div>
+            </template>
+            <template v-else>
+              <CasePhaseStepper :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+            </template>
 
             <div v-if="casePhases.length > 0" class="border-t border-default pt-3 mt-3">
               <button
@@ -446,6 +701,64 @@ const handleViewEmail = (emailId: string) => {
       <ApplyTemplateModal v-model="showApplyTemplate" :case-start-date="caseStartDate" :case-id="caseId" @submit="handleApplyTemplate" />
       <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
+
+      <!-- 新增合作項目下拉選單（Teleport 到 body 避免被 overflow 截斷） -->
+      <Teleport to="body">
+        <div v-if="showAddItemDropdown" class="fixed inset-0 z-[9998]" @click="showAddItemDropdown = false" />
+        <div
+          v-if="showAddItemDropdown"
+          ref="addItemDropdownRef"
+          class="fixed z-[9999] w-72 max-h-64 overflow-y-auto rounded-lg border border-default bg-default shadow-lg"
+          :style="addItemDropdownStyle"
+        >
+          <div v-if="availableItems.length === 0" class="p-3 text-sm text-muted text-center">
+            所有項目都已新增
+          </div>
+          <template v-else>
+            <!-- 單項 -->
+            <div v-if="availableItems.filter(i => i.type === 'individual').length > 0" class="px-3 pt-2 pb-1">
+              <span class="text-xs font-medium text-dimmed uppercase">單項</span>
+            </div>
+            <button
+              v-for="item in availableItems.filter(i => i.type === 'individual')"
+              :key="item.id"
+              class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-subtle transition-colors"
+              @click="handleAddCollaborationItem(item.id)"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium text-highlighted truncate">{{ item.title }}</div>
+                <div v-if="item.workflow" class="text-xs text-muted">{{ item.workflow.name }}</div>
+              </div>
+              <span class="text-xs font-semibold text-primary-600 dark:text-primary-400 flex-shrink-0">
+                {{ formatAmount(item.price) }}
+              </span>
+            </button>
+            <!-- 組合 -->
+            <div v-if="availableItems.filter(i => i.type === 'bundle').length > 0" class="px-3 pt-2 pb-1 border-t border-default">
+              <span class="text-xs font-medium text-dimmed uppercase">組合</span>
+            </div>
+            <button
+              v-for="item in availableItems.filter(i => i.type === 'bundle')"
+              :key="item.id"
+              class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-subtle transition-colors"
+              @click="handleAddCollaborationItem(item.id)"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-sm font-medium text-highlighted truncate">{{ item.title }}</span>
+                  <BaseBadge color="info" variant="subtle" size="xs">組合</BaseBadge>
+                </div>
+                <div v-if="item.bundle_items?.length" class="text-xs text-muted mt-0.5">
+                  {{ item.bundle_items.map((bi: any) => bi.item?.title).filter(Boolean).join('、') }}
+                </div>
+              </div>
+              <span class="text-xs font-semibold text-primary-600 dark:text-primary-400 flex-shrink-0">
+                {{ formatAmount(item.price) }}
+              </span>
+            </button>
+          </template>
+        </div>
+      </Teleport>
     </template>
   </BaseDashboardPanel>
 </template>

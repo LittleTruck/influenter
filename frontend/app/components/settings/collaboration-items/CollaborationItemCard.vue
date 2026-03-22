@@ -1,252 +1,109 @@
 <script setup lang="ts">
-import type { CollaborationItem, WorkflowTemplate } from '~/types/collaborationItems'
+import type { CollaborationItem } from '~/types/collaborationItems'
 import { useWorkflowTemplates } from '~/composables/useWorkflowTemplates'
 import { formatAmount } from '~/utils/formatters'
-import DraggableList from '~/components/base/DraggableList.vue'
-import { BaseButton, BaseIcon, BaseBadge, BaseCollapsible } from '~/components/base'
-import DraggableItemCard from './DraggableItemCard.vue'
+import { BaseButton, BaseIcon, BaseBadge } from '~/components/base'
 
 interface Props {
   /** 項目資料 */
   item: CollaborationItem
-  /** 縮排層級 */
-  level?: number
-  /** 是否展開 */
-  expanded?: boolean
-  /** 父項目（用於繼承流程） */
-  parentItem?: CollaborationItem | null
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  level: 0,
-  expanded: false,
-  parentItem: null
-})
+const props = defineProps<Props>()
 
 const { findWorkflowById } = useWorkflowTemplates()
 
-// 計算實際使用的流程（優先使用自己的，否則繼承父項目的）
-const effectiveWorkflow = computed<WorkflowTemplate | null>(() => {
-  // 如果項目有自己的流程，使用自己的
-  if (props.item.workflow_id && props.item.workflow) {
-    return props.item.workflow
-  }
-  
-  // 如果項目有自己的 workflow_id，嘗試查找
+const emit = defineEmits<{
+  'edit-item': [item: CollaborationItem]
+  'delete-item': [item: CollaborationItem]
+}>()
+
+// 取得流程名稱（僅 individual 有流程）
+const workflowName = computed(() => {
+  if (props.item.type !== 'individual') return null
+  if (props.item.workflow) return props.item.workflow.name
   if (props.item.workflow_id) {
-    return findWorkflowById(props.item.workflow_id)
+    const wf = findWorkflowById(props.item.workflow_id)
+    return wf?.name || null
   }
-  
-  // 否則繼承父項目的流程
-  if (props.parentItem) {
-    if (props.parentItem.workflow) {
-      return props.parentItem.workflow
-    }
-    if (props.parentItem.workflow_id) {
-      return findWorkflowById(props.parentItem.workflow_id)
-    }
-  }
-  
   return null
 })
 
-const emit = defineEmits<{
-  'add-item': [parentId: string]
-  'edit-item': [item: CollaborationItem]
-  'delete-item': [item: CollaborationItem]
-  'reorder': [itemIds: string[], parentId: string | null]
-  'toggle-expand': [item: CollaborationItem]
-}>()
-
-const isExpanded = ref(props.expanded)
-
-// 本地子項目列表（用於拖曳）
-const localChildren = ref<CollaborationItem[]>([...(props.item.children || [])])
-
-// 同步外部 children 變化
-watch(() => props.item.children, (newChildren) => {
-  localChildren.value = [...(newChildren || [])]
-}, { deep: true, immediate: true })
-
-// 處理子項目拖曳重排序
-const handleReorderChildren = (itemIds: string[]) => {
-  emit('reorder', itemIds, props.item.id)
-}
-
-// 監聽 expanded prop 變化
-watch(() => props.expanded, (newValue) => {
-  isExpanded.value = newValue
-})
-
-// 監聽 isExpanded 變化，同步到父組件
-watch(() => isExpanded.value, (newValue) => {
-  if (props.item.children && props.item.children.length > 0) {
-    emit('toggle-expand', props.item)
-  }
+// 取得 bundle 內含的項目名稱
+const bundleItemNames = computed(() => {
+  if (props.item.type !== 'bundle' || !props.item.bundle_items) return []
+  return props.item.bundle_items
+    .sort((a, b) => a.order - b.order)
+    .map(ref => ref.item?.title || '未知項目')
 })
 </script>
 
 <template>
-  <div class="collaboration-item-card">
-    <BaseCollapsible
-      v-if="item.children && item.children.length > 0"
-      v-model:open="isExpanded"
-      class="collapsible-item"
-      :ui="{ content: 'pb-0 mb-0' }"
-    >
-      <!-- 卡片主體 -->
-      <div class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors cursor-pointer bg-elevated">
-        <div class="flex items-center flex-1 min-w-0 gap-3">
-          <!-- 展開/收起按鈕 -->
-          <BaseIcon
-            :name="isExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-            class="w-5 h-5 flex-shrink-0"
-          />
+  <div
+    class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-elevated"
+  >
+    <!-- 拖曳手柄 -->
+    <BaseIcon
+      name="i-lucide-grip-vertical"
+      class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
+      @click.stop
+    />
 
-          <!-- 拖曳手柄 -->
-          <BaseIcon
-            name="i-lucide-grip-vertical"
-            class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
-            @click.stop
-          />
-
-          <!-- 項目資訊 -->
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h4 class="font-medium text-highlighted truncate">
-                {{ item.title }}
-              </h4>
-              <BaseBadge color="primary" variant="subtle" size="xs">
-                {{ formatAmount(item.price) }}
-              </BaseBadge>
-            </div>
-          </div>
-        </div>
-
-        <!-- 操作按鈕 -->
-        <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
-          <BaseButton
-            icon="i-lucide-plus"
-            variant="ghost"
-            size="xs"
-            @click="emit('add-item', item.id)"
-          >
-            子項目
-          </BaseButton>
-          <BaseButton
-            icon="i-lucide-edit"
-            variant="ghost"
-            size="xs"
-            @click="emit('edit-item', item)"
-          />
-          <BaseButton
-            icon="i-lucide-trash-2"
-            variant="ghost"
-            size="xs"
-            color="error"
-            @click="emit('delete-item', item)"
-          />
-        </div>
-      </div>
-
-      <!-- 子項目列表（展開時顯示） -->
-      <template #content>
-        <div class="pl-12 py-2 bg-subtle">
-          <DraggableList
-            v-model:items="localChildren"
-            group-name="collaboration-items"
-            @reorder="handleReorderChildren"
-          >
-            <template #item="{ element }">
-              <DraggableItemCard
-                :item="element"
-                :show-expand="!!(element.children && element.children.length > 0)"
-                :expanded="false"
-                @edit="emit('edit-item', element)"
-                @delete="emit('delete-item', element)"
-              >
-                <template #content="{ item: element }">
-                  <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-highlighted truncate">
-                      {{ element.title }}
-                    </h4>
-                    <BaseBadge color="primary" variant="subtle" size="xs">
-                      {{ formatAmount(element.price) }}
-                    </BaseBadge>
-                  </div>
-                </template>
-                <template #actions="{ item: element }">
-                  <BaseButton
-                    icon="i-lucide-plus"
-                    variant="ghost"
-                    size="xs"
-                    @click="emit('add-item', element.id)"
-                  >
-                    子項目
-                  </BaseButton>
-                  <BaseButton
-                    icon="i-lucide-edit"
-                    variant="ghost"
-                    size="xs"
-                    @click="emit('edit-item', element)"
-                  />
-                  <BaseButton
-                    icon="i-lucide-trash-2"
-                    variant="ghost"
-                    size="xs"
-                    color="error"
-                    @click="emit('delete-item', element)"
-                  />
-                </template>
-              </DraggableItemCard>
-            </template>
-          </DraggableList>
-        </div>
-      </template>
-    </BaseCollapsible>
-    <!-- 沒有子項目的項目 -->
-    <div
-      v-else
-      class="flex items-center gap-3 p-3 border border-default rounded-lg hover:bg-white dark:hover:bg-gray-700/50 transition-colors bg-elevated"
-    >
-      <div class="w-5 flex-shrink-0" />
-      <BaseIcon
-        name="i-lucide-grip-vertical"
-        class="w-5 h-5 text-dimmed drag-handle cursor-grab flex-shrink-0"
-      />
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
-          <h4 class="font-medium text-highlighted truncate">
-            {{ item.title }}
-          </h4>
-          <BaseBadge color="primary" variant="subtle" size="xs">
-            {{ formatAmount(item.price) }}
-          </BaseBadge>
-        </div>
-      </div>
-      <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
-        <BaseButton
-          icon="i-lucide-plus"
-          variant="ghost"
+    <!-- 項目資訊 -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2">
+        <h4 class="font-medium text-highlighted truncate">
+          {{ item.title }}
+        </h4>
+        <BaseBadge color="primary" variant="subtle" size="xs">
+          {{ formatAmount(item.price) }}
+        </BaseBadge>
+        <!-- 類型標籤 -->
+        <BaseBadge
+          v-if="item.type === 'bundle'"
+          color="info"
+          variant="subtle"
           size="xs"
-          @click="emit('add-item', item.id)"
         >
-          子項目
-        </BaseButton>
-        <BaseButton
-          icon="i-lucide-edit"
-          variant="ghost"
+          組合
+        </BaseBadge>
+        <!-- 流程標籤（僅 individual） -->
+        <BaseBadge
+          v-if="workflowName"
+          color="neutral"
+          variant="subtle"
           size="xs"
-          @click="emit('edit-item', item)"
-        />
-        <BaseButton
-          icon="i-lucide-trash-2"
-          variant="ghost"
-          size="xs"
-          color="error"
-          @click="emit('delete-item', item)"
-        />
+        >
+          {{ workflowName }}
+        </BaseBadge>
       </div>
+      <!-- Bundle 內含項目 -->
+      <div v-if="item.type === 'bundle' && bundleItemNames.length > 0" class="flex flex-wrap gap-1 mt-1">
+        <span
+          v-for="(name, idx) in bundleItemNames"
+          :key="idx"
+          class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-muted rounded"
+        >
+          {{ name }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 操作按鈕 -->
+    <div class="flex items-center gap-1 flex-shrink-0 ml-2" @click.stop>
+      <BaseButton
+        icon="i-lucide-edit"
+        variant="ghost"
+        size="xs"
+        @click="emit('edit-item', item)"
+      />
+      <BaseButton
+        icon="i-lucide-trash-2"
+        variant="ghost"
+        size="xs"
+        color="error"
+        @click="emit('delete-item', item)"
+      />
     </div>
   </div>
 </template>
@@ -254,7 +111,3 @@ watch(() => isExpanded.value, (newValue) => {
 <style scoped>
 /* 拖曳樣式已統一在 DraggableList 組件中 */
 </style>
-
-
-
-

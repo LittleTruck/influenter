@@ -15,15 +15,17 @@ type CasePhase struct {
 	StartDate       *time.Time     `gorm:"column:start_date;type:date" json:"start_date"`
 	EndDate         *time.Time     `gorm:"column:end_date;type:date" json:"end_date"`
 	DurationDays    int            `gorm:"column:duration_days;not null;default:1" json:"duration_days"`
-	Order           int            `gorm:"column:order;not null;default:0" json:"order"`
-	WorkflowPhaseID *uuid.UUID     `gorm:"column:workflow_phase_id" json:"workflow_phase_id,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	Order                 int            `gorm:"column:order;not null;default:0" json:"order"`
+	WorkflowPhaseID       *uuid.UUID     `gorm:"column:workflow_phase_id" json:"workflow_phase_id,omitempty"`
+	CollaborationItemID   *uuid.UUID     `gorm:"column:collaboration_item_id" json:"collaboration_item_id,omitempty"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	DeletedAt             gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relationships
-	Case          Case           `gorm:"foreignKey:CaseID;constraint:OnDelete:CASCADE" json:"-"`
-	WorkflowPhase *WorkflowPhase `gorm:"foreignKey:WorkflowPhaseID" json:"-"`
+	Case              Case               `gorm:"foreignKey:CaseID;constraint:OnDelete:CASCADE" json:"-"`
+	WorkflowPhase     *WorkflowPhase     `gorm:"foreignKey:WorkflowPhaseID" json:"-"`
+	CollaborationItem *CollaborationItem `gorm:"foreignKey:CollaborationItemID" json:"collaboration_item,omitempty"`
 }
 
 // TableName 指定表名

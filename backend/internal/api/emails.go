@@ -611,11 +611,22 @@ func (h *EmailHandler) runCreateCaseFromEmail(ctx context.Context, logger *zerol
 
 // autoMatchCollaborationItems AI 自動匹配合作項目並套用流程
 func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *zerolog.Logger, userID uuid.UUID, cs *models.Case, subject, body, from string) {
-	// 讀取使用者合作項目
+	// 讀取使用者合作項目（含 bundle 資訊）
 	var items []models.CollaborationItem
-	if err := h.db.Where("user_id = ?", userID).Preload("Workflow").Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
-		return db.Order(`"order" ASC`)
-	}).Find(&items).Error; err != nil {
+	if err := h.db.Where("user_id = ?", userID).
+		Preload("Workflow").
+		Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems.Item").
+		Preload("BundleItems.Item.Workflow").
+		Preload("BundleItems.Item.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Find(&items).Error; err != nil {
 		logger.Error().Err(err).Msg("Failed to fetch collaboration items for matching")
 		return
 	}
@@ -624,19 +635,27 @@ func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *
 		return
 	}
 
-	// 準備 AI 匹配請求
+	// 準備 AI 匹配請求（含 type 和 bundle 內容名稱）
 	itemInfos := make([]openai.CollaborationItemInfo, 0, len(items))
 	for _, item := range items {
 		desc := ""
 		if item.Description != nil {
 			desc = *item.Description
 		}
-		itemInfos = append(itemInfos, openai.CollaborationItemInfo{
+		info := openai.CollaborationItemInfo{
 			ID:          item.ID.String(),
 			Title:       item.Title,
 			Description: desc,
 			Price:       item.Price,
-		})
+			Type:        string(item.Type),
+		}
+		// For bundles, include contained item names
+		if item.Type == models.CollaborationItemTypeBundle {
+			for _, bi := range item.BundleItems {
+				info.ItemNames = append(info.ItemNames, bi.Item.Title)
+			}
+		}
+		itemInfos = append(itemInfos, info)
 	}
 
 	matchReq := openai.MatchCollaborationItemsRequest{
@@ -660,10 +679,20 @@ func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *
 		return
 	}
 
-	// 更新案件的 collaboration_items
-	if err := h.db.Model(cs).Update("collaboration_items", pq.StringArray(matchResult.MatchedItemIDs)).Error; err != nil {
-		logger.Error().Err(err).Msg("Failed to update case collaboration items")
-		return
+	// 使用 case_collaboration_items 關聯表
+	for i, matchedID := range matchResult.MatchedItemIDs {
+		itemUUID, err := uuid.Parse(matchedID)
+		if err != nil {
+			continue
+		}
+		cci := models.CaseCollaborationItem{
+			CaseID:              cs.ID,
+			CollaborationItemID: itemUUID,
+			Order:               i,
+		}
+		if err := h.db.Create(&cci).Error; err != nil {
+			logger.Warn().Err(err).Str("item_id", matchedID).Msg("Failed to link matched collaboration item")
+		}
 	}
 
 	logger.Info().
@@ -672,32 +701,52 @@ func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *
 		Str("reason", matchResult.Reason).
 		Msg("Auto-matched collaboration items")
 
-	// 找到第一個有 workflow 的匹配項目，自動套用流程
+	// 為匹配到的項目自動建立流程階段
 	for _, matchedID := range matchResult.MatchedItemIDs {
-		for _, item := range items {
-			if item.ID.String() == matchedID && item.Workflow != nil && len(item.Workflow.Phases) > 0 {
-				h.applyWorkflowToCase(logger, cs, item.Workflow)
-				return
+		for i := range items {
+			if items[i].ID.String() == matchedID {
+				h.applyItemWorkflowToCase(logger, cs, &items[i])
+				break
 			}
 		}
 	}
 }
 
-// applyWorkflowToCase 將流程範本套用到案件
-func (h *EmailHandler) applyWorkflowToCase(logger *zerolog.Logger, cs *models.Case, workflow *models.WorkflowTemplate) {
+// applyItemWorkflowToCase 為單個合作項目套用流程到案件
+func (h *EmailHandler) applyItemWorkflowToCase(logger *zerolog.Logger, cs *models.Case, item *models.CollaborationItem) {
 	currentDate := time.Now().Truncate(24 * time.Hour)
 
+	if item.Type == models.CollaborationItemTypeBundle {
+		// For bundles, apply each individual item's workflow
+		for _, bi := range item.BundleItems {
+			if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
+				h.createPhasesForItem(logger, cs, bi.ItemID, bi.Item.Workflow, currentDate)
+			}
+		}
+	} else if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
+		h.createPhasesForItem(logger, cs, item.ID, item.Workflow, currentDate)
+	}
+}
+
+// createPhasesForItem 為特定合作項目建立案件流程階段
+func (h *EmailHandler) createPhasesForItem(logger *zerolog.Logger, cs *models.Case, itemID uuid.UUID, workflow *models.WorkflowTemplate, startDate time.Time) {
+	var maxOrder int
+	h.db.Model(&models.CasePhase{}).Where("case_id = ?", cs.ID).
+		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
+
+	currentDate := startDate
 	for i, wp := range workflow.Phases {
 		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
 		wpID := wp.ID
 		phase := models.CasePhase{
-			CaseID:          cs.ID,
-			Name:            wp.Name,
-			StartDate:       &currentDate,
-			EndDate:         &endDate,
-			DurationDays:    wp.DurationDays,
-			Order:           i,
-			WorkflowPhaseID: &wpID,
+			CaseID:              cs.ID,
+			Name:                wp.Name,
+			StartDate:           &currentDate,
+			EndDate:             &endDate,
+			DurationDays:        wp.DurationDays,
+			Order:               maxOrder + 1 + i,
+			WorkflowPhaseID:     &wpID,
+			CollaborationItemID: &itemID,
 		}
 		if err := h.db.Create(&phase).Error; err != nil {
 			logger.Error().Err(err).Str("phase_name", wp.Name).Msg("Failed to create auto case phase")
@@ -708,9 +757,10 @@ func (h *EmailHandler) applyWorkflowToCase(logger *zerolog.Logger, cs *models.Ca
 
 	logger.Info().
 		Str("case_id", cs.ID.String()).
+		Str("item_id", itemID.String()).
 		Str("workflow", workflow.Name).
 		Int("phases", len(workflow.Phases)).
-		Msg("Auto-applied workflow phases to case")
+		Msg("Auto-applied workflow phases to case for item")
 }
 
 // runUpdateCaseFromReply 根據寄出的回信，在背景執行 AI 分析並更新案件狀態與進度

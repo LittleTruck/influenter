@@ -26,7 +26,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string[] | CollaborationItemInput[]]
 }>()
 
-const { items, flatItems, loading, fetchItems } = useCollaborationItems()
+const { items, individualItems, bundleItems, loading, fetchItems, findItemById } = useCollaborationItems()
 
 // 載入項目列表
 onMounted(async () => {
@@ -41,24 +41,18 @@ const isFullItemList = computed(() => {
 // 選中的項目（統一為完整項目格式）
 const selectedItems = computed({
   get: () => {
-    // 確保 modelValue 存在且為數組
     if (!props.modelValue || !Array.isArray(props.modelValue)) {
       return []
     }
-    
+
     if (isFullItemList.value) {
       return props.modelValue as CollaborationItemInput[]
     }
-    
+
     // 將 ID 列表轉換為完整項目
     const ids = props.modelValue as string[]
-    // 確保 flatItems.value 是數組
-    if (!flatItems.value || !Array.isArray(flatItems.value)) {
-      return []
-    }
-    
     return ids.map(id => {
-      const item = flatItems.value.find(i => i.id === id)
+      const item = findItemById(id)
       if (item) {
         return {
           id: item.id,
@@ -72,7 +66,6 @@ const selectedItems = computed({
     }).filter(Boolean) as CollaborationItemInput[]
   },
   set: (value) => {
-    // 如果原本是 ID 列表，則轉換為 ID 列表；否則保持完整項目列表
     if (!isFullItemList.value) {
       emit('update:modelValue', value.map(item => item.id!).filter(Boolean) as string[])
     } else {
@@ -83,17 +76,11 @@ const selectedItems = computed({
 
 // 切換預設項目選中狀態
 const toggleItem = (itemId: string) => {
-  if (!flatItems.value || !Array.isArray(flatItems.value)) {
-    return
-  }
-  
   const index = selectedItems.value.findIndex(item => item.id === itemId && !item.isCustom)
   if (index > -1) {
-    // 取消選中
     selectedItems.value = selectedItems.value.filter((_, i) => i !== index)
   } else {
-    // 選中預設項目
-    const item = flatItems.value.find(i => i.id === itemId)
+    const item = findItemById(itemId)
     if (item) {
       selectedItems.value = [...selectedItems.value, {
         id: item.id,
@@ -118,14 +105,13 @@ const handleAddCustom = () => {
   if (!customItem.value.title || customItem.value.price < 0) {
     return
   }
-  
+
   selectedItems.value = [...selectedItems.value, {
     ...customItem.value,
     id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     isCustom: true
   }]
-  
-  // 重置表單
+
   customItem.value = {
     title: '',
     description: '',
@@ -175,14 +161,28 @@ const totalPrice = computed(() => {
           </BaseButton>
         </div>
         <template v-else>
-          <CollaborationItemOption
-            v-for="item in items"
-            :key="item.id"
-            :item="item"
-            :level="0"
-            :selected-ids="(selectedItems || []).filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
-            @toggle="toggleItem"
-          />
+          <!-- 單項 -->
+          <div v-if="individualItems.length > 0">
+            <div class="text-xs font-semibold text-dimmed px-2 py-1">單項</div>
+            <CollaborationItemOption
+              v-for="item in individualItems"
+              :key="item.id"
+              :item="item"
+              :selected-ids="(selectedItems || []).filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
+              @toggle="toggleItem"
+            />
+          </div>
+          <!-- 組合 -->
+          <div v-if="bundleItems.length > 0">
+            <div class="text-xs font-semibold text-dimmed px-2 py-1 mt-2">組合</div>
+            <CollaborationItemOption
+              v-for="item in bundleItems"
+              :key="item.id"
+              :item="item"
+              :selected-ids="(selectedItems || []).filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
+              @toggle="toggleItem"
+            />
+          </div>
         </template>
       </div>
     </div>
@@ -202,11 +202,11 @@ const totalPrice = computed(() => {
           新增自訂項目
         </BaseButton>
       </div>
-      
+
       <div v-if="!selectedItems || selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-muted p-4 text-center border border-default rounded-lg">
         尚未添加自訂項目
       </div>
-      
+
       <div v-else class="space-y-2">
         <div
           v-for="(item, index) in (selectedItems || []).filter(i => i.isCustom)"
@@ -291,9 +291,3 @@ const totalPrice = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.collaboration-item-option {
-  transition: background-color 0.2s;
-}
-</style>

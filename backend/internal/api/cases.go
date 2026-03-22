@@ -38,7 +38,8 @@ type CreateCaseRequest struct {
 	ContactPhone     *string  `json:"contact_phone"`
 	Notes            *string  `json:"notes"`
 	Tags             []string `json:"tags"`
-	CollaborationItems []string `json:"collaboration_items"`
+	CollaborationItems []string `json:"collaboration_items"` // Item IDs to link
+	FlowLayout       *string  `json:"flow_layout"`          // "parallel" or "sequential"
 }
 
 // CaseResponse 案件回應（與前端 Case 對齊）
@@ -48,6 +49,7 @@ type CaseResponse struct {
 	BrandName         string   `json:"brand_name"`
 	CollaborationType *string  `json:"collaboration_type,omitempty"`
 	Status            string   `json:"status"`
+	FlowLayout        string   `json:"flow_layout"`
 	QuotedAmount      *float64 `json:"quoted_amount,omitempty"`
 	FinalAmount       *float64 `json:"final_amount,omitempty"`
 	Currency          *string  `json:"currency,omitempty"`
@@ -64,12 +66,17 @@ type CaseResponse struct {
 
 // caseToResponse 將 Case 轉為 API 回應
 func caseToResponse(c *models.Case, emailCount, taskCount, completedTaskCount int) CaseResponse {
+	flowLayout := c.FlowLayout
+	if flowLayout == "" {
+		flowLayout = "parallel"
+	}
 	resp := CaseResponse{
 		ID:                 c.ID.String(),
 		Title:              c.Title,
 		BrandName:          c.BrandName,
 		CollaborationType:  c.CollaborationType,
 		Status:             string(c.Status),
+		FlowLayout:         flowLayout,
 		QuotedAmount:       c.QuotedAmount,
 		FinalAmount:        c.FinalAmount,
 		Currency:           c.Currency,
@@ -116,6 +123,11 @@ func (h *CaseHandler) CreateCase(c *gin.Context) {
 		}
 	}
 
+	flowLayout := "parallel"
+	if req.FlowLayout != nil && (*req.FlowLayout == "parallel" || *req.FlowLayout == "sequential") {
+		flowLayout = *req.FlowLayout
+	}
+
 	cs := models.Case{
 		UserID:            userID,
 		Title:             req.Title,
@@ -129,19 +141,40 @@ func (h *CaseHandler) CreateCase(c *gin.Context) {
 		ContactEmail:      req.ContactEmail,
 		ContactPhone:      req.ContactPhone,
 		Notes:             req.Notes,
+		FlowLayout:        flowLayout,
 	}
 	if len(req.Tags) > 0 {
 		cs.Tags = req.Tags
 	}
-	if len(req.CollaborationItems) > 0 {
-		cs.CollaborationItems = req.CollaborationItems
-	}
 
-	if err := h.db.Create(&cs).Error; err != nil {
+	tx := h.db.Begin()
+
+	if err := tx.Create(&cs).Error; err != nil {
+		tx.Rollback()
 		logger.Error().Err(err).Msg("Failed to create case")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to create case"})
 		return
 	}
+
+	// Create case_collaboration_items associations
+	if len(req.CollaborationItems) > 0 {
+		for i, itemIDStr := range req.CollaborationItems {
+			itemUUID, err := uuid.Parse(itemIDStr)
+			if err != nil {
+				continue
+			}
+			cci := models.CaseCollaborationItem{
+				CaseID:              cs.ID,
+				CollaborationItemID: itemUUID,
+				Order:               i,
+			}
+			if err := tx.Create(&cci).Error; err != nil {
+				logger.Warn().Err(err).Str("item_id", itemIDStr).Msg("Failed to link collaboration item")
+			}
+		}
+	}
+
+	tx.Commit()
 
 	logger.Info().Str("case_id", cs.ID.String()).Str("user_id", userIDStr).Msg("Case created")
 	c.JSON(http.StatusCreated, caseToResponse(&cs, 0, 0, 0))
@@ -290,6 +323,18 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 	var phases []models.CasePhase
 	h.db.Where("case_id = ?", id).Order(`"order" ASC`).Find(&phases)
 
+	// 查詢案件關聯的合作項目（多對多）
+	var caseCollabItems []models.CaseCollaborationItem
+	h.db.Where("case_id = ?", id).
+		Preload("CollaborationItem").
+		Preload("CollaborationItem.BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("CollaborationItem.BundleItems.Item").
+		Preload("CollaborationItem.Workflow").
+		Order(`"order" ASC`).
+		Find(&caseCollabItems)
+
 	resp := caseToResponse(&cs, int(emailCount), 0, 0)
 	phaseList := make([]CasePhaseResponse, 0, len(phases))
 	for _, p := range phases {
@@ -297,24 +342,26 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":                  resp.ID,
-		"title":               resp.Title,
-		"brand_name":          resp.BrandName,
-		"collaboration_type":  resp.CollaborationType,
-		"status":              resp.Status,
-		"quoted_amount":       resp.QuotedAmount,
-		"final_amount":        resp.FinalAmount,
-		"currency":            resp.Currency,
-		"deadline_date":       resp.DeadlineDate,
-		"contact_name":        resp.ContactName,
-		"contact_email":       resp.ContactEmail,
-		"contact_phone":       resp.ContactPhone,
-		"email_count":         resp.EmailCount,
-		"task_count":          resp.TaskCount,
-		"completed_task_count": resp.CompletedTaskCount,
-		"created_at":          resp.CreatedAt,
-		"updated_at":          resp.UpdatedAt,
-		"phases":              phaseList,
+		"id":                      resp.ID,
+		"title":                   resp.Title,
+		"brand_name":              resp.BrandName,
+		"collaboration_type":      resp.CollaborationType,
+		"status":                  resp.Status,
+		"flow_layout":             resp.FlowLayout,
+		"quoted_amount":           resp.QuotedAmount,
+		"final_amount":            resp.FinalAmount,
+		"currency":                resp.Currency,
+		"deadline_date":           resp.DeadlineDate,
+		"contact_name":            resp.ContactName,
+		"contact_email":           resp.ContactEmail,
+		"contact_phone":           resp.ContactPhone,
+		"email_count":             resp.EmailCount,
+		"task_count":              resp.TaskCount,
+		"completed_task_count":    resp.CompletedTaskCount,
+		"created_at":              resp.CreatedAt,
+		"updated_at":              resp.UpdatedAt,
+		"phases":                  phaseList,
+		"case_collaboration_items": caseCollabItems,
 	})
 }
 
@@ -548,16 +595,17 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 
 // CasePhaseResponse 案件階段回應
 type CasePhaseResponse struct {
-	ID              string  `json:"id"`
-	CaseID          string  `json:"case_id"`
-	Name            string  `json:"name"`
-	StartDate       *string `json:"start_date"`
-	EndDate         *string `json:"end_date"`
-	DurationDays    int     `json:"duration_days"`
-	Order           int     `json:"order"`
-	WorkflowPhaseID *string `json:"workflow_phase_id,omitempty"`
-	CreatedAt       string  `json:"created_at"`
-	UpdatedAt       string  `json:"updated_at"`
+	ID                  string  `json:"id"`
+	CaseID              string  `json:"case_id"`
+	Name                string  `json:"name"`
+	StartDate           *string `json:"start_date"`
+	EndDate             *string `json:"end_date"`
+	DurationDays        int     `json:"duration_days"`
+	Order               int     `json:"order"`
+	WorkflowPhaseID     *string `json:"workflow_phase_id,omitempty"`
+	CollaborationItemID *string `json:"collaboration_item_id,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
 }
 
 func casePhaseToResponse(p *models.CasePhase) CasePhaseResponse {
@@ -582,15 +630,20 @@ func casePhaseToResponse(p *models.CasePhase) CasePhaseResponse {
 		s := p.WorkflowPhaseID.String()
 		resp.WorkflowPhaseID = &s
 	}
+	if p.CollaborationItemID != nil {
+		s := p.CollaborationItemID.String()
+		resp.CollaborationItemID = &s
+	}
 	return resp
 }
 
 // CreateCasePhaseRequest 建立案件階段請求
 type CreateCasePhaseRequest struct {
-	Name         string `json:"name" binding:"required"`
-	StartDate    string `json:"start_date"`
-	DurationDays int    `json:"duration_days"`
-	Order        *int   `json:"order"`
+	Name                string  `json:"name" binding:"required"`
+	StartDate           string  `json:"start_date"`
+	DurationDays        int     `json:"duration_days"`
+	Order               *int    `json:"order"`
+	CollaborationItemID *string `json:"collaboration_item_id"`
 }
 
 // UpdateCasePhaseRequest 更新案件階段請求
@@ -685,6 +738,12 @@ func (h *CaseHandler) CreateCasePhase(c *gin.Context) {
 		CaseID:       caseUUID,
 		Name:         req.Name,
 		DurationDays: durationDays,
+	}
+
+	if req.CollaborationItemID != nil && *req.CollaborationItemID != "" {
+		if itemUUID, err := uuid.Parse(*req.CollaborationItemID); err == nil {
+			phase.CollaborationItemID = &itemUUID
+		}
 	}
 
 	if req.StartDate != "" {
@@ -947,6 +1006,14 @@ func (h *CaseHandler) DeleteCasePhase(c *gin.Context) {
 		return
 	}
 
+	// Enforce at least one phase per case
+	var phaseCount int64
+	h.db.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).Count(&phaseCount)
+	if phaseCount <= 1 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "min_phases", Message: "案件至少需要保留一個流程階段"})
+		return
+	}
+
 	if err := h.db.Delete(&phase).Error; err != nil {
 		logger.Error().Err(err).Msg("Failed to delete case phase")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to delete case phase"})
@@ -1140,4 +1207,458 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 		"data":          data,
 		"message":       fmt.Sprintf("AI 自動套用了「%s」流程（%d 個階段）", matchedTmpl.Name, len(createdPhases)),
 	})
+}
+
+// --- Case Collaboration Items (many-to-many) ---
+
+// AddCaseCollaborationItemRequest 新增案件合作項目關聯
+type AddCaseCollaborationItemRequest struct {
+	CollaborationItemID string `json:"collaboration_item_id" binding:"required"`
+}
+
+// ReorderCaseCollaborationItemsRequest 重新排序案件合作項目
+type ReorderCaseCollaborationItemsRequest struct {
+	ItemIDs []string `json:"item_ids" binding:"required"` // collaboration_item_id 順序
+}
+
+// ListCaseCollaborationItems 取得案件關聯的合作項目
+func (h *CaseHandler) ListCaseCollaborationItems(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var items []models.CaseCollaborationItem
+	if err := h.db.Where("case_id = ?", caseUUID).
+		Preload("CollaborationItem").
+		Preload("CollaborationItem.BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("CollaborationItem.BundleItems.Item").
+		Preload("CollaborationItem.Workflow").
+		Order(`"order" ASC`).
+		Find(&items).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to list case collaboration items")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to list items"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+// AddCaseCollaborationItem 新增案件合作項目關聯 + 自動建立流程階段
+func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req AddCaseCollaborationItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	itemUUID, err := uuid.Parse(req.CollaborationItemID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_item_id", Message: "Invalid collaboration item ID"})
+		return
+	}
+
+	// Verify item exists and belongs to user
+	var item models.CollaborationItem
+	if err := h.db.Where("id = ? AND user_id = ?", itemUUID, userID).
+		Preload("Workflow").
+		Preload("Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("BundleItems.Item").
+		Preload("BundleItems.Item.Workflow").
+		Preload("BundleItems.Item.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		First(&item).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "item_not_found", Message: "Collaboration item not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch collaboration item")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch item"})
+		return
+	}
+
+	tx := h.db.Begin()
+
+	// Calculate order
+	var maxOrder int
+	h.db.Model(&models.CaseCollaborationItem{}).Where("case_id = ?", caseUUID).
+		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
+
+	cci := models.CaseCollaborationItem{
+		CaseID:              caseUUID,
+		CollaborationItemID: itemUUID,
+		Order:               maxOrder + 1,
+	}
+	if err := tx.Create(&cci).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusConflict, ErrorResponse{Error: "already_linked", Message: "此合作項目已關聯到案件"})
+		return
+	}
+
+	// Auto-create flow phases from the item's workflow
+	h.createPhasesForItem(tx, caseUUID, &item, cs.FlowLayout)
+
+	tx.Commit()
+
+	// Reload
+	h.db.Where("id = ?", cci.ID).
+		Preload("CollaborationItem").
+		Preload("CollaborationItem.BundleItems.Item").
+		Preload("CollaborationItem.Workflow").
+		First(&cci)
+
+	c.JSON(http.StatusCreated, cci)
+}
+
+// RemoveCaseCollaborationItem 移除案件合作項目關聯 + 刪除對應流程階段
+func (h *CaseHandler) RemoveCaseCollaborationItem(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+	itemID := c.Param("itemId")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	itemUUID, err := uuid.Parse(itemID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid item ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	tx := h.db.Begin()
+
+	// Delete the association
+	result := tx.Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).
+		Delete(&models.CaseCollaborationItem{})
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "not_linked", Message: "此合作項目未關聯到案件"})
+		return
+	}
+
+	// Delete associated phases (but check if it's the last phases)
+	var totalPhases int64
+	tx.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).Count(&totalPhases)
+
+	var itemPhases int64
+	tx.Model(&models.CasePhase{}).Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).Count(&itemPhases)
+
+	if totalPhases > itemPhases {
+		// Safe to delete — there will be remaining phases
+		tx.Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).Delete(&models.CasePhase{})
+	}
+	// If all phases belong to this item, keep them but set collaboration_item_id to NULL
+
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{"message": "合作項目已從案件移除"})
+}
+
+// ReorderCaseCollaborationItems 重新排序案件合作項目
+func (h *CaseHandler) ReorderCaseCollaborationItems(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req ReorderCaseCollaborationItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	tx := h.db.Begin()
+	for i, idStr := range req.ItemIDs {
+		itemUUID, err := uuid.Parse(idStr)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid item ID: " + idStr})
+			return
+		}
+		if err := tx.Model(&models.CaseCollaborationItem{}).
+			Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).
+			Update("order", i).Error; err != nil {
+			tx.Rollback()
+			logger.Error().Err(err).Msg("Failed to reorder case collaboration items")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to reorder"})
+			return
+		}
+	}
+	tx.Commit()
+
+	// If sequential layout, recalculate phase dates
+	if cs.FlowLayout == "sequential" {
+		h.recalculateSequentialDates(caseUUID)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Reordered successfully"})
+}
+
+// UpdateFlowLayoutRequest 更新流程排列模式
+type UpdateFlowLayoutRequest struct {
+	FlowLayout string `json:"flow_layout" binding:"required"` // "parallel" or "sequential"
+	StartDate  string `json:"start_date"`                     // Optional start date for recalculation
+}
+
+// UpdateFlowLayout 切換並聯/串聯模式
+func (h *CaseHandler) UpdateFlowLayout(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req UpdateFlowLayoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	if req.FlowLayout != "parallel" && req.FlowLayout != "sequential" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_layout", Message: "flow_layout must be 'parallel' or 'sequential'"})
+		return
+	}
+
+	// Update the flow layout
+	if err := h.db.Model(&cs).Update("flow_layout", req.FlowLayout).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to update flow layout")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to update flow layout"})
+		return
+	}
+
+	// Recalculate dates based on new layout
+	startDate := time.Now().Truncate(24 * time.Hour)
+	if req.StartDate != "" {
+		if t, err := time.Parse("2006-01-02", req.StartDate); err == nil {
+			startDate = t
+		}
+	} else {
+		// Use earliest existing phase start date
+		var firstPhase models.CasePhase
+		if err := h.db.Where("case_id = ? AND start_date IS NOT NULL", caseUUID).
+			Order("start_date ASC").First(&firstPhase).Error; err == nil && firstPhase.StartDate != nil {
+			startDate = *firstPhase.StartDate
+		}
+	}
+
+	if req.FlowLayout == "parallel" {
+		h.recalculateParallelDates(caseUUID, startDate)
+	} else {
+		h.recalculateSequentialDates(caseUUID)
+	}
+
+	// Return updated phases
+	var phases []models.CasePhase
+	h.db.Where("case_id = ?", caseUUID).Order(`"order" ASC`).Find(&phases)
+
+	data := make([]CasePhaseResponse, 0, len(phases))
+	for _, p := range phases {
+		data = append(data, casePhaseToResponse(&p))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"flow_layout": req.FlowLayout, "phases": data})
+}
+
+// createPhasesForItem 為合作項目建立流程階段
+func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem, _ string) {
+	if item.Type == models.CollaborationItemTypeBundle {
+		// For bundles, create phases for each individual item inside
+		for _, bi := range item.BundleItems {
+			if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
+				h.createPhasesFromWorkflow(tx, caseID, bi.ItemID, bi.Item.Workflow)
+			}
+		}
+	} else if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
+		h.createPhasesFromWorkflow(tx, caseID, item.ID, item.Workflow)
+	}
+}
+
+// createPhasesFromWorkflow 從流程範本建立案件階段
+func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, itemID uuid.UUID, wf *models.WorkflowTemplate) {
+	var maxOrder int
+	tx.Model(&models.CasePhase{}).Where("case_id = ?", caseID).
+		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
+
+	startDate := time.Now().Truncate(24 * time.Hour)
+	currentDate := startDate
+
+	for i, wp := range wf.Phases {
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		wpID := wp.ID
+		phase := models.CasePhase{
+			CaseID:              caseID,
+			Name:                wp.Name,
+			StartDate:           &currentDate,
+			EndDate:             &endDate,
+			DurationDays:        wp.DurationDays,
+			Order:               maxOrder + 1 + i,
+			WorkflowPhaseID:     &wpID,
+			CollaborationItemID: &itemID,
+		}
+		tx.Create(&phase)
+		currentDate = endDate
+	}
+}
+
+// recalculateParallelDates 重新計算並聯模式日期（所有流程從同一天開始）
+func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.Time) {
+	// Group phases by collaboration_item_id
+	var phases []models.CasePhase
+	h.db.Where("case_id = ?", caseID).Order(`collaboration_item_id, "order" ASC`).Find(&phases)
+
+	currentDate := startDate
+	var currentItemID *uuid.UUID
+
+	for i := range phases {
+		p := &phases[i]
+		// Reset date for each new item group
+		if currentItemID == nil || p.CollaborationItemID == nil || *currentItemID != *p.CollaborationItemID {
+			currentDate = startDate
+			currentItemID = p.CollaborationItemID
+		}
+
+		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		h.db.Model(p).Updates(map[string]any{
+			"start_date": currentDate,
+			"end_date":   endDate,
+		})
+		currentDate = endDate
+	}
+}
+
+// recalculateSequentialDates 重新計算串聯模式日期（按 case_collaboration_items order 順序串接）
+func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
+	// Get items in order
+	var cciList []models.CaseCollaborationItem
+	h.db.Where("case_id = ?", caseID).Order(`"order" ASC`).Find(&cciList)
+
+	// Find earliest start date
+	startDate := time.Now().Truncate(24 * time.Hour)
+	var firstPhase models.CasePhase
+	if err := h.db.Where("case_id = ? AND start_date IS NOT NULL", caseID).
+		Order("start_date ASC").First(&firstPhase).Error; err == nil && firstPhase.StartDate != nil {
+		startDate = *firstPhase.StartDate
+	}
+
+	currentDate := startDate
+
+	for _, cci := range cciList {
+		var phases []models.CasePhase
+		h.db.Where("case_id = ? AND collaboration_item_id = ?", caseID, cci.CollaborationItemID).
+			Order(`"order" ASC`).Find(&phases)
+
+		for i := range phases {
+			p := &phases[i]
+			endDate := currentDate.AddDate(0, 0, p.DurationDays)
+			h.db.Model(p).Updates(map[string]any{
+				"start_date": currentDate,
+				"end_date":   endDate,
+			})
+			currentDate = endDate
+		}
+	}
+
+	// Handle phases without collaboration_item_id
+	var orphanPhases []models.CasePhase
+	h.db.Where("case_id = ? AND collaboration_item_id IS NULL", caseID).
+		Order(`"order" ASC`).Find(&orphanPhases)
+	for i := range orphanPhases {
+		p := &orphanPhases[i]
+		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		h.db.Model(p).Updates(map[string]any{
+			"start_date": currentDate,
+			"end_date":   endDate,
+		})
+		currentDate = endDate
+	}
 }

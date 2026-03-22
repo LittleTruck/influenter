@@ -38,6 +38,10 @@ export const useCases = () => {
     deleteTask: casesStore.deleteTask,
     completeTask: casesStore.completeTask,
     reorderTasks: casesStore.reorderTasks,
+    addCaseCollaborationItem: casesStore.addCaseCollaborationItem,
+    removeCaseCollaborationItem: casesStore.removeCaseCollaborationItem,
+    reorderCaseCollaborationItems: casesStore.reorderCaseCollaborationItems,
+    updateFlowLayout: casesStore.updateFlowLayout,
 
     // 格式化函數（從 utils 重新匯出，保持向後兼容）
     formatAmount,

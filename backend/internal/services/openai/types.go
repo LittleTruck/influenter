@@ -134,10 +134,12 @@ type MatchCollaborationItemsRequest struct {
 
 // CollaborationItemInfo 合作項目摘要（用於 AI 匹配）
 type CollaborationItemInfo struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Price       float64  `json:"price"`
+	Type        string   `json:"type"`                   // "individual" or "bundle"
+	ItemNames   []string `json:"item_names,omitempty"`   // For bundles: names of contained items
 }
 
 // MatchCollaborationItemsResult 合作項目匹配結果

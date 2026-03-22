@@ -627,6 +627,106 @@ export const useCasesStore = defineStore('cases', () => {
     return grouped
   })
 
+  // --- Case Collaboration Items (多對多) ---
+
+  /**
+   * 新增合作項目到案件
+   */
+  const addCaseCollaborationItem = async (caseId: string, collaborationItemId: string) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const result = await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/collaboration-items`, {
+        method: 'POST',
+        body: { collaboration_item_id: collaborationItemId },
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      // 重新載入案件詳情
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+      return result
+    } catch (e: unknown) {
+      error.value = logError(e, '新增合作項目到案件失敗', { component: 'casesStore', action: 'addCaseCollaborationItem' })
+      throw e
+    }
+  }
+
+  /**
+   * 從案件移除合作項目
+   */
+  const removeCaseCollaborationItem = async (caseId: string, collaborationItemId: string) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/collaboration-items/${collaborationItemId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+    } catch (e: unknown) {
+      error.value = logError(e, '移除合作項目失敗', { component: 'casesStore', action: 'removeCaseCollaborationItem' })
+      throw e
+    }
+  }
+
+  /**
+   * 重新排序案件合作項目
+   */
+  const reorderCaseCollaborationItems = async (caseId: string, itemIds: string[]) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/collaboration-items/reorder`, {
+        method: 'PATCH',
+        body: { item_ids: itemIds },
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+    } catch (e: unknown) {
+      error.value = logError(e, '排序合作項目失敗', { component: 'casesStore', action: 'reorderCaseCollaborationItems' })
+      throw e
+    }
+  }
+
+  /**
+   * 切換流程排列模式（並聯/串聯）
+   */
+  const updateFlowLayout = async (caseId: string, flowLayout: 'parallel' | 'sequential', startDate?: string) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const result = await $fetch<{ flow_layout: string; phases: any[] }>(
+        `${config.public.apiBase}/api/v1/cases/${caseId}/flow-layout`,
+        {
+          method: 'PATCH',
+          body: { flow_layout: flowLayout, start_date: startDate },
+          headers: { Authorization: `Bearer ${authStore.token}` }
+        }
+      )
+
+      if (currentCase.value?.id === caseId) {
+        currentCase.value.flow_layout = flowLayout
+        currentCase.value.phases = result.phases
+      }
+      return result
+    } catch (e: unknown) {
+      error.value = logError(e, '切換流程排列失敗', { component: 'casesStore', action: 'updateFlowLayout' })
+      throw e
+    }
+  }
+
   // 重置狀態
   const reset = () => {
     cases.value = []
@@ -676,6 +776,10 @@ export const useCasesStore = defineStore('cases', () => {
     deleteTask,
     completeTask,
     reorderTasks,
+    addCaseCollaborationItem,
+    removeCaseCollaborationItem,
+    reorderCaseCollaborationItems,
+    updateFlowLayout,
     reset
   }
 })

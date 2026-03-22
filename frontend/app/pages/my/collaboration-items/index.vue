@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick } from 'vue'
+import type { CollaborationItemType } from '~/types/collaborationItems'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { BaseButton } from '~/components/base'
@@ -13,13 +14,13 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { items, loading, fetchItems, deleteItem, reorderItems } = useCollaborationItems()
+const { items, individualItems, bundleItems, loading, fetchItems, deleteItem, reorderItems } = useCollaborationItems()
 const { handleError, handleSuccess } = useErrorHandler()
 
 // 表單狀態
 const showItemForm = ref(false)
 const editingItem = ref<any>(null)
-const parentId = ref<string | null>(null)
+const defaultType = ref<CollaborationItemType>('individual')
 
 // 頁面層面的 loading 保護：如果超過 3 秒還在載入，強制顯示內容
 const pageLoadingTimeout = ref(false)
@@ -34,12 +35,10 @@ watch(loading, (newValue) => {
   }
 })
 
-// 載入項目列表（忽略 404 錯誤，因為後端還沒實作）
+// 載入項目列表
 onMounted(async () => {
-  // 使用 nextTick 確保組件完全掛載後再執行
   await nextTick()
 
-  // 設置超時保護：如果 3 秒後還在載入，強制顯示內容
   const timeoutId = setTimeout(() => {
     pageLoadingTimeout.value = true
     console.debug('Page loading timeout, showing content anyway')
@@ -48,26 +47,23 @@ onMounted(async () => {
   try {
     await fetchItems()
   } catch (err: any) {
-    // 忽略所有錯誤，因為 store 已經處理了
     console.debug('fetchItems completed with error (expected if API not available):', err)
   } finally {
     clearTimeout(timeoutId)
-    // 確保頁面不會一直載入（即使 fetchItems 失敗，也顯示內容）
     pageLoadingTimeout.value = true
   }
 })
 
 // 處理新增項目
-const handleAddItem = (parentIdValue?: string | null) => {
+const handleAddItem = (type?: CollaborationItemType) => {
   editingItem.value = null
-  parentId.value = parentIdValue || null
+  defaultType.value = type || 'individual'
   showItemForm.value = true
 }
 
 // 處理編輯項目
 const handleEditItem = (item: any) => {
   editingItem.value = item
-  parentId.value = null
   showItemForm.value = true
 }
 
@@ -82,9 +78,9 @@ const handleDeleteItem = async (item: any) => {
 }
 
 // 處理重新排序
-const handleReorder = async (itemIds: string[], parentId: string | null) => {
+const handleReorder = async (itemIds: string[]) => {
   try {
-    await reorderItems(itemIds, parentId)
+    await reorderItems(itemIds)
     handleSuccess('排序已更新')
   } catch (error: unknown) {
     handleError(error, '排序失敗')
@@ -96,7 +92,6 @@ const handleFormSubmit = () => {
   fetchItems()
   showItemForm.value = false
   editingItem.value = null
-  parentId.value = null
 }
 </script>
 
@@ -111,9 +106,17 @@ const handleFormSubmit = () => {
         <BaseButton
           icon="i-lucide-plus"
           size="sm"
-          @click="handleAddItem()"
+          @click="handleAddItem('individual')"
         >
-          新增項目
+          新增單項
+        </BaseButton>
+        <BaseButton
+          icon="i-lucide-plus"
+          size="sm"
+          variant="outline"
+          @click="handleAddItem('bundle')"
+        >
+          新增組合
         </BaseButton>
       </template>
     </SectionPageHeader>
@@ -127,13 +130,13 @@ const handleFormSubmit = () => {
         title="還沒有合作項目"
         action-label="建立第一個項目"
         :show-icon-background="false"
-        @action="handleAddItem()"
+        @action="handleAddItem('individual')"
       />
 
       <CollaborationItemTree
         v-else
-        :items="items"
-        @add-item="handleAddItem"
+        :individual-items="individualItems"
+        :bundle-items="bundleItems"
         @edit-item="handleEditItem"
         @delete-item="handleDeleteItem"
         @reorder="handleReorder"
@@ -144,7 +147,7 @@ const handleFormSubmit = () => {
     <CollaborationItemFormModal
       v-model="showItemForm"
       :item="editingItem"
-      :parent-id="parentId"
+      :default-type="defaultType"
       @submit="handleFormSubmit"
     />
   </div>

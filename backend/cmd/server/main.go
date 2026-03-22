@@ -192,6 +192,14 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
 				casesGroup.POST("/:id/draft-reply", caseHandler.DraftReply)
 				// Case phases
+				// Case collaboration items (many-to-many)
+				casesGroup.GET("/:id/collaboration-items", caseHandler.ListCaseCollaborationItems)
+				casesGroup.POST("/:id/collaboration-items", caseHandler.AddCaseCollaborationItem)
+				casesGroup.PATCH("/:id/collaboration-items/reorder", caseHandler.ReorderCaseCollaborationItems)
+				casesGroup.DELETE("/:id/collaboration-items/:itemId", caseHandler.RemoveCaseCollaborationItem)
+				// Flow layout
+				casesGroup.PATCH("/:id/flow-layout", caseHandler.UpdateFlowLayout)
+				// Case phases
 				casesGroup.GET("/:id/phases", caseHandler.ListCasePhases)
 				casesGroup.POST("/:id/phases", caseHandler.CreateCasePhase)
 				casesGroup.POST("/:id/phases/apply-template", caseHandler.ApplyTemplate)

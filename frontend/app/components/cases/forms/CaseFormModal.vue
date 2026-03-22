@@ -27,7 +27,7 @@ const { visibleFields } = useCaseFields()
 const { createCase, updateCase } = useCases()
 const { initializeFormData, validateForm } = useCaseForm()
 const { submitForm, isSubmitting } = useFormModal<CreateCaseRequest>()
-const { flatItems } = useCollaborationItems()
+const { findItemById } = useCollaborationItems()
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -47,41 +47,16 @@ const initForm = async () => {
   })
   await initializeFormData(formData as Record<string, unknown>, props.case || undefined)
   
-  // 確保 collaboration_items 初始化為陣列
-  if (!formData.collaboration_items) {
-    formData.collaboration_items = []
+  // 從 case_collaboration_items 多對多關聯初始化
+  const fd = formData as any
+  if (!fd.collaboration_items) {
+    fd.collaboration_items = []
   }
-  
-  // 如果有自訂項目，需要將 ID 列表和自訂項目合併為完整項目列表
-  if (props.case && (props.case as any).collaboration_items_custom) {
-    const customItems = (props.case as any).collaboration_items_custom || []
-    const itemIds = formData.collaboration_items as string[] || []
-    
-    // 構建完整項目列表
-    const fullItems = itemIds.map(id => {
-      // 檢查是否為自訂項目
-      const customItem = customItems.find((item: any) => item.id === id)
-      if (customItem) {
-        return {
-          ...customItem,
-          isCustom: true
-        }
-      }
-      // 從預設列表查找
-      const item = flatItems.value.find(i => i.id === id)
-      if (item) {
-        return {
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          price: item.price,
-          isCustom: false
-        }
-      }
-      return null
-    }).filter(Boolean)
-    
-    formData.collaboration_items = fullItems as any
+
+  if (props.case?.case_collaboration_items?.length) {
+    fd.collaboration_items = props.case.case_collaboration_items
+      .sort((a, b) => a.order - b.order)
+      .map(cci => cci.collaboration_item_id)
   }
 }
 
@@ -113,21 +88,10 @@ const handleSubmit = async () => {
     return
   }
 
-  // 處理合作項目：將自訂項目分離出來
-  const collaborationItems = formData.collaboration_items as any
-  if (Array.isArray(collaborationItems) && collaborationItems.length > 0 && typeof collaborationItems[0] === 'object' && 'title' in collaborationItems[0]) {
-    // 這是完整項目列表（包含自訂項目）
-    const itemList = collaborationItems as Array<{ id?: string; title: string; description?: string; price: number; isCustom?: boolean }>
-    const itemIds = itemList.map(item => item.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
-    const customItems = itemList.filter(item => item.isCustom || !item.id || item.id.startsWith('custom_')).map(item => ({
-      id: item.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: item.title,
-      description: item.description,
-      price: item.price
-    }))
-    
-    formData.collaboration_items = itemIds
-    ;(formData as any).collaboration_items_custom = customItems
+  // 合作項目 ID 列表（直接傳送給後端）
+  const fd = formData as any
+  if (Array.isArray(fd.collaboration_items)) {
+    fd.collaboration_items = fd.collaboration_items.filter((id: any) => typeof id === 'string' && id)
   }
 
   const success = await submitForm(
@@ -176,7 +140,7 @@ const handleCancel = () => {
         <!-- 合作項目選擇器 -->
         <BaseFormField label="合作項目" name="collaboration_items">
           <CollaborationItemsSelector
-            v-model="formData.collaboration_items"
+            v-model="(formData as any).collaboration_items"
             class="w-full"
           />
         </BaseFormField>

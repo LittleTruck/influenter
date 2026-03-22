@@ -4,20 +4,24 @@ import { formatAmount } from '~/utils/formatters'
 
 interface Props {
   item: CollaborationItem
-  level?: number
   selectedIds: string[]
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  level: 0
-})
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'toggle': [id: string]
 }>()
 
 const isSelected = computed(() => props.selectedIds.includes(props.item.id))
-const hasChildren = computed(() => props.item.children && props.item.children.length > 0)
+
+// 取得 bundle 內含項目名稱
+const bundleItemNames = computed(() => {
+  if (props.item.type !== 'bundle' || !props.item.bundle_items) return []
+  return props.item.bundle_items
+    .sort((a, b) => a.order - b.order)
+    .map(ref => ref.item?.title || '未知項目')
+})
 
 const handleToggle = () => {
   emit('toggle', props.item.id)
@@ -31,7 +35,6 @@ const handleToggle = () => {
         'flex items-center gap-2 p-2 rounded hover:bg-subtle cursor-pointer',
         isSelected && 'bg-primary-50 dark:bg-primary-900/20'
       ]"
-      :style="{ paddingLeft: `${level * 1.5 + 0.5}rem` }"
       @click="handleToggle"
     >
       <input
@@ -40,21 +43,27 @@ const handleToggle = () => {
         class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         @click.stop="handleToggle"
       />
-      <span class="flex-1 text-sm text-highlighted">
-        {{ item.title }}
-      </span>
-      <span class="text-xs text-muted">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-highlighted truncate">
+            {{ item.title }}
+          </span>
+          <span
+            v-if="item.type === 'bundle'"
+            class="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded flex-shrink-0"
+          >
+            組合
+          </span>
+        </div>
+        <!-- Bundle 內含項目名稱 -->
+        <p v-if="bundleItemNames.length > 0" class="text-xs text-muted mt-0.5 truncate">
+          包含：{{ bundleItemNames.join('、') }}
+        </p>
+      </div>
+      <span class="text-xs text-muted flex-shrink-0">
         {{ formatAmount(item.price) }}
       </span>
     </div>
-    <CollaborationItemOption
-      v-for="child in item.children"
-      :key="child.id"
-      :item="child"
-      :level="level + 1"
-      :selected-ids="selectedIds"
-      @toggle="$emit('toggle', $event)"
-    />
   </div>
 </template>
 
@@ -63,8 +72,3 @@ const handleToggle = () => {
   transition: background-color 0.2s;
 }
 </style>
-
-
-
-
-

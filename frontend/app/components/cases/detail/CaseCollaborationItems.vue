@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type { CaseDetail } from '~/types/cases'
 import type { CollaborationItem } from '~/types/collaborationItems'
-import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useCases } from '~/composables/useCases'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
 import { BaseButton, BaseIcon } from '~/components/base'
 import CollaborationItemsEditor from '~/components/cases/fields/CollaborationItemsEditor.vue'
 import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
-import BaseCollapsible from '~/components/base/BaseCollapsible.vue'
 
 interface Props {
   /** 案件詳情 */
@@ -27,7 +25,6 @@ const emit = defineEmits<{
 
 const { updateCase } = useCases()
 const { handleError, handleSuccess } = useErrorHandler()
-const { flatItems, buildTree } = useCollaborationItems()
 
 // 編輯模式
 const isEditing = ref(false)
@@ -35,12 +32,10 @@ const isEditing = ref(false)
 // 處理更新
 const handleUpdate = async (items: Array<{ id?: string; title: string; description?: string; price: number }>) => {
   try {
-    // 將項目轉換為 ID 列表（自訂項目使用臨時 ID）
     const itemIds = items.map(item => item.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
-    
+
     await updateCase(props.case.id, {
       collaboration_items: itemIds,
-      // 同時保存自訂項目的完整資訊（用於顯示）
       collaboration_items_custom: items.filter(item => !item.id || item.id.startsWith('custom_')).map(item => ({
         id: item.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title: item.title,
@@ -48,7 +43,7 @@ const handleUpdate = async (items: Array<{ id?: string; title: string; descripti
         price: item.price
       }))
     } as any)
-    
+
     handleSuccess('合作項目已更新')
     isEditing.value = false
     emit('update')
@@ -57,77 +52,31 @@ const handleUpdate = async (items: Array<{ id?: string; title: string; descripti
   }
 }
 
-// 取得選中的項目（優先使用 detail 資料）
+// 從 case_collaboration_items 多對多關聯取得選中的項目
 const selectedItems = computed(() => {
-  // 優先使用後端回傳的完整 detail 資料
-  const detail = props.case.collaboration_items_detail
-  if (detail && detail.length > 0) {
-    return detail as Array<CollaborationItem & { isCustom?: boolean }>
+  const cciList = props.case.case_collaboration_items
+  if (!cciList || cciList.length === 0) {
+    return [] as CollaborationItem[]
   }
 
-  // Fallback: 透過 ID 逐一查找
-  if (!props.case.collaboration_items || props.case.collaboration_items.length === 0) {
-    return []
-  }
-
-  const items: Array<CollaborationItem & { isCustom?: boolean }> = []
-
-  props.case.collaboration_items.forEach(id => {
-    // 檢查是否為自訂項目
-    const customItems = (props.case as any).collaboration_items_custom || []
-    const customItem = customItems.find((item: any) => item.id === id)
-
-    if (customItem) {
-      items.push({
-        ...customItem,
-        isCustom: true,
-        parent_id: null,
-        order: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      } as CollaborationItem & { isCustom?: boolean })
-    } else {
-      // 從預設列表查找
-      const item = flatItems.value.find(i => i.id === id)
-      if (item) {
-        items.push(item)
-      }
-    }
-  })
-
-  return items
+  return cciList
+    .sort((a, b) => a.order - b.order)
+    .map(cci => cci.collaboration_item)
+    .filter((item): item is CollaborationItem => !!item)
 })
 
-// 構建樹形結構
-const treeItems = computed(() => {
-  return buildTree(selectedItems.value)
-})
-
-// 計算總價（遞歸計算所有項目）
-const calculateTotalPrice = (items: Array<CollaborationItem & { isCustom?: boolean; children?: any[] }>): number => {
-  return items.reduce((sum, item) => {
-    const itemPrice = item.price || 0
-    const childrenPrice = item.children ? calculateTotalPrice(item.children) : 0
-    return sum + itemPrice + childrenPrice
-  }, 0)
-}
-
+// 計算總價（扁平列表簡單加總）
 const totalPrice = computed(() => {
-  return calculateTotalPrice(treeItems.value)
+  return selectedItems.value.reduce((sum, item) => sum + (item.price || 0), 0)
 })
 
-// 展開/收起的狀態
-const expandedItems = ref<string[]>([])
-
-const toggleItem = (itemId: string) => {
-  const index = expandedItems.value.indexOf(itemId)
-  if (index > -1) {
-    expandedItems.value.splice(index, 1)
-  } else {
-    expandedItems.value.push(itemId)
-  }
+// 取得 bundle 內含項目名稱
+const getBundleItemNames = (item: CollaborationItem): string[] => {
+  if (item.type !== 'bundle' || !item.bundle_items) return []
+  return item.bundle_items
+    .sort((a, b) => a.order - b.order)
+    .map(ref => ref.item?.title || '未知項目')
 }
-
 </script>
 
 <template>
@@ -149,95 +98,47 @@ const toggleItem = (itemId: string) => {
 
     <div class="case-collaboration-items">
       <div v-if="!isEditing" class="space-y-1">
-        <div v-if="treeItems.length === 0" class="text-center py-6 text-muted">
+        <div v-if="selectedItems.length === 0" class="text-center py-6 text-muted">
           <BaseIcon name="i-lucide-package" class="w-8 h-8 mx-auto mb-2 opacity-40" />
           <p class="text-sm mb-0.5">尚未選擇合作項目</p>
           <p class="text-xs text-dimmed">點擊「編輯」新增合作項目</p>
         </div>
-        
-        <!-- 遞歸渲染項目樹 -->
-        <template v-for="item in treeItems" :key="item.id">
-          <div class="collaboration-item">
-            <div
-              class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
-            >
-              <div class="flex items-center gap-2 min-w-0 flex-1">
-                <!-- 展開/收起按鈕 -->
-                <BaseIcon
-                  v-if="item.children && item.children.length > 0"
-                  :name="expandedItems.includes(item.id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="w-4 h-4 text-dimmed cursor-pointer flex-shrink-0"
-                  @click="toggleItem(item.id)"
-                />
-                <div v-else class="w-4 flex-shrink-0" />
-                
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-highlighted truncate">
-                      {{ item.title }}
-                    </h4>
-                    <span
-                      v-if="item.isCustom"
-                      class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded flex-shrink-0"
-                    >
-                      自訂
-                    </span>
-                  </div>
-                  <p v-if="item.description" class="text-sm text-muted mt-0.5 truncate">
-                    {{ item.description }}
-                  </p>
+
+        <!-- 扁平渲染項目列表 -->
+        <template v-for="item in selectedItems" :key="item.id">
+          <div
+            class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
+          >
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <h4 class="font-medium text-highlighted truncate">
+                    {{ item.title }}
+                  </h4>
+                  <span
+                    v-if="item.type === 'bundle'"
+                    class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded flex-shrink-0"
+                  >
+                    組合
+                  </span>
                 </div>
+                <p v-if="item.description" class="text-sm text-muted mt-0.5 truncate">
+                  {{ item.description }}
+                </p>
+                <!-- Bundle 內含項目 -->
+                <p v-if="getBundleItemNames(item).length > 0" class="text-xs text-muted mt-0.5">
+                  包含：{{ getBundleItemNames(item).join('、') }}
+                </p>
               </div>
-              <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0 whitespace-nowrap">
-                {{ formatAmount(item.price || 0) }}
-              </span>
             </div>
-            
-            <!-- 子項目 -->
-            <BaseCollapsible
-              v-if="item.children && item.children.length > 0"
-              :open="expandedItems.includes(item.id)"
-              @update:open="() => toggleItem(item.id)"
-              :ui="{ content: 'pb-0 pl-6' }"
-            >
-              <template #content>
-                <div class="space-y-1">
-                  <template v-for="child in item.children" :key="child.id">
-                    <div
-                      class="flex items-center justify-between gap-4 py-2 px-3 rounded-lg hover:bg-subtle transition-colors"
-                    >
-                      <div class="flex items-center gap-2 min-w-0 flex-1">
-                        <div class="w-4 flex-shrink-0" />
-                        <div class="min-w-0 flex-1">
-                          <div class="flex items-center gap-2">
-                            <h4 class="font-medium text-highlighted truncate">
-                              {{ child.title }}
-                            </h4>
-                            <span
-                              v-if="child.isCustom"
-                              class="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded flex-shrink-0"
-                            >
-                              自訂
-                            </span>
-                          </div>
-                          <p v-if="child.description" class="text-sm text-muted mt-0.5 truncate">
-                            {{ child.description }}
-                          </p>
-                        </div>
-                      </div>
-                      <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0 whitespace-nowrap">
-                        {{ formatAmount(child.price || 0) }}
-                      </span>
-                    </div>
-                  </template>
-                </div>
-              </template>
-            </BaseCollapsible>
+            <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 ml-4 flex-shrink-0 whitespace-nowrap">
+              {{ formatAmount(item.price || 0) }}
+            </span>
           </div>
         </template>
-        
+
         <!-- 總價顯示 -->
-        <div v-if="treeItems.length > 0" class="mt-4 pt-4 border-t border-default">
+        <div v-if="selectedItems.length > 0" class="mt-4 pt-4 border-t border-default">
           <div class="flex items-center justify-between">
             <span class="text-base font-semibold text-highlighted">
               總價

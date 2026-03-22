@@ -1,11 +1,15 @@
 // 案件相關的型別定義
-import type { FieldValue } from '~/types/fields'
 import type { CollaborationItem } from '~/types/collaborationItems'
 
 /**
  * 案件狀態枚舉
  */
 export type CaseStatus = 'to_confirm' | 'in_progress' | 'completed' | 'cancelled' | 'other'
+
+/**
+ * 流程排列模式
+ */
+export type FlowLayout = 'parallel' | 'sequential'
 
 /**
  * 視圖類型
@@ -18,6 +22,18 @@ export type ViewType = 'board' | 'list'
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
 
 /**
+ * 案件合作項目關聯（多對多）
+ */
+export interface CaseCollaborationItem {
+  id: string
+  case_id: string
+  collaboration_item_id: string
+  order: number
+  collaboration_item?: CollaborationItem // 解析後的完整資訊
+  created_at: string
+}
+
+/**
  * 案件基本資訊
  */
 export interface Case {
@@ -26,6 +42,7 @@ export interface Case {
   brand_name: string
   collaboration_type?: string
   status: CaseStatus
+  flow_layout: FlowLayout
   quoted_amount?: number
   final_amount?: number
   currency?: string
@@ -36,8 +53,8 @@ export interface Case {
   email_count?: number
   task_count?: number
   completed_task_count?: number
-  collaboration_items?: string[] // 選中的合作項目 ID 列表
-  phases?: CasePhase[] // 案件階段列表（列表 API 也會回傳）
+  case_collaboration_items?: CaseCollaborationItem[] // 多對多關聯
+  phases?: CasePhase[] // 案件階段列表
   created_at: string
   updated_at: string
 }
@@ -57,9 +74,6 @@ export interface CaseDetail extends Case {
   emails?: CaseEmail[]
   tasks?: Task[]
   updates?: CaseUpdate[]
-  collaboration_items_detail?: CollaborationItem[] // 完整的合作項目資訊
-  collaboration_items_total?: number // 總價
-  collaboration_items_custom?: Array<{ id: string; title: string; description?: string; price: number }> // 自訂合作項目
   phases?: CasePhase[] // 案件階段列表
   start_date?: string // 案件開始日期
 }
@@ -150,6 +164,7 @@ export interface CreateCaseRequest {
   notes?: string
   tags?: string[]
   collaboration_items?: string[] // 選中的合作項目 ID 列表
+  flow_layout?: FlowLayout
   custom_fields?: Record<string, any>
 }
 
@@ -170,7 +185,7 @@ export interface UpdateCaseRequest {
   contact_phone?: string
   notes?: string
   tags?: string[]
-  collaboration_items?: string[] // 選中的合作項目 ID 列表
+  flow_layout?: FlowLayout
   custom_fields?: Record<string, any>
 }
 
@@ -227,7 +242,8 @@ export interface CasePhase {
   end_date: string
   duration_days: number
   order: number
-  collaboration_item_phase_id?: string // 來源階段（如果有）
+  workflow_phase_id?: string // 來源流程階段
+  collaboration_item_id?: string // 屬於哪個合作項目
   created_at: string
   updated_at: string
 }
@@ -240,7 +256,7 @@ export interface CreateCasePhaseRequest {
   start_date: string
   duration_days: number
   order?: number
-  collaboration_item_phase_id?: string
+  collaboration_item_id?: string
 }
 
 /**
@@ -261,4 +277,3 @@ export interface ApplyTemplateRequest {
   workflow_id: string
   start_date: string
 }
-

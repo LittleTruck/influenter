@@ -19,23 +19,13 @@ export const useCollaborationItems = () => {
     updateItem: itemsStore.updateItem,
     deleteItem: itemsStore.deleteItem,
     reorderItems: itemsStore.reorderItems,
-    moveItem: itemsStore.moveItem,
     findItemById: itemsStore.findItemById,
-    getAllChildrenIds: itemsStore.getAllChildrenIds,
 
     // Computed 值
     items: computed(() => itemsStore.items),
-    flatItems: computed(() => itemsStore.flatItems),
+    individualItems: computed(() => itemsStore.individualItems),
+    bundleItems: computed(() => itemsStore.bundleItems),
     loading: computed(() => itemsStore.loading),
     error: computed(() => itemsStore.error),
-
-    // 工具方法
-    buildTree: itemsStore.buildTree,
-    flattenTree: itemsStore.flattenTree
   }
 }
-
-
-
-
-

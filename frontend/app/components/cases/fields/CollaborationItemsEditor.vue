@@ -25,7 +25,7 @@ const emit = defineEmits<{
   'cancel': []
 }>()
 
-const { items: presetItems, flatItems, fetchItems } = useCollaborationItems()
+const { items: presetItems, individualItems, bundleItems, fetchItems, findItemById } = useCollaborationItems()
 
 // 載入預設項目列表
 onMounted(async () => {
@@ -52,11 +52,9 @@ watch(() => props.items, (newItems) => {
 const togglePresetItem = (itemId: string) => {
   const index = selectedItems.value.findIndex(item => item.id === itemId && !item.isCustom)
   if (index > -1) {
-    // 取消選中
     selectedItems.value = selectedItems.value.filter((_, i) => i !== index)
   } else {
-    // 選中預設項目
-    const item = flatItems.value.find(i => i.id === itemId)
+    const item = findItemById(itemId)
     if (item) {
       selectedItems.value.push({
         id: item.id,
@@ -81,13 +79,12 @@ const handleAddCustom = () => {
   if (!customItem.value.title || customItem.value.price < 0) {
     return
   }
-  
+
   selectedItems.value.push({
     ...customItem.value,
     isCustom: true
   })
-  
-  // 重置表單
+
   customItem.value = {
     title: '',
     description: '',
@@ -116,19 +113,17 @@ const handleSaveCustom = () => {
   if (!customItem.value.title || customItem.value.price < 0) {
     return
   }
-  
+
   if (editingIndex.value !== null) {
-    // 更新現有項目
     selectedItems.value[editingIndex.value] = {
       ...customItem.value,
       isCustom: true
     }
     editingIndex.value = null
   } else {
-    // 新增項目
     handleAddCustom()
   }
-  
+
   customItem.value = {
     title: '',
     description: '',
@@ -164,14 +159,30 @@ const handleCancel = () => {
         <div v-if="presetItems.length === 0" class="text-sm text-muted p-4 text-center">
           還沒有常用項目
         </div>
-        <CollaborationItemOption
-          v-for="item in presetItems"
-          :key="item.id"
-          :item="item"
-          :level="0"
-          :selected-ids="selectedItems.filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
-          @toggle="togglePresetItem"
-        />
+        <template v-else>
+          <!-- 單項 -->
+          <div v-if="individualItems.length > 0">
+            <div class="text-xs font-semibold text-dimmed px-2 py-1">單項</div>
+            <CollaborationItemOption
+              v-for="item in individualItems"
+              :key="item.id"
+              :item="item"
+              :selected-ids="selectedItems.filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
+              @toggle="togglePresetItem"
+            />
+          </div>
+          <!-- 組合 -->
+          <div v-if="bundleItems.length > 0">
+            <div class="text-xs font-semibold text-dimmed px-2 py-1 mt-2">組合</div>
+            <CollaborationItemOption
+              v-for="item in bundleItems"
+              :key="item.id"
+              :item="item"
+              :selected-ids="selectedItems.filter(i => !i.isCustom).map(i => i.id!).filter(Boolean)"
+              @toggle="togglePresetItem"
+            />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -190,11 +201,11 @@ const handleCancel = () => {
           新增自訂項目
         </BaseButton>
       </div>
-      
+
       <div v-if="selectedItems.filter(i => i.isCustom).length === 0" class="text-sm text-muted p-4 text-center border border-default rounded-lg">
         尚未添加自訂項目
       </div>
-      
+
       <div v-else class="space-y-2">
         <div
           v-for="(item, index) in selectedItems.filter(i => i.isCustom)"
@@ -293,7 +304,3 @@ const handleCancel = () => {
     </div>
   </div>
 </template>
-
-
-
-

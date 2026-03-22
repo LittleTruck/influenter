@@ -42,13 +42,15 @@ type Case struct {
 
 	Notes              *string         `gorm:"type:text" json:"notes,omitempty"`
 	Tags               pq.StringArray  `gorm:"type:text[]" json:"tags,omitempty"`
-	CollaborationItems pq.StringArray  `gorm:"column:collaboration_items;type:text[]" json:"collaboration_items,omitempty"`
+	CollaborationItems pq.StringArray  `gorm:"column:collaboration_items;type:text[]" json:"-"` // Deprecated: use CaseCollaborationItems
+	FlowLayout         string          `gorm:"column:flow_layout;type:varchar(20);not null;default:'parallel'" json:"flow_layout"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
-	User User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	User                     User                    `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	CaseCollaborationItems   []CaseCollaborationItem `gorm:"foreignKey:CaseID" json:"case_collaboration_items,omitempty"`
 }
 
 // TableName 指定表名

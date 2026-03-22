@@ -24,12 +24,19 @@ func (s *Service) MatchCollaborationItems(ctx context.Context, req MatchCollabor
 	systemPrompt := `你是一位協助創作者管理合作案件的 AI 助手。
 你的任務是分析郵件內容，並從使用者的合作項目清單中找出最可能相關的項目。
 
+項目有兩種類型：
+- individual（單項）：如影片、文章、Reels 等獨立項目
+- bundle（組合）：包含多個 individual 項目的組合套餐，通常有優惠價格
+
 規則：
 - 根據郵件中提到的合作類型、內容形式（影片、圖文、限時動態等）來比對
 - 如果郵件明確提到某種合作形式，選擇最匹配的項目
+- 如果郵件提到的合作內容恰好匹配某個 bundle 包含的所有項目，優先回傳該 bundle 的 ID
+- 如果只匹配 bundle 中的部分項目，回傳對應的 individual 項目 ID
+- 不要同時回傳 bundle ID 和該 bundle 內所有 individual 項目的 ID（避免重複）
 - 如果不確定，可以回傳空的匹配結果
 - confidence 範圍 0-1，0.5 以上才算有效匹配
-- 可以匹配多個項目（例如郵件提到影片+圖文）`
+- 可以匹配多個項目`
 
 	userPrompt := fmt.Sprintf(`## 郵件資訊
 - 寄件者：%s

@@ -3,6 +3,11 @@
  */
 
 /**
+ * 合作項目類型
+ */
+export type CollaborationItemType = 'individual' | 'bundle'
+
+/**
  * 流程範本（Workflow Template）
  */
 export interface WorkflowTemplate {
@@ -24,13 +29,24 @@ export interface CollaborationItem {
   title: string
   description?: string
   price: number
-  parent_id?: string | null // 父項目 ID，null 表示頂層項目
-  workflow_id?: string | null // 流程範本 ID，null 表示未設定
-  order: number // 同一層級內的排序順序
-  children?: CollaborationItem[] // 子項目（用於前端展示）
+  type: CollaborationItemType // 'individual' 或 'bundle'
+  bundle_items?: BundleItemRef[] // 僅 bundle 類型有值
+  workflow_id?: string | null // 僅 individual 類型可設定流程範本
+  order: number // 排序順序
   workflow?: WorkflowTemplate // 流程範本（用於前端展示）
   created_at: string
   updated_at: string
+}
+
+/**
+ * 組合項目內含單項的關聯
+ */
+export interface BundleItemRef {
+  id: string
+  bundle_id: string
+  item_id: string
+  order: number
+  item?: CollaborationItem // 解析後的單項資訊
 }
 
 /**
@@ -40,8 +56,9 @@ export interface CreateCollaborationItemRequest {
   title: string
   description?: string
   price: number
-  parent_id?: string | null
-  workflow_id?: string | null
+  type: CollaborationItemType
+  bundle_item_ids?: string[] // 僅 bundle 類型：包含的 individual 項目 ID
+  workflow_id?: string | null // 僅 individual 類型
 }
 
 /**
@@ -51,16 +68,15 @@ export interface UpdateCollaborationItemRequest {
   title?: string
   description?: string
   price?: number
-  parent_id?: string | null
-  workflow_id?: string | null
+  bundle_item_ids?: string[] // 僅 bundle 類型
+  workflow_id?: string | null // 僅 individual 類型
 }
 
 /**
  * 重新排序請求
  */
 export interface ReorderItemsRequest {
-  item_ids: string[] // 同一層級內的項目 ID 順序
-  parent_id?: string | null // 要排序的層級
+  item_ids: string[] // 項目 ID 順序
 }
 
 /**
@@ -120,7 +136,3 @@ export interface UpdateWorkflowTemplateRequest {
   description?: string
   color?: string
 }
-
-
-
-

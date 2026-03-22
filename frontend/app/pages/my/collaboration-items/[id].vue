@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CollaborationItem, CollaborationItemPhase, CreateCollaborationItemPhaseRequest, UpdateCollaborationItemPhaseRequest } from '~/types/collaborationItems'
+import type { CollaborationItemPhase, CreateCollaborationItemPhaseRequest, UpdateCollaborationItemPhaseRequest } from '~/types/collaborationItems'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
 import { useErrorHandler } from '~/composables/useErrorHandler'
 import { BaseButton } from '~/components/base'
@@ -16,7 +16,7 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
-const { items, fetchItems } = useCollaborationItems()
+const { fetchItems, findItemById } = useCollaborationItems()
 const { handleError, handleSuccess } = useErrorHandler()
 
 const itemId = computed(() => route.params.id as string)
@@ -26,21 +26,7 @@ const phases = ref<CollaborationItemPhase[]>([])
 const loadingPhases = ref(false)
 
 // 當前合作項目
-const currentItem = computed(() => {
-  const flatten = (items: CollaborationItem[]): CollaborationItem[] => {
-    const result: CollaborationItem[] = []
-    items.forEach(item => {
-      if (item.id === itemId.value) {
-        result.push(item)
-      }
-      if (item.children && item.children.length > 0) {
-        result.push(...flatten(item.children))
-      }
-    })
-    return result
-  }
-  return flatten(items.value)[0]
-})
+const currentItem = computed(() => findItemById(itemId.value))
 
 // 表單狀態
 const showPhaseForm = ref(false)

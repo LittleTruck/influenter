@@ -35,10 +35,10 @@ export const generateMockWorkflowTemplates = (count: number = 3): WorkflowTempla
     const workflowId = `mock_workflow_${Date.now()}_${index}`
     return {
       id: workflowId,
-      name: mockWorkflowNames[index],
+      name: mockWorkflowNames[index]!,
       description: `${mockWorkflowNames[index]} 的預設流程`,
-      color: WORKFLOW_COLORS[index % WORKFLOW_COLORS.length].value,
-      phases: mockPhasesData[index].map((phase, phaseIndex) => ({
+      color: WORKFLOW_COLORS[index % WORKFLOW_COLORS.length]!.value,
+      phases: mockPhasesData[index]!.map((phase, phaseIndex) => ({
         id: `mock_phase_${workflowId}_${phaseIndex}`,
         workflow_template_id: workflowId,
         name: phase.name,
@@ -63,8 +63,8 @@ export const generateMockPhases = (workflowTemplateId: string, count: number = 3
   return Array.from({ length: Math.min(count, mockPhaseNames.length) }, (_, index) => ({
     id: `mock_phase_${Date.now()}_${index}`,
     workflow_template_id: workflowTemplateId,
-    name: mockPhaseNames[index],
-    duration_days: mockDurations[index] || 1,
+    name: mockPhaseNames[index]!,
+    duration_days: mockDurations[index] ?? 1,
     order: index,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -79,10 +79,10 @@ export const generateMockCollaborationItems = (workflowTemplates: WorkflowTempla
   
   return Array.from({ length: Math.min(count, mockTitles.length) }, (_, index) => ({
     id: `mock_item_${Date.now()}_${index}`,
-    title: mockTitles[index],
+    title: mockTitles[index]!,
     description: `這是 ${mockTitles[index]} 的範本`,
     price: (index + 1) * 1000,
-    parent_id: null,
+    type: 'individual' as const,
     workflow_id: workflowTemplates[index % workflowTemplates.length]?.id || null,
     workflow: workflowTemplates[index % workflowTemplates.length] || undefined,
     order: index,
