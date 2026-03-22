@@ -1053,16 +1053,12 @@ func (h *CaseHandler) ClearCasePhases(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "所有流程階段已清空", "deleted_count": result.RowsAffected})
 }
 
-// AutoApplyTemplate AI 自動選擇並套用流程範本
+// AutoApplyTemplate 根據案件關聯的合作項目自動套用流程範本
+// 每個 individual 合作項目如果綁定了 workflow，就建立對應的流程階段
 func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 	logger := middleware.GetLogger(c)
 	userID := c.GetString("user_id")
 	caseID := c.Param("id")
-
-	if h.openaiService == nil {
-		c.JSON(http.StatusServiceUnavailable, ErrorResponse{Error: "openai_unavailable", Message: "AI 服務未設定"})
-		return
-	}
 
 	caseUUID, err := uuid.Parse(caseID)
 	if err != nil {
@@ -1070,7 +1066,6 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 		return
 	}
 
-	// 取得案件
 	var cs models.Case
 	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -1082,160 +1077,118 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 		return
 	}
 
-	// 取得使用者所有流程範本（含 phases）
-	var templates []models.WorkflowTemplate
-	if err := h.db.Where("user_id = ?", userID).
-		Preload("Phases", func(db *gorm.DB) *gorm.DB {
+	// 取得案件關聯的合作項目（含 workflow）
+	var cciList []models.CaseCollaborationItem
+	if err := h.db.Where("case_id = ?", caseUUID).
+		Preload("CollaborationItem").
+		Preload("CollaborationItem.Workflow").
+		Preload("CollaborationItem.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
 			return db.Order(`"order" ASC`)
 		}).
-		Find(&templates).Error; err != nil {
-		logger.Error().Err(err).Msg("Failed to fetch workflow templates")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch workflow templates"})
+		Preload("CollaborationItem.BundleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Preload("CollaborationItem.BundleItems.Item").
+		Preload("CollaborationItem.BundleItems.Item.Workflow").
+		Preload("CollaborationItem.BundleItems.Item.Workflow.Phases", func(db *gorm.DB) *gorm.DB {
+			return db.Order(`"order" ASC`)
+		}).
+		Order(`"order" ASC`).
+		Find(&cciList).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to fetch case collaboration items")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch collaboration items"})
 		return
 	}
 
-	if len(templates) == 0 {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no_templates", Message: "尚未建立任何流程範本，請先到設定頁建立"})
-		return
-	}
-
-	// 取得案件相關最新郵件（用於 AI 分析）
-	emailSubject := ""
-	emailBody := ""
-	var latestEmail models.Email
-	err = h.db.Joins("JOIN oauth_accounts ON oauth_accounts.id = emails.oauth_account_id").
-		Where("emails.case_id = ? AND oauth_accounts.user_id = ?", caseUUID, userID).
-		Order("emails.received_at DESC").
-		First(&latestEmail).Error
-	if err == nil {
-		if latestEmail.Subject != nil {
-			emailSubject = *latestEmail.Subject
-		}
-		if latestEmail.BodyText != nil {
-			emailBody = *latestEmail.BodyText
-		} else if latestEmail.Snippet != nil {
-			emailBody = *latestEmail.Snippet
-		}
-	}
-
-	// 組裝 AI 請求
-	templateInfos := make([]openai.WorkflowTemplateInfo, 0, len(templates))
-	for _, t := range templates {
-		phaseNames := make([]string, 0, len(t.Phases))
-		for _, p := range t.Phases {
-			phaseNames = append(phaseNames, p.Name)
-		}
-		desc := ""
-		if t.Description != nil {
-			desc = *t.Description
-		}
-		templateInfos = append(templateInfos, openai.WorkflowTemplateInfo{
-			ID:          t.ID.String(),
-			Name:        t.Name,
-			Description: desc,
-			Phases:      phaseNames,
-		})
-	}
-
-	caseDesc := ""
-	if cs.Description != nil {
-		caseDesc = *cs.Description
-	}
-
-	matchReq := openai.MatchWorkflowTemplateRequest{
-		CaseTitle:       cs.Title,
-		CaseBrandName:   cs.BrandName,
-		CaseDescription: caseDesc,
-		EmailSubject:    emailSubject,
-		EmailBody:       emailBody,
-		Templates:       templateInfos,
-	}
-
-	matchResult, err := h.openaiService.MatchWorkflowTemplate(c.Request.Context(), matchReq)
-	if err != nil {
-		logger.Error().Err(err).Msg("AI workflow template matching failed")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "ai_error", Message: "AI 分析失敗，請稍後再試"})
-		return
-	}
-
-	if matchResult.Confidence < 0.3 || matchResult.TemplateID == "" {
+	if len(cciList) == 0 {
 		c.JSON(http.StatusOK, gin.H{
-			"matched":    false,
-			"confidence": matchResult.Confidence,
-			"reason":     matchResult.Reason,
-			"message":    "AI 無法判斷適合的流程範本",
+			"matched": false,
+			"reason":  "案件尚未關聯任何合作項目，請先新增合作項目",
+			"message": "案件尚未關聯任何合作項目",
 		})
 		return
 	}
 
-	// 找到匹配的範本
-	var matchedTmpl *models.WorkflowTemplate
-	for i := range templates {
-		if templates[i].ID.String() == matchResult.TemplateID {
-			matchedTmpl = &templates[i]
-			break
-		}
-	}
-
-	if matchedTmpl == nil || len(matchedTmpl.Phases) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"matched":    false,
-			"confidence": matchResult.Confidence,
-			"reason":     "匹配到的範本不存在或沒有階段",
-		})
-		return
-	}
-
-	// 套用：刪除舊階段，建立新階段
+	// 清除舊的流程階段
 	tx := h.db.Begin()
-
 	if err := tx.Where("case_id = ?", caseUUID).Delete(&models.CasePhase{}).Error; err != nil {
 		tx.Rollback()
 		logger.Error().Err(err).Msg("Failed to delete existing case phases")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to auto-apply template"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to clear phases"})
 		return
 	}
 
-	startDate := time.Now().Truncate(24 * time.Hour)
-	currentDate := startDate
-	var createdPhases []models.CasePhase
+	// 根據每個合作項目的 workflow 建立流程階段
+	appliedItems := []string{}
+	skippedItems := []string{}
+	totalPhases := 0
 
-	for i, wp := range matchedTmpl.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
-		wpID := wp.ID
-		phase := models.CasePhase{
-			CaseID:          caseUUID,
-			Name:            wp.Name,
-			StartDate:       &currentDate,
-			EndDate:         &endDate,
-			DurationDays:    wp.DurationDays,
-			Order:           i,
-			WorkflowPhaseID: &wpID,
+	for _, cci := range cciList {
+		item := cci.CollaborationItem
+		if item.Type == models.CollaborationItemTypeBundle {
+			// Bundle：為每個內含的 individual 項目套用流程
+			for _, bi := range item.BundleItems {
+				if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
+					h.createPhasesFromWorkflow(tx, caseUUID, bi.ItemID, bi.Item.Workflow)
+					appliedItems = append(appliedItems, bi.Item.Title)
+					totalPhases += len(bi.Item.Workflow.Phases)
+				} else {
+					skippedItems = append(skippedItems, bi.Item.Title)
+				}
+			}
+		} else {
+			// Individual：直接套用
+			if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
+				h.createPhasesFromWorkflow(tx, caseUUID, item.ID, item.Workflow)
+				appliedItems = append(appliedItems, item.Title)
+				totalPhases += len(item.Workflow.Phases)
+			} else {
+				skippedItems = append(skippedItems, item.Title)
+			}
 		}
-		if err := tx.Create(&phase).Error; err != nil {
-			tx.Rollback()
-			logger.Error().Err(err).Msg("Failed to create case phase")
-			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to auto-apply template"})
-			return
-		}
-		createdPhases = append(createdPhases, phase)
-		currentDate = endDate
 	}
 
 	tx.Commit()
 
-	data := make([]CasePhaseResponse, 0, len(createdPhases))
-	for _, p := range createdPhases {
+	if totalPhases == 0 {
+		reason := "關聯的合作項目都沒有設定流程範本，請先到設定頁為項目綁定流程"
+		c.JSON(http.StatusOK, gin.H{
+			"matched":       false,
+			"reason":        reason,
+			"message":       reason,
+			"skipped_items": skippedItems,
+		})
+		return
+	}
+
+	// 根據 flow_layout 計算日期
+	startDate := time.Now().Truncate(24 * time.Hour)
+	if cs.FlowLayout == "parallel" {
+		h.recalculateParallelDates(caseUUID, startDate)
+	} else {
+		h.recalculateSequentialDates(caseUUID)
+	}
+
+	// 回傳更新後的階段
+	var phases []models.CasePhase
+	h.db.Where("case_id = ?", caseUUID).Order(`"order" ASC`).Find(&phases)
+
+	data := make([]CasePhaseResponse, 0, len(phases))
+	for _, p := range phases {
 		data = append(data, casePhaseToResponse(&p))
 	}
 
+	msg := fmt.Sprintf("已套用 %d 個項目的流程（共 %d 個階段）", len(appliedItems), totalPhases)
+	if len(skippedItems) > 0 {
+		msg += fmt.Sprintf("，%d 個項目未設定流程範本", len(skippedItems))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"matched":       true,
-		"confidence":    matchResult.Confidence,
-		"reason":        matchResult.Reason,
-		"template_name": matchedTmpl.Name,
-		"data":          data,
-		"message":       fmt.Sprintf("AI 自動套用了「%s」流程（%d 個階段）", matchedTmpl.Name, len(createdPhases)),
+		"matched":        true,
+		"applied_items":  appliedItems,
+		"skipped_items":  skippedItems,
+		"data":           data,
+		"message":        msg,
 	})
 }
 

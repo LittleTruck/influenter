@@ -317,22 +317,31 @@ const autoApplying = ref(false)
 const handleAutoApplyTemplate = async () => {
   autoApplying.value = true
   try {
-    const result = await $fetch<{ matched: boolean; message: string; reason: string; template_name?: string }>(
+    const result = await $fetch<{ matched: boolean; message?: string; reason?: string; skipped_items?: string[] }>(
       `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/auto-apply`,
       { method: 'POST', headers: apiHeaders.value }
     )
     if (result.matched) {
-      handleSuccess(result.message || 'AI 已自動套用流程')
+      handleSuccess(result.message || '已套用流程')
+      // 如果有跳過的項目，提示使用者
+      if (result.skipped_items && result.skipped_items.length > 0) {
+        toast.add({
+          title: '部分項目未設定流程',
+          description: `${result.skipped_items.join('、')} 尚未綁定流程範本`,
+          color: 'warning'
+        })
+      }
+      isFlowSectionExpanded.value = true
       await fetchCase(caseId.value)
     } else {
-      toast.add({ title: 'AI 無法自動套用', description: result.reason || '找不到適合的流程範本', color: 'warning' })
+      toast.add({ title: '無法套用流程', description: result.reason || '找不到可套用的流程', color: 'warning' })
     }
   } catch (error: any) {
     const serverMsg = error?.data?.message || error?.response?._data?.message
     if (serverMsg) {
-      toast.add({ title: 'AI 自動套用失敗', description: serverMsg, color: 'error' })
+      toast.add({ title: '套用失敗', description: serverMsg, color: 'error' })
     } else {
-      handleError(error, 'AI 自動套用失敗')
+      handleError(error, '套用失敗')
     }
   } finally {
     autoApplying.value = false
@@ -715,8 +724,8 @@ const handleViewEmail = (emailId: string) => {
                   </div>
                 </div>
                 <div v-if="isFlowSectionExpanded" class="flex gap-2">
-                  <BaseButton icon="i-lucide-sparkles" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
-                    AI 自動套用
+                  <BaseButton icon="i-lucide-zap" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
+                    自動套用
                   </BaseButton>
                   <BaseButton icon="i-lucide-layout-template" size="sm" variant="outline" @click="showApplyTemplate = true">
                     {{ casePhases.length === 0 ? '手動套用' : '重新套用' }}
@@ -737,8 +746,8 @@ const handleViewEmail = (emailId: string) => {
                 </div>
                 <!-- 收合狀態下的快捷操作 -->
                 <div v-else class="flex gap-2">
-                  <BaseButton icon="i-lucide-sparkles" size="xs" variant="ghost" :loading="autoApplying" @click.stop="handleAutoApplyTemplate">
-                    AI 套用
+                  <BaseButton icon="i-lucide-zap" size="xs" variant="ghost" :loading="autoApplying" @click.stop="handleAutoApplyTemplate">
+                    自動套用
                   </BaseButton>
                   <BaseButton
                     icon="i-lucide-chevron-down"
