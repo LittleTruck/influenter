@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -1877,13 +1878,9 @@ func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.
 	}
 }
 
-// recalculateSequentialDates 重新計算串聯模式日期（按 case_collaboration_items order 順序串接）
+// recalculateSequentialDates 重新計算串聯模式日期（所有階段頭尾相接）
 func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
-	// Get items in order
-	var cciList []models.CaseCollaborationItem
-	h.db.Where("case_id = ?", caseID).Order(`"order" ASC`).Find(&cciList)
-
-	// Find earliest start date
+	// 找出最早的開始日期作為起點
 	startDate := time.Now().Truncate(24 * time.Hour)
 	var firstPhase models.CasePhase
 	if err := h.db.Where("case_id = ? AND start_date IS NOT NULL", caseID).
@@ -1891,30 +1888,53 @@ func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
 		startDate = *firstPhase.StartDate
 	}
 
-	currentDate := startDate
+	// 按 collaboration_item_id 分組，依 case_collaboration_items 順序排列
+	// 先取得合作項目順序
+	var cciList []models.CaseCollaborationItem
+	h.db.Where("case_id = ?", caseID).Order(`"order" ASC`).Find(&cciList)
 
-	for _, cci := range cciList {
-		var phases []models.CasePhase
-		h.db.Where("case_id = ? AND collaboration_item_id = ?", caseID, cci.CollaborationItemID).
-			Order(`"order" ASC`).Find(&phases)
-
-		for i := range phases {
-			p := &phases[i]
-			endDate := currentDate.AddDate(0, 0, p.DurationDays)
-			h.db.Model(p).Updates(map[string]any{
-				"start_date": currentDate,
-				"end_date":   endDate,
-			})
-			currentDate = endDate
+	// 建立 collaboration_item_id → 排序權重 的映射
+	// 也收集 bundle 內含的 individual item IDs
+	itemOrder := map[string]int{}
+	for i, cci := range cciList {
+		itemOrder[cci.CollaborationItemID.String()] = i
+		// 查找 bundle 內含的 items，給予相同排序
+		var bundleItems []models.BundleItem
+		h.db.Where("bundle_id = ?", cci.CollaborationItemID).Order(`"order" ASC`).Find(&bundleItems)
+		for j, bi := range bundleItems {
+			// bundle 內的 items 排在 bundle 之後，用小數模擬（乘 1000 + j）
+			itemOrder[bi.ItemID.String()] = i*1000 + j
 		}
 	}
 
-	// Handle phases without collaboration_item_id
-	var orphanPhases []models.CasePhase
-	h.db.Where("case_id = ? AND collaboration_item_id IS NULL", caseID).
-		Order(`"order" ASC`).Find(&orphanPhases)
-	for i := range orphanPhases {
-		p := &orphanPhases[i]
+	// 取得所有階段，按合作項目順序 + 階段順序排列
+	var allPhases []models.CasePhase
+	h.db.Where("case_id = ?", caseID).Order(`"order" ASC`).Find(&allPhases)
+
+	// 排序：先按合作項目順序，再按階段 order
+	sort.SliceStable(allPhases, func(i, j int) bool {
+		orderI := 999999
+		orderJ := 999999
+		if allPhases[i].CollaborationItemID != nil {
+			if o, ok := itemOrder[allPhases[i].CollaborationItemID.String()]; ok {
+				orderI = o
+			}
+		}
+		if allPhases[j].CollaborationItemID != nil {
+			if o, ok := itemOrder[allPhases[j].CollaborationItemID.String()]; ok {
+				orderJ = o
+			}
+		}
+		if orderI != orderJ {
+			return orderI < orderJ
+		}
+		return allPhases[i].Order < allPhases[j].Order
+	})
+
+	// 串聯：每個階段頭尾相接
+	currentDate := startDate
+	for i := range allPhases {
+		p := &allPhases[i]
 		endDate := currentDate.AddDate(0, 0, p.DurationDays)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
