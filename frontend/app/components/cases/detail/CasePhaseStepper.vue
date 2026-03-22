@@ -9,10 +9,13 @@ interface Props {
   phases: CasePhase[]
   /** 是否可編輯 */
   editable?: boolean
+  /** 階段數字起始值（預設 1） */
+  startIndex?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  editable: false
+  editable: false,
+  startIndex: 1
 })
 
 const emit = defineEmits<{
@@ -99,7 +102,7 @@ const closePopover = () => {
               <BaseIcon name="i-lucide-play" class="w-4 h-4 relative z-10" />
             </template>
             <!-- 待開始：數字 -->
-            <span v-else>{{ index + 1 }}</span>
+            <span v-else>{{ startIndex + index }}</span>
           </button>
 
           <!-- 階段名稱 -->

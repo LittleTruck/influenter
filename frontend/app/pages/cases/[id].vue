@@ -345,9 +345,9 @@ const getItemNameById = (itemId: string | undefined): string | null => {
   return cci?.collaboration_item?.title || null
 }
 
-// 按合作項目分組的流程階段
+// 按合作項目分組的流程階段（含起始編號）
 const phasesGroupedByItem = computed(() => {
-  const groups: Array<{ itemId: string | null; itemName: string; phases: any[] }> = []
+  const groups: Array<{ itemId: string | null; itemName: string; phases: any[]; startIndex: number }> = []
   const phasesByItem = new Map<string, any[]>()
 
   for (const phase of casePhases.value) {
@@ -358,13 +358,19 @@ const phasesGroupedByItem = computed(() => {
     phasesByItem.get(key)!.push(phase)
   }
 
+  const isSequential = currentCase.value?.flow_layout === 'sequential'
+  let runningIndex = 1
+
   for (const [key, phases] of phasesByItem) {
+    const sorted = phases.sort((a: any, b: any) => a.order - b.order)
     const itemName = key === '__none__' ? '未分類' : (getItemNameById(key) || '未知項目')
     groups.push({
       itemId: key === '__none__' ? null : key,
       itemName,
-      phases: phases.sort((a: any, b: any) => a.order - b.order)
+      phases: sorted,
+      startIndex: isSequential ? runningIndex : 1
     })
+    runningIndex += sorted.length
   }
 
   return groups
@@ -730,7 +736,9 @@ const handleViewEmail = (emailId: string) => {
                       <BaseBadge color="primary" variant="subtle" size="xs">
                         {{ group.itemName }}
                       </BaseBadge>
-                      <span class="text-xs text-muted">{{ group.phases.length }} 個階段</span>
+                      <span class="text-xs text-muted">
+                        {{ group.phases.length }} 個階段（{{ group.startIndex }}-{{ group.startIndex + group.phases.length - 1 }}）
+                      </span>
                     </div>
                     <BaseButton
                       icon="i-lucide-plus"
@@ -741,7 +749,7 @@ const handleViewEmail = (emailId: string) => {
                       新增
                     </BaseButton>
                   </div>
-                  <CasePhaseStepper :phases="group.phases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+                  <CasePhaseStepper :phases="group.phases" :start-index="group.startIndex" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
                 </div>
               </template>
               <template v-else>
