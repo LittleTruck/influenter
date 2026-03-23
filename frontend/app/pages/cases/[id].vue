@@ -23,7 +23,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase, addCaseCollaborationItem, removeCaseCollaborationItem, updateFlowLayout } = useCases()
+const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase, addCaseCollaborationItem, removeCaseCollaborationItem } = useCases()
 const { items: allCollaborationItems, individualItems: allIndividualItems, bundleItems: allBundleItems, fetchItems: fetchCollaborationItems } = useCollaborationItems()
 const { allFields, fetchFields } = useCaseFields()
 
@@ -212,28 +212,6 @@ const handleRemoveCollaborationItem = async (itemId: string) => {
     handleSuccess('已移除合作項目')
   } catch (error: any) {
     handleError(error, '移除失敗')
-  }
-}
-
-const pendingFlowLayout = ref<'parallel' | 'sequential' | null>(null)
-const showFlowLayoutConfirm = ref(false)
-
-const handleToggleFlowLayout = (layout: 'parallel' | 'sequential') => {
-  if (currentCase.value?.flow_layout === layout) return
-  pendingFlowLayout.value = layout
-  showFlowLayoutConfirm.value = true
-}
-
-const confirmToggleFlowLayout = async () => {
-  if (!pendingFlowLayout.value) return
-  try {
-    await updateFlowLayout(caseId.value, pendingFlowLayout.value)
-    handleSuccess(pendingFlowLayout.value === 'parallel' ? '已切換為並聯模式' : '已切換為串聯模式')
-  } catch (error: any) {
-    handleError(error, '切換失敗')
-  } finally {
-    showFlowLayoutConfirm.value = false
-    pendingFlowLayout.value = null
   }
 }
 
@@ -669,23 +647,15 @@ const handleViewEmail = (emailId: string) => {
                   <span v-if="!isFlowSectionExpanded && casePhases.length > 0" class="text-xs text-muted">
                     {{ casePhases.length }} 個階段
                   </span>
-                  <!-- 並聯/串聯切換 -->
-                  <div v-if="isFlowSectionExpanded && casePhases.length > 0 && phasesGroupedByItem.length > 1" class="flex items-center gap-1 bg-subtle rounded-lg p-0.5">
-                    <button
-                      class="text-xs px-2 py-1 rounded-md transition-colors"
-                      :class="currentCase?.flow_layout === 'parallel' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
-                      @click.stop="handleToggleFlowLayout('parallel')"
-                    >
-                      並聯
-                    </button>
-                    <button
-                      class="text-xs px-2 py-1 rounded-md transition-colors"
-                      :class="currentCase?.flow_layout === 'sequential' ? 'bg-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted'"
-                      @click.stop="handleToggleFlowLayout('sequential')"
-                    >
-                      串聯
-                    </button>
-                  </div>
+                  <!-- 並聯/串聯標示 -->
+                  <BaseBadge
+                    v-if="isFlowSectionExpanded && casePhases.length > 0"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                  >
+                    {{ currentCase?.flow_layout === 'sequential' ? '串聯' : '並聯' }}
+                  </BaseBadge>
                 </div>
                 <div v-if="isFlowSectionExpanded" class="flex gap-2">
                   <BaseButton icon="i-lucide-zap" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
@@ -780,7 +750,7 @@ const handleViewEmail = (emailId: string) => {
       <ErrorState v-else title="無法載入案件詳情" message="請重新整理頁面或返回列表" />
 
       <!-- Modals & Slideovers -->
-      <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" @saved="handlePhasesSaved" />
+      <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" :flow-layout="currentCase?.flow_layout" @saved="handlePhasesSaved" />
       <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
 
@@ -803,40 +773,6 @@ const handleViewEmail = (emailId: string) => {
               </BaseButton>
               <BaseButton color="error" @click="handleClearPhases">
                 確認清空
-              </BaseButton>
-            </div>
-          </div>
-        </template>
-      </UModal>
-
-      <!-- 切換並聯/串聯確認對話框 -->
-      <UModal v-model:open="showFlowLayoutConfirm">
-        <template #content>
-          <div class="p-6">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                <BaseIcon name="i-lucide-shuffle" class="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold text-highlighted">
-                  確認切換為{{ pendingFlowLayout === 'parallel' ? '並聯' : '串聯' }}模式？
-                </h3>
-                <p class="text-sm text-muted mt-0.5">
-                  <template v-if="pendingFlowLayout === 'parallel'">
-                    所有項目的流程將從同一天開始，各自獨立進行。
-                  </template>
-                  <template v-else>
-                    所有項目的流程將依序串接，前一個完成後才開始下一個。
-                  </template>
-                </p>
-              </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-6">
-              <BaseButton variant="outline" @click="showFlowLayoutConfirm = false; pendingFlowLayout = null">
-                取消
-              </BaseButton>
-              <BaseButton @click="confirmToggleFlowLayout">
-                確認切換
               </BaseButton>
             </div>
           </div>

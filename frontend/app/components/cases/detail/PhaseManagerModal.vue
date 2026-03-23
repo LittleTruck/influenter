@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { CasePhase } from '~/types/cases'
+import type { CasePhase, FlowLayout } from '~/types/cases'
 import draggable from 'vuedraggable'
 import { BaseModal, BaseButton, BaseIcon } from '~/components/base'
-import { format, addDays, parseISO } from 'date-fns'
+import { format, addDays, parseISO, isBefore, isEqual } from 'date-fns'
 
 interface PhaseRow {
   id: string
@@ -23,6 +23,8 @@ interface Props {
   caseId: string
   /** collaboration_item_id → 名稱 的對照表 */
   itemNameMap?: Record<string, string>
+  /** 目前的流程排列模式 */
+  flowLayout?: FlowLayout
 }
 
 const props = withDefaults(defineProps<Props>(), {})
@@ -45,6 +47,28 @@ const apiHeaders = computed(() => ({
 }))
 
 const saving = ref(false)
+
+// 流程排列模式（本地編輯用）
+const localFlowLayout = ref<FlowLayout>('parallel')
+
+// 串聯模式下的日期衝突檢測
+const sequentialConflicts = computed(() => {
+  if (localFlowLayout.value !== 'sequential') return []
+  const conflicts: Array<{ index: number; name: string; prevName: string }> = []
+  const visibleRows = rows.value
+  for (let i = 1; i < visibleRows.length; i++) {
+    const prev = visibleRows[i - 1]!
+    const curr = visibleRows[i]!
+    if (!prev.end_date || !curr.start_date) continue
+    const prevEnd = parseISO(prev.end_date)
+    const currStart = parseISO(curr.start_date)
+    // 衝突：下一個階段的開始日期 <= 上一個階段的結束日期
+    if (isBefore(currStart, prevEnd) || isEqual(currStart, prevEnd)) {
+      conflicts.push({ index: i, name: curr.name || `階段 ${i + 1}`, prevName: prev.name || `階段 ${i}` })
+    }
+  }
+  return conflicts
+})
 
 // 合作項目顏色對照（依出現順序分配不同顏色）
 const itemColorPalette = [
@@ -94,6 +118,7 @@ watch(isOpen, (open) => {
         collaboration_item_id: p.collaboration_item_id
       }))
     deletedRows.value = []
+    localFlowLayout.value = props.flowLayout || 'parallel'
   }
 })
 
@@ -105,6 +130,52 @@ const dragOptions = computed(() => ({
   dragClass: 'drag-dragging',
   handle: '.drag-handle'
 }))
+
+// 並聯模式：按合作項目分組
+interface PhaseGroup {
+  key: string
+  itemId: string | null
+  itemName: string
+  color: (typeof itemColorPalette)[number] | null
+  rows: PhaseRow[]
+}
+
+const groupedRows = computed((): PhaseGroup[] => {
+  const groups: PhaseGroup[] = []
+  const groupMap = new Map<string, PhaseRow[]>()
+
+  for (const row of rows.value) {
+    const key = row.collaboration_item_id || '__none__'
+    if (!groupMap.has(key)) groupMap.set(key, [])
+    groupMap.get(key)!.push(row)
+  }
+
+  for (const [key, groupRows] of groupMap) {
+    const itemId = key === '__none__' ? null : key
+    const itemName = itemId ? (props.itemNameMap?.[itemId] || '未知項目') : '未分類'
+    const color = itemId ? (itemColorMap.value[itemId] || null) : null
+    groups.push({ key, itemId, itemName, color, rows: groupRows })
+  }
+
+  return groups
+})
+
+// 並聯模式下，更新分組內的 rows 回寫到主 rows
+const updateGroupRows = (groupKey: string, newGroupRows: PhaseRow[]) => {
+  // 收集其他組的 rows（保持原順序）
+  const otherRows = rows.value.filter(r => (r.collaboration_item_id || '__none__') !== groupKey)
+  // 找到這個組在 rows 中第一次出現的位置，以此為插入點
+  const firstIdx = rows.value.findIndex(r => (r.collaboration_item_id || '__none__') === groupKey)
+  if (firstIdx === -1) {
+    // 全部都是其他組，直接 append
+    rows.value = [...otherRows, ...newGroupRows]
+  } else {
+    // 把 newGroupRows 插回原位
+    const before = rows.value.slice(0, firstIdx).filter(r => (r.collaboration_item_id || '__none__') !== groupKey)
+    const after = rows.value.slice(firstIdx).filter(r => (r.collaboration_item_id || '__none__') !== groupKey)
+    rows.value = [...before, ...newGroupRows, ...after]
+  }
+}
 
 // 更新結束日期
 const updateEndDate = (row: PhaseRow) => {
@@ -124,6 +195,32 @@ const addRow = () => {
     start_date: startDate,
     duration_days: 7,
     end_date: calculateEndDate(startDate, 7),
+    _new: true
+  }
+  rows.value.push(newRow)
+
+  nextTick(() => {
+    const inputs = document.querySelectorAll<HTMLInputElement>('[data-phase-name]')
+    inputs[inputs.length - 1]?.focus()
+  })
+}
+
+// 新增階段到指定分組
+const addRowForGroup = (itemId: string | null) => {
+  const groupKey = itemId || '__none__'
+  const groupRows = rows.value.filter(r => (r.collaboration_item_id || '__none__') === groupKey)
+  const lastRow = groupRows[groupRows.length - 1]
+  const startDate: string = lastRow?.end_date
+    ? format(addDays(parseISO(lastRow.end_date), 1), 'yyyy-MM-dd')
+    : new Date().toISOString().split('T')[0]!
+
+  const newRow: PhaseRow = {
+    id: `new_${Date.now()}`,
+    name: '',
+    start_date: startDate,
+    duration_days: 7,
+    end_date: calculateEndDate(startDate, 7),
+    collaboration_item_id: itemId || undefined,
     _new: true
   }
   rows.value.push(newRow)
@@ -224,6 +321,18 @@ const handleSave = async () => {
       })
     }
 
+    // 4. 更新流程排列模式（如有變更）
+    if (localFlowLayout.value !== props.flowLayout) {
+      await $fetch(
+        `${config.public.apiBase}/api/v1/cases/${props.caseId}/flow-layout`,
+        {
+          method: 'PATCH',
+          headers: apiHeaders.value,
+          body: { flow_layout: localFlowLayout.value }
+        }
+      )
+    }
+
     toast.add({ title: '流程已儲存', color: 'success' })
     isOpen.value = false
     emit('saved')
@@ -245,6 +354,48 @@ const handleSave = async () => {
   >
     <template #body>
       <div class="space-y-3">
+        <!-- 並聯/串聯切換 -->
+        <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-subtle border border-default">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-highlighted">排列模式</span>
+            <div class="flex items-center gap-1 bg-default rounded-lg p-0.5">
+              <button
+                class="text-xs px-2.5 py-1 rounded-md transition-colors"
+                :class="localFlowLayout === 'parallel' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-highlighted'"
+                @click="localFlowLayout = 'parallel'"
+              >
+                並聯
+              </button>
+              <button
+                class="text-xs px-2.5 py-1 rounded-md transition-colors"
+                :class="localFlowLayout === 'sequential' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-highlighted'"
+                @click="localFlowLayout = 'sequential'"
+              >
+                串聯
+              </button>
+            </div>
+          </div>
+          <span class="text-xs text-dimmed">
+            {{ localFlowLayout === 'parallel' ? '各項目同時進行' : '依序串接執行' }}
+          </span>
+        </div>
+
+        <!-- 串聯日期衝突警告 -->
+        <div
+          v-if="sequentialConflicts.length > 0"
+          class="flex items-start gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30"
+        >
+          <UIcon name="i-lucide-alert-triangle" class="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+          <div class="text-xs text-warning">
+            <p class="font-medium mb-0.5">串聯模式下有日期重疊：</p>
+            <ul class="list-disc list-inside space-y-0.5">
+              <li v-for="c in sequentialConflicts" :key="c.index">
+                「{{ c.name }}」的開始日期與「{{ c.prevName }}」的結束日期重疊
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <!-- 空狀態 -->
         <div v-if="rows.length === 0 && deletedRows.length === 0" class="text-center py-8 text-muted">
           <BaseIcon name="i-lucide-list-x" class="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -252,86 +403,160 @@ const handleSave = async () => {
           <p class="text-xs text-dimmed mt-1">點擊下方「新增階段」開始建立</p>
         </div>
 
-        <!-- 可拖曳的階段列表 -->
-        <draggable
-          v-model="rows"
-          v-bind="dragOptions"
-          item-key="id"
-          class="space-y-2"
-        >
-          <template #item="{ element: row, index }">
-            <div class="flex items-center gap-2 p-3 rounded-lg border border-default bg-subtle transition-shadow">
-              <!-- 拖曳把手 -->
-              <div class="drag-handle flex items-center self-stretch px-0.5">
-                <UIcon name="i-lucide-grip-vertical" class="w-4 h-4 text-dimmed" />
-              </div>
-
-              <!-- 序號 -->
-              <span class="text-xs font-semibold text-muted w-5 text-center flex-shrink-0">{{ index + 1 }}</span>
-
-              <!-- 合作項目標籤 -->
-              <span
-                v-if="row.collaboration_item_id && itemNameMap?.[row.collaboration_item_id]"
-                class="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[100px]"
-                :class="[itemColorMap[row.collaboration_item_id]?.bg, itemColorMap[row.collaboration_item_id]?.text]"
-                :title="itemNameMap[row.collaboration_item_id]"
-              >
-                {{ itemNameMap[row.collaboration_item_id] }}
-              </span>
-              <span
-                v-else
-                class="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[100px] bg-gray-500/10 text-gray-500 dark:text-gray-400"
-              >
-                未分類
-              </span>
-
-              <!-- 欄位 -->
-              <div class="flex-1 grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
-                <!-- 名稱 -->
-                <input
-                  v-model="row.name"
-                  data-phase-name
-                  placeholder="階段名稱"
-                  class="w-full rounded-md border border-default bg-default px-2.5 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-
-                <!-- 開始日期 -->
-                <input
-                  v-model="row.start_date"
-                  type="date"
-                  class="w-[140px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  @change="updateEndDate(row)"
-                />
-
-                <!-- 天數 -->
-                <div class="flex items-center gap-1">
-                  <input
-                    v-model.number="row.duration_days"
-                    type="number"
-                    min="1"
-                    max="365"
-                    class="w-[64px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted text-center shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    @input="updateEndDate(row)"
-                  />
-                  <span class="text-xs text-dimmed">天</span>
-                </div>
-
-                <!-- 結束日期（唯讀） -->
-                <span class="text-xs text-dimmed whitespace-nowrap min-w-[80px] text-right">
-                  → {{ row.end_date ? format(parseISO(row.end_date), 'MM/dd') : '-' }}
+        <!-- ====== 並聯模式：按合作項目分組 ====== -->
+        <template v-if="localFlowLayout === 'parallel' && groupedRows.length > 0">
+          <div
+            v-for="group in groupedRows"
+            :key="group.key"
+            class="rounded-lg border border-default overflow-hidden"
+          >
+            <!-- 分組標頭 -->
+            <div class="flex items-center justify-between px-3 py-2 bg-subtle border-b border-default">
+              <div class="flex items-center gap-2">
+                <span
+                  v-if="group.color"
+                  class="text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[120px]"
+                  :class="[group.color.bg, group.color.text]"
+                >
+                  {{ group.itemName }}
                 </span>
+                <span
+                  v-else
+                  class="text-[11px] font-medium px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-500 dark:text-gray-400"
+                >
+                  未分類
+                </span>
+                <span class="text-xs text-dimmed">{{ group.rows.length }} 個階段</span>
               </div>
-
-              <!-- 刪除 -->
               <button
-                class="text-dimmed hover:text-red-500 transition-colors flex-shrink-0"
-                @click="markDelete(row)"
+                class="flex items-center gap-1 text-xs text-muted hover:text-primary transition-colors"
+                @click="addRowForGroup(group.itemId)"
               >
-                <UIcon name="i-lucide-x" class="w-4 h-4" />
+                <UIcon name="i-lucide-plus" class="w-3.5 h-3.5" />
+                新增
               </button>
             </div>
-          </template>
-        </draggable>
+
+            <!-- 分組內可拖曳列表 -->
+            <draggable
+              :model-value="group.rows"
+              @update:model-value="updateGroupRows(group.key, $event)"
+              v-bind="dragOptions"
+              item-key="id"
+              class="divide-y divide-default"
+            >
+              <template #item="{ element: row, index }">
+                <div class="flex items-center gap-2 px-3 py-2.5 bg-default transition-shadow">
+                  <div class="drag-handle flex items-center self-stretch px-0.5">
+                    <UIcon name="i-lucide-grip-vertical" class="w-4 h-4 text-dimmed" />
+                  </div>
+                  <span class="text-xs font-semibold text-muted w-5 text-center flex-shrink-0">{{ index + 1 }}</span>
+                  <div class="flex-1 grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                    <input
+                      v-model="row.name"
+                      data-phase-name
+                      placeholder="階段名稱"
+                      class="w-full rounded-md border border-default bg-default px-2.5 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <input
+                      v-model="row.start_date"
+                      type="date"
+                      class="w-[140px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      @change="updateEndDate(row)"
+                    />
+                    <div class="flex items-center gap-1">
+                      <input
+                        v-model.number="row.duration_days"
+                        type="number"
+                        min="1"
+                        max="365"
+                        class="w-[64px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted text-center shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        @input="updateEndDate(row)"
+                      />
+                      <span class="text-xs text-dimmed">天</span>
+                    </div>
+                    <span class="text-xs text-dimmed whitespace-nowrap min-w-[80px] text-right">
+                      → {{ row.end_date ? format(parseISO(row.end_date), 'MM/dd') : '-' }}
+                    </span>
+                  </div>
+                  <button
+                    class="text-dimmed hover:text-red-500 transition-colors flex-shrink-0"
+                    @click="markDelete(row)"
+                  >
+                    <UIcon name="i-lucide-x" class="w-4 h-4" />
+                  </button>
+                </div>
+              </template>
+            </draggable>
+          </div>
+        </template>
+
+        <!-- ====== 串聯模式：單一列表 ====== -->
+        <template v-else-if="rows.length > 0">
+          <draggable
+            v-model="rows"
+            v-bind="dragOptions"
+            item-key="id"
+            class="space-y-2"
+          >
+            <template #item="{ element: row, index }">
+              <div class="flex items-center gap-2 p-3 rounded-lg border border-default bg-subtle transition-shadow">
+                <div class="drag-handle flex items-center self-stretch px-0.5">
+                  <UIcon name="i-lucide-grip-vertical" class="w-4 h-4 text-dimmed" />
+                </div>
+                <span class="text-xs font-semibold text-muted w-5 text-center flex-shrink-0">{{ index + 1 }}</span>
+                <span
+                  v-if="row.collaboration_item_id && itemNameMap?.[row.collaboration_item_id]"
+                  class="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[100px]"
+                  :class="[itemColorMap[row.collaboration_item_id]?.bg, itemColorMap[row.collaboration_item_id]?.text]"
+                  :title="itemNameMap[row.collaboration_item_id]"
+                >
+                  {{ itemNameMap[row.collaboration_item_id] }}
+                </span>
+                <span
+                  v-else
+                  class="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[100px] bg-gray-500/10 text-gray-500 dark:text-gray-400"
+                >
+                  未分類
+                </span>
+                <div class="flex-1 grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
+                  <input
+                    v-model="row.name"
+                    data-phase-name
+                    placeholder="階段名稱"
+                    class="w-full rounded-md border border-default bg-default px-2.5 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <input
+                    v-model="row.start_date"
+                    type="date"
+                    class="w-[140px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    @change="updateEndDate(row)"
+                  />
+                  <div class="flex items-center gap-1">
+                    <input
+                      v-model.number="row.duration_days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      class="w-[64px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted text-center shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      @input="updateEndDate(row)"
+                    />
+                    <span class="text-xs text-dimmed">天</span>
+                  </div>
+                  <span class="text-xs text-dimmed whitespace-nowrap min-w-[80px] text-right">
+                    → {{ row.end_date ? format(parseISO(row.end_date), 'MM/dd') : '-' }}
+                  </span>
+                </div>
+                <button
+                  class="text-dimmed hover:text-red-500 transition-colors flex-shrink-0"
+                  @click="markDelete(row)"
+                >
+                  <UIcon name="i-lucide-x" class="w-4 h-4" />
+                </button>
+              </div>
+            </template>
+          </draggable>
+        </template>
 
         <!-- 新增按鈕 -->
         <button
