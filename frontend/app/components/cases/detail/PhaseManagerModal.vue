@@ -278,6 +278,12 @@ const handleSave = async () => {
               >
                 {{ itemNameMap[row.collaboration_item_id] }}
               </span>
+              <span
+                v-else
+                class="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded truncate max-w-[100px] bg-gray-500/10 text-gray-500 dark:text-gray-400"
+              >
+                未分類
+              </span>
 
               <!-- 欄位 -->
               <div class="flex-1 grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">

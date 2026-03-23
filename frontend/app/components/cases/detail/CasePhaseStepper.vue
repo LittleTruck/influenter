@@ -90,17 +90,8 @@ const closePopover = () => {
             ]"
             @click="(getPhaseStatus(phase) !== 'pending' && editable) ? togglePopover(phase.id) : undefined"
           >
-            <!-- 已完成：勾號 -->
-            <BaseIcon
-              v-if="getPhaseStatus(phase) === 'completed'"
-              name="i-lucide-check"
-              class="w-5 h-5"
-            />
-            <!-- 進行中 / 待開始：數字 -->
-            <template v-else>
-              <span v-if="getPhaseStatus(phase) === 'in_progress'" class="absolute inset-0 rounded-full bg-primary animate-ping opacity-20" />
-              <span class="relative z-10">{{ startIndex + index }}</span>
-            </template>
+            <span v-if="getPhaseStatus(phase) === 'in_progress'" class="absolute inset-0 rounded-full bg-primary animate-ping opacity-20" />
+            <span class="relative z-10">{{ startIndex + index }}</span>
           </button>
 
           <!-- 階段名稱 -->

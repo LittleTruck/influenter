@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ApplyTemplateRequest } from '~/types/cases'
 import { useCases } from '~/composables/useCases'
 import { useCaseFields } from '~/composables/useCaseFields'
 import { useErrorHandler } from '~/composables/useErrorHandler'
@@ -15,7 +14,6 @@ import CasePhaseStepper from '~/components/cases/detail/CasePhaseStepper.vue'
 import DraftReplySlideover from '~/components/cases/detail/DraftReplySlideover.vue'
 import EmailDetailSlideover from '~/components/cases/detail/EmailDetailSlideover.vue'
 import PhaseManagerModal from '~/components/cases/detail/PhaseManagerModal.vue'
-import ApplyTemplateModal from '~/components/cases/detail/ApplyTemplateModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
 import { format, differenceInDays } from 'date-fns'
@@ -111,7 +109,6 @@ const saveEditing = async () => {
 
 // ── 階段管理 ──
 const showPhaseManager = ref(false)
-const showApplyTemplate = ref(false)
 const showPhaseDetail = ref(false)
 
 // 未開案 = to_confirm，專案流程預設收合
@@ -149,20 +146,6 @@ const handleClearPhases = async () => {
 
 const handlePhasesSaved = async () => {
   await fetchCase(caseId.value)
-}
-
-const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
-  try {
-    await $fetch(
-      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/apply-template`,
-      { method: 'POST', body: data, headers: apiHeaders.value }
-    )
-    handleSuccess('流程已套用')
-    showApplyTemplate.value = false
-    await fetchCase(caseId.value)
-  } catch (error: any) {
-    handleError(error, '套用失敗')
-  }
 }
 
 // ── AI 自動匹配合作項目 ──
@@ -290,7 +273,6 @@ const handleAutoApplyTemplate = async () => {
 }
 
 const casePhases = computed(() => (currentCase.value as any)?.phases ?? [])
-const caseStartDate = computed(() => (currentCase.value as any)?.start_date || new Date().toISOString().split('T')[0])
 const caseEmails = computed(() => currentCase.value?.emails ?? [])
 
 // ── 合作項目 ──
@@ -325,12 +307,28 @@ const getItemNameById = (itemId: string | undefined): string | null => {
 }
 
 // 合作項目 ID → 名稱 的對照表（供 PhaseManagerModal 使用）
+// 包含所有案件關聯的合作項目（含 bundle 內含），以便新增範本流程時也能顯示 badge
 const itemNameMap = computed(() => {
   const map: Record<string, string> = {}
+  // 從現有階段收集
   for (const phase of casePhases.value) {
     const id = phase.collaboration_item_id
     if (id && !map[id]) {
       map[id] = getItemNameById(id) || '未知項目'
+    }
+  }
+  // 從案件關聯的合作項目補齊（含 bundle 內含的 individual）
+  for (const cci of caseCollaborationItems.value) {
+    const item = (cci as any).collaboration_item
+    if (item?.id && !map[item.id]) {
+      map[item.id] = item.title || '未知項目'
+    }
+    if (item?.type === 'bundle' && item?.bundle_items) {
+      for (const bi of item.bundle_items) {
+        if (bi.item?.id && !map[bi.item.id]) {
+          map[bi.item.id] = bi.item.title || '未知項目'
+        }
+      }
     }
   }
   return map
@@ -693,9 +691,6 @@ const handleViewEmail = (emailId: string) => {
                   <BaseButton icon="i-lucide-zap" size="sm" variant="outline" :loading="autoApplying" @click="handleAutoApplyTemplate">
                     自動套用
                   </BaseButton>
-                  <BaseButton icon="i-lucide-layout-template" size="sm" variant="outline" @click="showApplyTemplate = true">
-                    手動套用
-                  </BaseButton>
                   <BaseButton icon="i-lucide-edit" size="sm" variant="outline" @click="showPhaseManager = true">
                     編輯流程
                   </BaseButton>
@@ -786,7 +781,6 @@ const handleViewEmail = (emailId: string) => {
 
       <!-- Modals & Slideovers -->
       <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" @saved="handlePhasesSaved" />
-      <ApplyTemplateModal v-model="showApplyTemplate" :case-start-date="caseStartDate" :case-id="caseId" @submit="handleApplyTemplate" />
       <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
 
