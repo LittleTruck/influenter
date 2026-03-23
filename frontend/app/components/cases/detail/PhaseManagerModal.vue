@@ -51,20 +51,45 @@ const saving = ref(false)
 // 流程排列模式（本地編輯用）
 const localFlowLayout = ref<FlowLayout>('parallel')
 
+// 切換串聯時自動頭尾相接（下一個的開始 = 上一個結束的隔天）
+const chainDatesSequentially = () => {
+  for (let i = 1; i < rows.value.length; i++) {
+    const prev = rows.value[i - 1]!
+    const curr = rows.value[i]!
+    if (!prev.end_date) continue
+    const newStart = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+    curr.start_date = newStart
+    curr.end_date = calculateEndDate(newStart, curr.duration_days)
+  }
+}
+
+// 切換排列模式
+const setFlowLayout = (layout: FlowLayout) => {
+  localFlowLayout.value = layout
+  if (layout === 'sequential' && rows.value.length > 1) {
+    chainDatesSequentially()
+  }
+}
+
+// 取得階段的顯示名稱（合作項目「階段名」）
+const getPhaseLabel = (row: PhaseRow): string => {
+  const itemName = row.collaboration_item_id ? (props.itemNameMap?.[row.collaboration_item_id] || '未分類') : '未分類'
+  const phaseName = row.name || '未命名'
+  return `${itemName}「${phaseName}」`
+}
+
 // 串聯模式下的日期衝突檢測
 const sequentialConflicts = computed(() => {
   if (localFlowLayout.value !== 'sequential') return []
-  const conflicts: Array<{ index: number; name: string; prevName: string }> = []
-  const visibleRows = rows.value
-  for (let i = 1; i < visibleRows.length; i++) {
-    const prev = visibleRows[i - 1]!
-    const curr = visibleRows[i]!
+  const conflicts: Array<{ index: number; label: string }> = []
+  for (let i = 1; i < rows.value.length; i++) {
+    const prev = rows.value[i - 1]!
+    const curr = rows.value[i]!
     if (!prev.end_date || !curr.start_date) continue
     const prevEnd = parseISO(prev.end_date)
     const currStart = parseISO(curr.start_date)
-    // 衝突：下一個階段的開始日期 <= 上一個階段的結束日期
     if (isBefore(currStart, prevEnd) || isEqual(currStart, prevEnd)) {
-      conflicts.push({ index: i, name: curr.name || `階段 ${i + 1}`, prevName: prev.name || `階段 ${i}` })
+      conflicts.push({ index: i, label: `${getPhaseLabel(prev)}與${getPhaseLabel(curr)}日期重疊` })
     }
   }
   return conflicts
@@ -99,7 +124,7 @@ const deletedRows = ref<PhaseRow[]>([])
 const calculateEndDate = (startDate: string, days: number): string => {
   if (!startDate || days < 1) return ''
   const start = parseISO(startDate)
-  const end = addDays(start, days - 1)
+  const end = addDays(start, days)
   return format(end, 'yyyy-MM-dd')
 }
 
@@ -177,9 +202,62 @@ const updateGroupRows = (groupKey: string, newGroupRows: PhaseRow[]) => {
   }
 }
 
-// 更新結束日期
+// 更新結束日期，並自動串接後續階段
 const updateEndDate = (row: PhaseRow) => {
   row.end_date = calculateEndDate(row.start_date, row.duration_days)
+  cascadeAfter(row)
+}
+
+// 自動將後續階段日期串接（隔天開始）
+const cascadeAfter = (changedRow: PhaseRow) => {
+  if (localFlowLayout.value === 'sequential') {
+    // 串聯：從修改的階段往後，全部重新串接
+    const idx = rows.value.indexOf(changedRow)
+    if (idx === -1) return
+    for (let i = idx + 1; i < rows.value.length; i++) {
+      const prev = rows.value[i - 1]!
+      const curr = rows.value[i]!
+      if (!prev.end_date) continue
+      curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+      curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
+    }
+  } else {
+    // 並聯：只在同一合作項目組內串接
+    const groupKey = changedRow.collaboration_item_id || '__none__'
+    const groupRows = rows.value.filter(r => (r.collaboration_item_id || '__none__') === groupKey)
+    const idx = groupRows.indexOf(changedRow)
+    if (idx === -1) return
+    for (let i = idx + 1; i < groupRows.length; i++) {
+      const prev = groupRows[i - 1]!
+      const curr = groupRows[i]!
+      if (!prev.end_date) continue
+      curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+      curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
+    }
+  }
+}
+
+// 拖曳結束後重新串接日期
+const onDragEnd = () => {
+  if (localFlowLayout.value === 'sequential' && rows.value.length > 1) {
+    chainDatesSequentially()
+  } else if (localFlowLayout.value === 'parallel') {
+    // 並聯模式：每個組內重新串接
+    const seen = new Set<string>()
+    for (const row of rows.value) {
+      const key = row.collaboration_item_id || '__none__'
+      if (seen.has(key)) continue
+      seen.add(key)
+      const groupRows = rows.value.filter(r => (r.collaboration_item_id || '__none__') === key)
+      for (let i = 1; i < groupRows.length; i++) {
+        const prev = groupRows[i - 1]!
+        const curr = groupRows[i]!
+        if (!prev.end_date) continue
+        curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+        curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
+      }
+    }
+  }
 }
 
 // 新增階段
@@ -362,14 +440,14 @@ const handleSave = async () => {
               <button
                 class="text-xs px-2.5 py-1 rounded-md transition-colors"
                 :class="localFlowLayout === 'parallel' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-highlighted'"
-                @click="localFlowLayout = 'parallel'"
+                @click="setFlowLayout('parallel')"
               >
                 並聯
               </button>
               <button
                 class="text-xs px-2.5 py-1 rounded-md transition-colors"
                 :class="localFlowLayout === 'sequential' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-highlighted'"
-                @click="localFlowLayout = 'sequential'"
+                @click="setFlowLayout('sequential')"
               >
                 串聯
               </button>
@@ -386,13 +464,9 @@ const handleSave = async () => {
           class="flex items-start gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30"
         >
           <UIcon name="i-lucide-alert-triangle" class="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-          <div class="text-xs text-warning">
-            <p class="font-medium mb-0.5">串聯模式下有日期重疊：</p>
-            <ul class="list-disc list-inside space-y-0.5">
-              <li v-for="c in sequentialConflicts" :key="c.index">
-                「{{ c.name }}」的開始日期與「{{ c.prevName }}」的結束日期重疊
-              </li>
-            </ul>
+          <div class="text-xs text-warning space-y-0.5">
+            <p class="font-medium">以下流程有日期重疊：</p>
+            <p v-for="c in sequentialConflicts" :key="c.index">{{ c.label }}</p>
           </div>
         </div>
 
@@ -441,6 +515,7 @@ const handleSave = async () => {
             <draggable
               :model-value="group.rows"
               @update:model-value="updateGroupRows(group.key, $event)"
+              @change="onDragEnd"
               v-bind="dragOptions"
               item-key="id"
               class="divide-y divide-default"
@@ -498,6 +573,7 @@ const handleSave = async () => {
             v-bind="dragOptions"
             item-key="id"
             class="space-y-2"
+            @change="onDragEnd"
           >
             <template #item="{ element: row, index }">
               <div class="flex items-center gap-2 p-3 rounded-lg border border-default bg-subtle transition-shadow">
