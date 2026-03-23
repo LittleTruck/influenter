@@ -28,6 +28,7 @@ const toast = useToast()
 
 // 表單數據
 const formData = reactive({
+  name: '',
   start_date: '',
   duration_days: 1,
   end_date: ''
@@ -44,10 +45,12 @@ const calculateEndDate = (startDate: string, days: number): string => {
 // 初始化表單數據
 watch(() => props.phase, (phase) => {
   if (phase) {
+    formData.name = phase.name
     formData.start_date = phase.start_date
     formData.duration_days = phase.duration_days
     formData.end_date = calculateEndDate(phase.start_date, phase.duration_days)
   } else {
+    formData.name = ''
     formData.start_date = ''
     formData.duration_days = 1
     formData.end_date = ''
@@ -65,7 +68,7 @@ watch([() => formData.start_date, () => formData.duration_days], ([startDate, da
 
 // 處理提交
 const handleSubmit = () => {
-  if (!formData.start_date || formData.duration_days < 1) {
+  if (!formData.name?.trim() || !formData.start_date || formData.duration_days < 1) {
     toast.add({
       title: '請填寫完整資訊',
       color: 'error'
@@ -76,6 +79,7 @@ const handleSubmit = () => {
   const endDate = calculateEndDate(formData.start_date, formData.duration_days)
 
   emit('submit', {
+    name: formData.name.trim(),
     start_date: formData.start_date,
     end_date: endDate,
     duration_days: formData.duration_days
@@ -93,6 +97,7 @@ const handleCancel = () => {
 watch(isOpen, (open) => {
   if (!open && props.phase) {
     // 重置表單
+    formData.name = props.phase.name
     formData.start_date = props.phase.start_date
     formData.duration_days = props.phase.duration_days
     formData.end_date = calculateEndDate(props.phase.start_date, props.phase.duration_days)
@@ -103,11 +108,22 @@ watch(isOpen, (open) => {
 <template>
   <BaseModal
     v-model="isOpen"
-    title="編輯階段日期"
-    description="調整階段的開始日期和執行天數"
+    title="編輯階段"
+    description="調整階段名稱、開始日期和執行天數"
   >
     <template #body>
       <div class="space-y-4">
+        <!-- 階段名稱 -->
+        <BaseFormField
+          label="階段名稱"
+          required
+        >
+          <BaseInput
+            v-model="formData.name"
+            placeholder="例如：初稿、修改、交付"
+          />
+        </BaseFormField>
+
         <!-- 開始日期 -->
         <BaseFormField
           label="開始日期"

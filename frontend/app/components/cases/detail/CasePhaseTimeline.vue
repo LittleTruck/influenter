@@ -178,7 +178,7 @@ const activePhaseIndex = computed(() => {
               size="xs"
               @click.stop="handleEdit((item as any)._phase)"
             >
-              編輯日期
+              編輯
             </BaseButton>
             <BaseButton
               icon="i-lucide-trash-2"

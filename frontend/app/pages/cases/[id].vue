@@ -14,7 +14,7 @@ import CasePhaseTimeline from '~/components/cases/detail/CasePhaseTimeline.vue'
 import CasePhaseStepper from '~/components/cases/detail/CasePhaseStepper.vue'
 import DraftReplySlideover from '~/components/cases/detail/DraftReplySlideover.vue'
 import EmailDetailSlideover from '~/components/cases/detail/EmailDetailSlideover.vue'
-import PhaseDateEditor from '~/components/cases/detail/PhaseDateEditor.vue'
+import PhaseManagerModal from '~/components/cases/detail/PhaseManagerModal.vue'
 import ApplyTemplateModal from '~/components/cases/detail/ApplyTemplateModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
@@ -110,8 +110,7 @@ const saveEditing = async () => {
 }
 
 // ── 階段管理 ──
-const showPhaseDateEditor = ref(false)
-const editingPhase = ref<any>(null)
+const showPhaseManager = ref(false)
 const showApplyTemplate = ref(false)
 const showPhaseDetail = ref(false)
 
@@ -126,29 +125,11 @@ watch(() => currentCase.value?.status, (status) => {
   }
 }, { immediate: true })
 
-const handleEditPhase = (phase: any) => {
-  editingPhase.value = phase
-  showPhaseDateEditor.value = true
-}
-
 const config = useRuntimeConfig()
 const authStore = useAuthStore()
 const apiHeaders = computed(() => ({
   Authorization: `Bearer ${authStore.token}`
 }))
-
-const handleDeletePhase = async (phase: any) => {
-  try {
-    await $fetch(
-      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/${phase.id}`,
-      { method: 'DELETE', headers: apiHeaders.value }
-    )
-    handleSuccess('階段已刪除')
-    await fetchCase(caseId.value)
-  } catch (error: any) {
-    handleError(error, '刪除失敗')
-  }
-}
 
 // 清空流程 double check
 const showClearPhasesConfirm = ref(false)
@@ -166,60 +147,8 @@ const handleClearPhases = async () => {
   }
 }
 
-const handleAddPhase = async () => {
-  try {
-    await $fetch(
-      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases`,
-      {
-        method: 'POST',
-        body: { name: '新階段', start_date: new Date().toISOString().split('T')[0], duration_days: 7 },
-        headers: apiHeaders.value
-      }
-    )
-    handleSuccess('階段已新增')
-    await fetchCase(caseId.value)
-  } catch (error: any) {
-    handleError(error, '新增失敗')
-  }
-}
-
-const handleAddPhaseForItem = async (itemId: string | null) => {
-  try {
-    await $fetch(
-      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases`,
-      {
-        method: 'POST',
-        body: {
-          name: '新階段',
-          start_date: new Date().toISOString().split('T')[0],
-          duration_days: 7,
-          collaboration_item_id: itemId
-        },
-        headers: apiHeaders.value
-      }
-    )
-    handleSuccess('階段已新增')
-    await fetchCase(caseId.value)
-  } catch (error: any) {
-    handleError(error, '新增失敗')
-  }
-}
-
-const handlePhaseDateUpdate = async (data: any) => {
-  try {
-    const phaseId = editingPhase.value?.id
-    if (!phaseId) return
-    await $fetch(
-      `${config.public.apiBase}/api/v1/cases/${caseId.value}/phases/${phaseId}`,
-      { method: 'PATCH', body: data, headers: apiHeaders.value }
-    )
-    handleSuccess('階段日期已更新')
-    showPhaseDateEditor.value = false
-    editingPhase.value = null
-    await fetchCase(caseId.value)
-  } catch (error: any) {
-    handleError(error, '更新失敗')
-  }
+const handlePhasesSaved = async () => {
+  await fetchCase(caseId.value)
 }
 
 const handleApplyTemplate = async (data: ApplyTemplateRequest) => {
@@ -394,6 +323,18 @@ const getItemNameById = (itemId: string | undefined): string | null => {
   const globalItem = allCollaborationItems.value.find(i => i.id === itemId)
   return globalItem?.title || null
 }
+
+// 合作項目 ID → 名稱 的對照表（供 PhaseManagerModal 使用）
+const itemNameMap = computed(() => {
+  const map: Record<string, string> = {}
+  for (const phase of casePhases.value) {
+    const id = phase.collaboration_item_id
+    if (id && !map[id]) {
+      map[id] = getItemNameById(id) || '未知項目'
+    }
+  }
+  return map
+})
 
 // 按合作項目分組的流程階段（含起始編號）
 const phasesGroupedByItem = computed(() => {
@@ -755,8 +696,8 @@ const handleViewEmail = (emailId: string) => {
                   <BaseButton icon="i-lucide-layout-template" size="sm" variant="outline" @click="showApplyTemplate = true">
                     手動套用
                   </BaseButton>
-                  <BaseButton icon="i-lucide-plus" size="sm" variant="ghost" @click="handleAddPhase">
-                    新增階段
+                  <BaseButton icon="i-lucide-edit" size="sm" variant="outline" @click="showPhaseManager = true">
+                    編輯流程
                   </BaseButton>
                   <BaseButton
                     v-if="casePhases.length > 0"
@@ -800,20 +741,12 @@ const handleViewEmail = (emailId: string) => {
                         {{ group.phases.length }} 個階段（{{ group.startIndex }}-{{ group.startIndex + group.phases.length - 1 }}）
                       </span>
                     </div>
-                    <BaseButton
-                      icon="i-lucide-plus"
-                      size="xs"
-                      variant="ghost"
-                      @click="handleAddPhaseForItem(group.itemId)"
-                    >
-                      新增
-                    </BaseButton>
                   </div>
-                  <CasePhaseStepper :phases="group.phases" :start-index="group.startIndex" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+                  <CasePhaseStepper :phases="group.phases" :start-index="group.startIndex" />
                 </div>
               </template>
               <template v-else>
-                <CasePhaseStepper :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" />
+                <CasePhaseStepper :phases="casePhases" />
               </template>
 
               <div v-if="casePhases.length > 0" class="border-t border-default pt-3 mt-3">
@@ -825,7 +758,7 @@ const handleViewEmail = (emailId: string) => {
                   {{ showPhaseDetail ? '收合詳情' : '展開階段詳情' }}
                 </button>
                 <div v-if="showPhaseDetail" class="mt-3">
-                  <CasePhaseTimeline :phases="casePhases" :editable="true" @edit-phase="handleEditPhase" @delete-phase="handleDeletePhase" @add-phase="handleAddPhase" />
+                  <CasePhaseTimeline :phases="casePhases" />
                 </div>
               </div>
             </template>
@@ -852,7 +785,7 @@ const handleViewEmail = (emailId: string) => {
       <ErrorState v-else title="無法載入案件詳情" message="請重新整理頁面或返回列表" />
 
       <!-- Modals & Slideovers -->
-      <PhaseDateEditor v-model="showPhaseDateEditor" :phase="editingPhase" @submit="handlePhaseDateUpdate" />
+      <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" @saved="handlePhasesSaved" />
       <ApplyTemplateModal v-model="showApplyTemplate" :case-start-date="caseStartDate" :case-id="caseId" @submit="handleApplyTemplate" />
       <DraftReplySlideover v-model="showDraftReply" :case-id="caseId" :case="currentCase" :emails="caseEmails" @sent="fetchCaseEmails(caseId)" />
       <EmailDetailSlideover v-model="showEmailDetail" :email-id="viewingEmailId" />
