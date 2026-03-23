@@ -40,6 +40,7 @@ export interface Case {
   id: string
   title: string
   brand_name: string
+  agency_name?: string
   collaboration_type?: string
   status: CaseStatus
   flow_layout: FlowLayout
@@ -154,6 +155,7 @@ export interface CaseListResponse {
 export interface CreateCaseRequest {
   title: string
   brand_name: string
+  agency_name?: string
   collaboration_type?: string
   description?: string
   quoted_amount?: number
@@ -174,6 +176,7 @@ export interface CreateCaseRequest {
 export interface UpdateCaseRequest {
   title?: string
   brand_name?: string
+  agency_name?: string
   collaboration_type?: string
   description?: string
   status?: CaseStatus

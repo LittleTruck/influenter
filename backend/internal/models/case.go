@@ -26,6 +26,7 @@ type Case struct {
 
 	Title             string   `gorm:"type:varchar(500);not null" json:"title"`
 	BrandName         string   `gorm:"column:brand_name;type:varchar(255);not null" json:"brand_name"`
+	AgencyName        *string  `gorm:"column:agency_name;type:varchar(255)" json:"agency_name,omitempty"`
 	Status            CaseStatus `gorm:"type:varchar(50);not null;default:'to_confirm';index" json:"status"`
 	CollaborationType *string  `gorm:"column:collaboration_type;type:varchar(255)" json:"collaboration_type,omitempty"`
 	Description       *string  `gorm:"type:text" json:"description,omitempty"`

@@ -38,6 +38,18 @@ const defaultSystemFields: SystemField[] = [
     placeholder: '例如：Nike'
   },
   {
+    id: 'system-agency_name',
+    name: 'agency_name',
+    label: '代理商',
+    type: 'text',
+    is_system: true,
+    system_column_name: SystemFieldName.AGENCY_NAME,
+    is_required: false,
+    is_visible: true,
+    order: 3,
+    placeholder: '例如：XX 行銷公司'
+  },
+  {
     id: 'system-status',
     name: 'status',
     label: '案件狀態',
@@ -46,7 +58,7 @@ const defaultSystemFields: SystemField[] = [
     system_column_name: SystemFieldName.STATUS,
     is_required: true,
     is_visible: true,
-    order: 3,
+    order: 4,
     options: [
       { label: '待確認', value: 'to_confirm' },
       { label: '進行中', value: 'in_progress' },
@@ -64,7 +76,7 @@ const defaultSystemFields: SystemField[] = [
     system_column_name: SystemFieldName.DEADLINE_DATE,
     is_required: false,
     is_visible: true,
-    order: 4
+    order: 5
   },
   {
     id: 'system-quoted_amount',
@@ -75,7 +87,7 @@ const defaultSystemFields: SystemField[] = [
     system_column_name: SystemFieldName.QUOTED_AMOUNT,
     is_required: false,
     is_visible: true,
-    order: 5
+    order: 6
   }
 ]
 

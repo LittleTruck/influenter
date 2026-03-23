@@ -42,6 +42,7 @@ export enum SystemFieldName {
   ID = 'id',
   TITLE = 'title',
   BRAND_NAME = 'brand_name',
+  AGENCY_NAME = 'agency_name',
   STATUS = 'status',
   QUOTED_AMOUNT = 'quoted_amount',
   FINAL_AMOUNT = 'final_amount',

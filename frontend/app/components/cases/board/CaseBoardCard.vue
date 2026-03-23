@@ -63,7 +63,7 @@ const avatarText = computed(() => {
         {{ avatarText }}
       </div>
       <span class="text-xs text-muted truncate">
-        {{ caseData.brand_name }}
+        {{ caseData.brand_name }}<template v-if="caseData.agency_name"> · {{ caseData.agency_name }}</template>
       </span>
     </div>
 

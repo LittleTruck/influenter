@@ -31,6 +31,7 @@ func NewCaseHandler(db *gorm.DB, openaiSvc *openai.Service) *CaseHandler {
 type CreateCaseRequest struct {
 	Title             string   `json:"title" binding:"required"`
 	BrandName         string   `json:"brand_name" binding:"required"`
+	AgencyName        *string  `json:"agency_name"`
 	CollaborationType *string  `json:"collaboration_type"`
 	Description       *string  `json:"description"`
 	QuotedAmount     *float64 `json:"quoted_amount"`
@@ -49,6 +50,7 @@ type CaseResponse struct {
 	ID                string   `json:"id"`
 	Title             string   `json:"title"`
 	BrandName         string   `json:"brand_name"`
+	AgencyName        *string  `json:"agency_name,omitempty"`
 	CollaborationType *string  `json:"collaboration_type,omitempty"`
 	Status            string   `json:"status"`
 	FlowLayout        string   `json:"flow_layout"`
@@ -76,6 +78,7 @@ func caseToResponse(c *models.Case, emailCount, taskCount, completedTaskCount in
 		ID:                 c.ID.String(),
 		Title:              c.Title,
 		BrandName:          c.BrandName,
+		AgencyName:         c.AgencyName,
 		CollaborationType:  c.CollaborationType,
 		Status:             string(c.Status),
 		FlowLayout:         flowLayout,
@@ -134,6 +137,7 @@ func (h *CaseHandler) CreateCase(c *gin.Context) {
 		UserID:            userID,
 		Title:             req.Title,
 		BrandName:         req.BrandName,
+		AgencyName:        req.AgencyName,
 		Status:             models.CaseStatusToConfirm,
 		CollaborationType:  req.CollaborationType,
 		Description:       req.Description,
@@ -283,11 +287,12 @@ type CaseFieldsListResponse struct {
 var defaultSystemFields = []CaseFieldResponse{
 	{ID: "system-title", Name: "title", Label: "案件標題", Type: "text", IsSystem: true, SystemColumnName: "title", IsRequired: true, IsVisible: true, Order: 1, Placeholder: "例如：Nike 球鞋業配"},
 	{ID: "system-brand_name", Name: "brand_name", Label: "品牌名稱", Type: "text", IsSystem: true, SystemColumnName: "brand_name", IsRequired: true, IsVisible: true, Order: 2, Placeholder: "例如：Nike"},
-	{ID: "system-status", Name: "status", Label: "案件狀態", Type: "select", IsSystem: true, SystemColumnName: "status", IsRequired: true, IsVisible: true, Order: 3, Options: []CaseFieldOption{
+	{ID: "system-agency_name", Name: "agency_name", Label: "代理商", Type: "text", IsSystem: true, SystemColumnName: "agency_name", IsRequired: false, IsVisible: true, Order: 3, Placeholder: "例如：XX 行銷公司"},
+	{ID: "system-status", Name: "status", Label: "案件狀態", Type: "select", IsSystem: true, SystemColumnName: "status", IsRequired: true, IsVisible: true, Order: 4, Options: []CaseFieldOption{
 		{Label: "待確認", Value: "to_confirm"}, {Label: "進行中", Value: "in_progress"}, {Label: "已完成", Value: "completed"}, {Label: "已取消", Value: "cancelled"}, {Label: "非合作案件", Value: "other"},
 	}},
-	{ID: "system-deadline_date", Name: "deadline_date", Label: "截止日期", Type: "date", IsSystem: true, SystemColumnName: "deadline_date", IsRequired: false, IsVisible: true, Order: 4},
-	{ID: "system-quoted_amount", Name: "quoted_amount", Label: "預估報價", Type: "number", IsSystem: true, SystemColumnName: "quoted_amount", IsRequired: false, IsVisible: true, Order: 5},
+	{ID: "system-deadline_date", Name: "deadline_date", Label: "截止日期", Type: "date", IsSystem: true, SystemColumnName: "deadline_date", IsRequired: false, IsVisible: true, Order: 5},
+	{ID: "system-quoted_amount", Name: "quoted_amount", Label: "預估報價", Type: "number", IsSystem: true, SystemColumnName: "quoted_amount", IsRequired: false, IsVisible: true, Order: 6},
 }
 
 // ListCaseFields 取得案件屬性列表（系統屬性 + 自定義屬性）
@@ -351,6 +356,7 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 		"id":                      resp.ID,
 		"title":                   resp.Title,
 		"brand_name":              resp.BrandName,
+		"agency_name":             resp.AgencyName,
 		"collaboration_type":      resp.CollaborationType,
 		"status":                  resp.Status,
 		"flow_layout":             resp.FlowLayout,

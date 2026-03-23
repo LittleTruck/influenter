@@ -1,0 +1,1 @@
+ALTER TABLE cases ADD COLUMN agency_name VARCHAR(255);
