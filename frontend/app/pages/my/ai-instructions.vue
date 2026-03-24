@@ -232,7 +232,7 @@ onMounted(() => {
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <h4 class="text-sm font-medium text-highlighted">{{ tpl.title }}</h4>
-                <p class="text-xs text-muted mt-1 line-clamp-2 whitespace-pre-line">{{ tpl.prompt }}</p>
+                <div class="text-xs text-muted mt-1 line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&>*]:m-0 [&>*]:text-xs [&>*]:text-muted" v-html="tpl.prompt" />
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <BaseButton
