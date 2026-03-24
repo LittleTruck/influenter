@@ -677,6 +677,31 @@ export const useCasesStore = defineStore('cases', () => {
   }
 
   /**
+   * 更新案件合作項目（價格等）
+   */
+  const updateCaseCollaborationItem = async (caseId: string, collaborationItemId: string, data: { price?: number | null }) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const result = await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/collaboration-items/${collaborationItemId}`, {
+        method: 'PATCH',
+        body: data,
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      // 重新載入案件詳情
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+      return result
+    } catch (e: unknown) {
+      error.value = logError(e, '更新合作項目價格失敗', { component: 'casesStore', action: 'updateCaseCollaborationItem' })
+      throw e
+    }
+  }
+
+  /**
    * 重新排序案件合作項目
    */
   const reorderCaseCollaborationItems = async (caseId: string, itemIds: string[]) => {
@@ -778,6 +803,7 @@ export const useCasesStore = defineStore('cases', () => {
     reorderTasks,
     addCaseCollaborationItem,
     removeCaseCollaborationItem,
+    updateCaseCollaborationItem,
     reorderCaseCollaborationItems,
     updateFlowLayout,
     reset

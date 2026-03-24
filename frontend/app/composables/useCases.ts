@@ -40,6 +40,7 @@ export const useCases = () => {
     reorderTasks: casesStore.reorderTasks,
     addCaseCollaborationItem: casesStore.addCaseCollaborationItem,
     removeCaseCollaborationItem: casesStore.removeCaseCollaborationItem,
+    updateCaseCollaborationItem: casesStore.updateCaseCollaborationItem,
     reorderCaseCollaborationItems: casesStore.reorderCaseCollaborationItems,
     updateFlowLayout: casesStore.updateFlowLayout,
 

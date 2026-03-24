@@ -28,6 +28,7 @@ export interface CaseCollaborationItem {
   id: string
   case_id: string
   collaboration_item_id: string
+  price?: number // 案件個別價格，未設定時使用合作項目預設價格
   order: number
   collaboration_item?: CollaborationItem // 解析後的完整資訊
   created_at: string

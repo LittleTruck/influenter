@@ -24,14 +24,21 @@ type EmailClassification struct {
 	Reason     string        `json:"reason"`     // 分類原因
 }
 
+// ItemPrice 單一合作項目的價格
+type ItemPrice struct {
+	ItemName string  `json:"item_name"` // 項目名稱（如：IG 貼文、YouTube 影片）
+	Price    float64 `json:"price"`     // 該項目的價格
+}
+
 // ExtractedInfo 從郵件中抽取的資訊
 type ExtractedInfo struct {
 	BrandName      string     `json:"brand_name"`      // 品牌名稱
 	ContactName    string     `json:"contact_name"`    // 聯絡人姓名
 	ContactEmail   string     `json:"contact_email"`   // 聯絡人郵件
 	ContactPhone   string     `json:"contact_phone"`   // 聯絡電話
-	Amount         *float64   `json:"amount"`          // 金額
+	Amount         *float64   `json:"amount"`          // 金額（總金額）
 	Currency       string     `json:"currency"`        // 幣別
+	ItemPrices     []ItemPrice `json:"item_prices"`    // 各合作項目的個別價格
 	DueDate        *time.Time `json:"due_date"`        // 截止日期
 	ContentType    string     `json:"content_type"`    // 內容類型（如：影片、圖文等）
 	FollowerCount  string     `json:"follower_count"`  // 粉絲數
@@ -114,14 +121,15 @@ type ReplyCaseUpdateRequest struct {
 
 // ReplyCaseUpdateResult AI 分析後建議的案件更新
 type ReplyCaseUpdateResult struct {
-	ShouldUpdate      bool    `json:"should_update"`       // 是否有建議更新
-	Status            string  `json:"status"`              // 建議的新狀態（to_confirm/in_progress/completed/cancelled/other）
-	NotesProgress     string  `json:"notes_progress"`      // 進度說明（附加到 notes）
-	DescriptionUpdate string  `json:"description_update"`  // 描述更新
-	QuotedAmount      *float64 `json:"quoted_amount"`      // 預估報價
-	FinalAmount       *float64 `json:"final_amount"`       // 最終金額
-	DeadlineDate      string  `json:"deadline_date"`       // 截止日期 ISO YYYY-MM-DD
-	Reason            string  `json:"reason"`              // 更新理由
+	ShouldUpdate      bool        `json:"should_update"`       // 是否有建議更新
+	Status            string      `json:"status"`              // 建議的新狀態（to_confirm/in_progress/completed/cancelled/other）
+	NotesProgress     string      `json:"notes_progress"`      // 進度說明（附加到 notes）
+	DescriptionUpdate string      `json:"description_update"`  // 描述更新
+	QuotedAmount      *float64    `json:"quoted_amount"`       // 預估報價
+	FinalAmount       *float64    `json:"final_amount"`        // 最終金額
+	ItemPrices        []ItemPrice `json:"item_prices"`         // 各合作項目的個別價格
+	DeadlineDate      string      `json:"deadline_date"`       // 截止日期 ISO YYYY-MM-DD
+	Reason            string      `json:"reason"`              // 更新理由
 }
 
 // MatchCollaborationItemsRequest 匹配合作項目請求

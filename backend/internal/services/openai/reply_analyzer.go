@@ -32,6 +32,7 @@ func (s *Service) AnalyzeReplyForCaseUpdate(ctx context.Context, req ReplyCaseUp
 - 是否應更新案件狀態（例如：回信確認合作 → in_progress；婉拒 → cancelled；結案 → completed）
 - 是否需要新增進度說明（notes_progress）：簡短描述此次回信的重點或後續
 - 是否可從回信抽取出新的報價、截止日等資訊
+- 是否有提到各合作項目的個別價格（如：IG 貼文多少錢、YouTube 影片多少錢）
 
 若回信內容與案件進度無關（如純禮貌性回覆），請設 should_update 為 false。`
 
@@ -96,6 +97,24 @@ func (s *Service) AnalyzeReplyForCaseUpdate(ctx context.Context, req ReplyCaseUp
 					"final_amount": {
 						"type": "number",
 						"description": "最終金額（若回信中已確定）"
+					},
+					"item_prices": {
+						"type": "array",
+						"description": "各合作項目的個別價格（若回信中提及各項目報價）",
+						"items": {
+							"type": "object",
+							"properties": {
+								"item_name": {
+									"type": "string",
+									"description": "合作項目名稱（如：IG 貼文、YouTube 影片等）"
+								},
+								"price": {
+									"type": "number",
+									"description": "該項目的價格（純數字）"
+								}
+							},
+							"required": ["item_name", "price"]
+						}
 					},
 					"deadline_date": {
 						"type": "string",

@@ -33,6 +33,7 @@ func (s *Service) ExtractInfo(ctx context.Context, req AnalyzeEmailRequest) (*Ex
 9. **粉絲數** (follower_count) - 提及的粉絲數或影響力要求（例如："10萬以上"）
 10. **預算範圍** (budget) - 如果提到預算範圍（例如："5萬-10萬"）
 11. **專案詳情** (project_details) - 專案的詳細說明
+12. **各項目價格** (item_prices) - 如果信件中有提到各合作項目的個別價格（例如：IG 貼文 5000、YouTube 影片 20000），請逐一列出
 
 注意事項：
 - 如果某個欄位在郵件中沒有提到，請填 null 或空字串
@@ -40,7 +41,8 @@ func (s *Service) ExtractInfo(ctx context.Context, req AnalyzeEmailRequest) (*Ex
 - 金額只需要數字部分，不需要包含貨幣符號或單位
 - 幣別請使用標準的 ISO 4217 代碼（如 TWD, USD, EUR 等）
 - 如果只有金額範圍，請將 budget 欄位填入範圍，amount 欄位填 null
-- 專案詳情請簡要摘要（建議 100 字以內）`
+- 專案詳情請簡要摘要（建議 100 字以內）
+- item_prices 用於記錄各合作項目的個別報價，item_name 應與合作項目名稱盡量一致`
 
 	// 建立 user prompt
 	userPrompt := fmt.Sprintf(`請從以下郵件中抽取所有相關資訊：
@@ -111,6 +113,24 @@ func (s *Service) ExtractInfo(ctx context.Context, req AnalyzeEmailRequest) (*Ex
 					"project_details": {
 						"type": "string",
 						"description": "專案詳情摘要"
+					},
+					"item_prices": {
+						"type": "array",
+						"description": "各合作項目的個別價格（如信件中有提到）",
+						"items": {
+							"type": "object",
+							"properties": {
+								"item_name": {
+									"type": "string",
+									"description": "合作項目名稱（如：IG 貼文、YouTube 影片、限時動態等）"
+								},
+								"price": {
+									"type": "number",
+									"description": "該項目的價格（純數字）"
+								}
+							},
+							"required": ["item_name", "price"]
+						}
 					}
 				}
 			}`),

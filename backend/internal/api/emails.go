@@ -606,6 +606,12 @@ func (h *EmailHandler) runCreateCaseFromEmail(ctx context.Context, logger *zerol
 	// AI 自動匹配合作項目（僅對合作案件）
 	if cs.Status != models.CaseStatusOther {
 		h.autoMatchCollaborationItems(ctx, logger, userUUID, cs, subject, body, from)
+
+		// 若 AI 提取到各項目的個別價格，自動更新到案件合作項目
+		if len(result.ExtractedInfo.ItemPrices) > 0 {
+			caseID := cs.ID
+			h.applyItemPricesToCase(&caseID, result.ExtractedInfo.ItemPrices, logger)
+		}
 	}
 }
 
@@ -869,6 +875,59 @@ func (h *EmailHandler) runUpdateCaseFromReply(ctx context.Context, logger *zerol
 		Str("case_id", caseID.String()).
 		Interface("updates", updates).
 		Msg("Case updated from reply analysis")
+
+	// 更新各合作項目的個別價格
+	if len(result.ItemPrices) > 0 {
+		h.applyItemPricesToCase(caseID, result.ItemPrices, logger)
+	}
+}
+
+// applyItemPricesToCase 根據 AI 抽取的各項目價格，更新 case_collaboration_items 的 price
+func (h *EmailHandler) applyItemPricesToCase(caseID *uuid.UUID, itemPrices []openai.ItemPrice, logger *zerolog.Logger) {
+	if len(itemPrices) == 0 {
+		return
+	}
+
+	// 取得案件關聯的合作項目
+	var ccis []models.CaseCollaborationItem
+	if err := h.db.Where("case_id = ?", caseID).
+		Preload("CollaborationItem").
+		Find(&ccis).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to fetch case collaboration items for price update")
+		return
+	}
+
+	if len(ccis) == 0 {
+		return
+	}
+
+	// 模糊匹配：將 AI 提取的項目名稱與實際合作項目名稱配對
+	for _, ip := range itemPrices {
+		if ip.Price <= 0 {
+			continue
+		}
+		ipNameLower := strings.ToLower(strings.TrimSpace(ip.ItemName))
+		for i := range ccis {
+			itemTitle := strings.ToLower(ccis[i].CollaborationItem.Title)
+			// 模糊匹配：任一包含另一方
+			if strings.Contains(itemTitle, ipNameLower) || strings.Contains(ipNameLower, itemTitle) {
+				price := ip.Price
+				if err := h.db.Model(&ccis[i]).Update("price", price).Error; err != nil {
+					logger.Error().Err(err).
+						Str("item_name", ip.ItemName).
+						Float64("price", ip.Price).
+						Msg("Failed to update case collaboration item price")
+				} else {
+					logger.Info().
+						Str("item_name", ip.ItemName).
+						Float64("price", ip.Price).
+						Str("matched_item", ccis[i].CollaborationItem.Title).
+						Msg("Updated case collaboration item price from AI")
+				}
+				break
+			}
+		}
+	}
 }
 
 // emailBodyForAnalysis 取得用於 AI 分析的郵件內文（純文字）

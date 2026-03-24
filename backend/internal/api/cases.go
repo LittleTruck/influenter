@@ -1481,7 +1481,13 @@ func (h *CaseHandler) getLatestEmailContent(caseID, userID uuid.UUID) (subject, 
 
 // AddCaseCollaborationItemRequest 新增案件合作項目關聯
 type AddCaseCollaborationItemRequest struct {
-	CollaborationItemID string `json:"collaboration_item_id" binding:"required"`
+	CollaborationItemID string   `json:"collaboration_item_id" binding:"required"`
+	Price               *float64 `json:"price,omitempty"` // 案件個別價格（選填）
+}
+
+// UpdateCaseCollaborationItemRequest 更新案件合作項目（價格等）
+type UpdateCaseCollaborationItemRequest struct {
+	Price *float64 `json:"price"` // 案件個別價格，傳 null 表示恢復使用預設價格
 }
 
 // ReorderCaseCollaborationItemsRequest 重新排序案件合作項目
@@ -1600,6 +1606,7 @@ func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
 	cci := models.CaseCollaborationItem{
 		CaseID:              caseUUID,
 		CollaborationItemID: itemUUID,
+		Price:               req.Price,
 		Order:               maxOrder + 1,
 	}
 	if err := tx.Create(&cci).Error; err != nil {
@@ -1621,6 +1628,76 @@ func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
 		First(&cci)
 
 	c.JSON(http.StatusCreated, cci)
+}
+
+// UpdateCaseCollaborationItem 更新案件合作項目（價格等）
+func (h *CaseHandler) UpdateCaseCollaborationItem(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+	itemID := c.Param("itemId")
+
+	caseUUID, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	itemUUID, err := uuid.Parse(itemID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid item ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", caseUUID, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req UpdateCaseCollaborationItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	// 找到關聯記錄
+	var cci models.CaseCollaborationItem
+	if err := h.db.Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).First(&cci).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "not_linked", Message: "此合作項目未關聯到案件"})
+			return
+		}
+		logger.Error().Err(err).Msg("Failed to fetch case collaboration item")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch item"})
+		return
+	}
+
+	// 更新價格
+	if err := h.db.Model(&cci).Update("price", req.Price).Error; err != nil {
+		logger.Error().Err(err).Msg("Failed to update case collaboration item price")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to update price"})
+		return
+	}
+
+	// Reload with associations
+	h.db.Where("id = ?", cci.ID).
+		Preload("CollaborationItem").
+		Preload("CollaborationItem.BundleItems.Item").
+		Preload("CollaborationItem.Workflow").
+		First(&cci)
+
+	logger.Info().
+		Str("case_id", caseID).
+		Str("item_id", itemID).
+		Msg("Case collaboration item price updated")
+
+	c.JSON(http.StatusOK, cci)
 }
 
 // RemoveCaseCollaborationItem 移除案件合作項目關聯 + 刪除對應流程階段

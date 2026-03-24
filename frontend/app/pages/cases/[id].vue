@@ -23,7 +23,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase, addCaseCollaborationItem, removeCaseCollaborationItem } = useCases()
+const { fetchCase, fetchCaseEmails, currentCase, loading, updateCase, addCaseCollaborationItem, removeCaseCollaborationItem, updateCaseCollaborationItem } = useCases()
 const { items: allCollaborationItems, individualItems: allIndividualItems, bundleItems: allBundleItems, fetchItems: fetchCollaborationItems } = useCollaborationItems()
 const { allFields, fetchFields } = useCaseFields()
 
@@ -83,7 +83,6 @@ const startEditing = () => {
   editValues.value = {
     brand_name: currentCase.value.brand_name || '',
     collaboration_type: currentCase.value.collaboration_type || '',
-    quoted_amount: currentCase.value.quoted_amount || 0,
     deadline_date: currentCase.value.deadline_date || '',
     contact_name: currentCase.value.contact_name || ''
   }
@@ -257,12 +256,68 @@ const caseEmails = computed(() => currentCase.value?.emails ?? [])
 const caseCollaborationItems = computed(() => currentCase.value?.case_collaboration_items ?? [])
 const hasCollaborationItems = computed(() => caseCollaborationItems.value.length > 0)
 
-// 合作項目總價
+// 取得案件中某項目的實際價格（案件個別價格優先）
+const getItemPrice = (cci: any): number => {
+  if (cci.price != null) return cci.price
+  return cci.collaboration_item?.price || 0
+}
+
+// 判斷是否為自訂價格
+const isCustomPrice = (cci: any): boolean => {
+  return cci.price != null && cci.price !== cci.collaboration_item?.price
+}
+
+// 合作項目總價（使用案件個別價格）
 const collaborationItemsTotal = computed(() => {
   return caseCollaborationItems.value.reduce((sum: number, cci: any) => {
-    return sum + (cci.collaboration_item?.price || 0)
+    return sum + getItemPrice(cci)
   }, 0)
 })
+
+// ── 單項價格 inline 編輯 ──
+const editingPriceItemId = ref<string | null>(null)
+const editingPriceValue = ref('')
+const savingPriceItemId = ref<string | null>(null)
+
+const startEditItemPrice = (cci: any) => {
+  editingPriceItemId.value = cci.collaboration_item_id
+  editingPriceValue.value = String(getItemPrice(cci))
+}
+
+const cancelEditItemPrice = () => {
+  editingPriceItemId.value = null
+}
+
+const saveItemPrice = async (cci: any) => {
+  const newPrice = parseFloat(editingPriceValue.value)
+  if (isNaN(newPrice) || newPrice < 0) {
+    editingPriceItemId.value = null
+    return
+  }
+  if (newPrice === getItemPrice(cci)) {
+    editingPriceItemId.value = null
+    return
+  }
+
+  const itemId = cci.collaboration_item_id
+  savingPriceItemId.value = itemId
+  try {
+    const defaultPrice = cci.collaboration_item?.price || 0
+    const priceToSave = newPrice === defaultPrice ? null : newPrice
+    await updateCaseCollaborationItem(caseId.value, itemId, { price: priceToSave })
+    handleSuccess('價格已更新')
+  } catch (error: unknown) {
+    handleError(error, '更新價格失敗')
+  } finally {
+    editingPriceItemId.value = null
+    savingPriceItemId.value = null
+  }
+}
+
+const handlePriceKeydown = (event: KeyboardEvent, cci: any) => {
+  if (event.key === 'Enter') saveItemPrice(cci)
+  else if (event.key === 'Escape') cancelEditItemPrice()
+}
 
 // 取得合作項目名稱 by ID（用於流程階段標註）
 // 需要同時查直接關聯的項目和 bundle 內含的項目
@@ -451,13 +506,10 @@ const handleViewEmail = (emailId: string) => {
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
 
-              <!-- 總價 -->
+              <!-- 總價（由合作項目加總，不可手動編輯） -->
               <div>
                 <div class="text-xs text-dimmed mb-0.5">總價</div>
-                <template v-if="isEditingProperties">
-                  <BaseInput v-model.number="editValues.quoted_amount" type="number" placeholder="報價金額" class="w-28" size="sm" />
-                </template>
-                <div v-else class="text-sm font-semibold text-highlighted">{{ displayTotal }}</div>
+                <div class="text-sm font-semibold text-highlighted">{{ displayTotal }}</div>
               </div>
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
@@ -595,17 +647,64 @@ const handleViewEmail = (emailId: string) => {
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">
-                    {{ formatAmount(cci.collaboration_item?.price || 0) }}
-                  </span>
-                  <BaseButton
-                    icon="i-lucide-x"
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="handleRemoveCollaborationItem(cci.collaboration_item_id)"
-                  />
+                  <!-- 正在編輯此項目的價格 -->
+                  <template v-if="editingPriceItemId === cci.collaboration_item_id">
+                    <div class="flex items-center gap-1">
+                      <span class="text-sm text-muted">$</span>
+                      <input
+                        v-model="editingPriceValue"
+                        type="number"
+                        min="0"
+                        step="100"
+                        autofocus
+                        class="w-24 text-right text-sm font-semibold border border-primary-300 dark:border-primary-600 rounded px-2 py-1 bg-transparent focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        @keydown="handlePriceKeydown($event, cci)"
+                      />
+                    </div>
+                    <BaseButton
+                      icon="i-lucide-check"
+                      size="xs"
+                      variant="solid"
+                      :loading="savingPriceItemId === cci.collaboration_item_id"
+                      @click="saveItemPrice(cci)"
+                    />
+                    <BaseButton
+                      icon="i-lucide-x"
+                      size="xs"
+                      variant="ghost"
+                      @click="cancelEditItemPrice"
+                    />
+                  </template>
+                  <!-- 一般顯示 -->
+                  <template v-else>
+                    <span class="text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                      {{ formatAmount(getItemPrice(cci)) }}
+                    </span>
+                    <BaseBadge
+                      v-if="isCustomPrice(cci)"
+                      color="warning"
+                      variant="subtle"
+                      size="xs"
+                    >
+                      自訂
+                    </BaseBadge>
+                    <BaseButton
+                      icon="i-lucide-pencil"
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      title="編輯價格"
+                      @click="startEditItemPrice(cci)"
+                    />
+                    <BaseButton
+                      icon="i-lucide-x"
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      class="opacity-0 group-hover:opacity-100 transition-opacity"
+                      @click="handleRemoveCollaborationItem(cci.collaboration_item_id)"
+                    />
+                  </template>
                 </div>
               </div>
             </div>
@@ -839,3 +938,15 @@ const handleViewEmail = (emailId: string) => {
     </template>
   </BaseDashboardPanel>
 </template>
+
+<style scoped>
+/* 隱藏 number input 的上下箭頭 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+</style>

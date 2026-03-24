@@ -198,6 +198,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("/:id/collaboration-items", caseHandler.ListCaseCollaborationItems)
 				casesGroup.POST("/:id/collaboration-items", caseHandler.AddCaseCollaborationItem)
 				casesGroup.PATCH("/:id/collaboration-items/reorder", caseHandler.ReorderCaseCollaborationItems)
+				casesGroup.PATCH("/:id/collaboration-items/:itemId", caseHandler.UpdateCaseCollaborationItem)
 				casesGroup.DELETE("/:id/collaboration-items/:itemId", caseHandler.RemoveCaseCollaborationItem)
 				// Flow layout
 				casesGroup.PATCH("/:id/flow-layout", caseHandler.UpdateFlowLayout)
