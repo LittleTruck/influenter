@@ -1,4 +1,4 @@
-import type { Case, CaseDetail, CasePhase } from '~/types/cases'
+import type { Case, CaseDetail, CasePhase, CaseStatus } from '~/types/cases'
 import type { EventInput, EventDropArg } from '@fullcalendar/core'
 
 /**
@@ -22,6 +22,9 @@ export const useCalendar = () => {
 
   // 載入狀態
   const loading = ref(false)
+
+  // 狀態篩選（null 代表「全部」）
+  const selectedStatus = ref<CaseStatus | null>(null)
 
   // 含階段資料的案件（由 fetchAllCaseDetails 填充）
   const enrichedCases = ref<Case[]>([])
@@ -100,12 +103,15 @@ export const useCalendar = () => {
   }
 
   /**
-   * 計算事件（從含階段的案件列表）
+   * 計算事件（從含階段的案件列表，套用狀態篩選）
    */
   const events = computed(() => {
     const source = enrichedCases.value.length > 0 ? enrichedCases.value : cases.value
     if (!source) return []
-    return casesToEvents(source, currentView.value)
+    const filtered = selectedStatus.value
+      ? source.filter(c => c.status === selectedStatus.value)
+      : source
+    return casesToEvents(filtered, currentView.value)
   })
 
   /**
@@ -203,6 +209,7 @@ export const useCalendar = () => {
     currentDate,
     events,
     loading,
+    selectedStatus,
 
     // 方法
     setView,

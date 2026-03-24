@@ -4,8 +4,18 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventDropArg } from '@fullcalendar/core'
 import { format } from 'date-fns'
-import { STATUS_LABELS, STATUS_COLOR_HEX } from '~/utils/caseStatus'
+import { STATUS_LABELS, STATUS_COLOR_HEX, STATUS_COLORS } from '~/utils/caseStatus'
 import type { CaseStatus } from '~/types/cases'
+
+// 狀態篩選 Tab 選項
+const statusTabs: { label: string; value: CaseStatus | null; color: string }[] = [
+  { label: '全部', value: null, color: '' },
+  { label: STATUS_LABELS.to_confirm, value: 'to_confirm', color: STATUS_COLORS.to_confirm },
+  { label: STATUS_LABELS.in_progress, value: 'in_progress', color: STATUS_COLORS.in_progress },
+  { label: STATUS_LABELS.completed, value: 'completed', color: STATUS_COLORS.completed },
+  { label: STATUS_LABELS.cancelled, value: 'cancelled', color: STATUS_COLORS.cancelled },
+  { label: STATUS_LABELS.other, value: 'other', color: STATUS_COLORS.other }
+]
 
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value === 'dark')
@@ -18,7 +28,8 @@ const {
   prev,
   next,
   setView,
-  handleEventDrop
+  handleEventDrop,
+  selectedStatus
 } = useCalendar()
 
 // Header title
@@ -241,6 +252,28 @@ watch(currentDate, () => {
           {{ opt.label }}
         </button>
       </div>
+    </div>
+
+    <!-- 狀態篩選 Tabs -->
+    <div class="flex items-center gap-1 px-1 pb-3 shrink-0 flex-wrap">
+      <button
+        v-for="tab in statusTabs"
+        :key="String(tab.value)"
+        class="px-3 py-1 text-xs font-medium rounded-full border transition-colors"
+        :class="selectedStatus === tab.value
+          ? 'shadow-sm'
+          : 'border-transparent opacity-60 hover:opacity-100'"
+        :style="tab.value
+          ? {
+              color: selectedStatus === tab.value ? 'white' : (STATUS_COLOR_HEX[tab.value] || '#6b7280'),
+              backgroundColor: selectedStatus === tab.value ? (STATUS_COLOR_HEX[tab.value] || '#6b7280') : 'transparent',
+              borderColor: STATUS_COLOR_HEX[tab.value] || '#6b7280'
+            }
+          : {}"
+        @click="selectedStatus = tab.value"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
     <!-- Calendar grid -->
