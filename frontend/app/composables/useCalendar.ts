@@ -23,8 +23,27 @@ export const useCalendar = () => {
   // 載入狀態
   const loading = ref(false)
 
-  // 狀態篩選（null 代表「全部」）
-  const selectedStatus = ref<CaseStatus | null>(null)
+  // 狀態篩選（null 代表「全部」），與 URL query ?status= 同步
+  const route = useRoute()
+  const router = useRouter()
+
+  const validStatuses: CaseStatus[] = ['to_confirm', 'in_progress', 'completed', 'cancelled', 'other']
+
+  const selectedStatus = ref<CaseStatus | null>(
+    validStatuses.includes(route.query.status as CaseStatus)
+      ? (route.query.status as CaseStatus)
+      : null
+  )
+
+  watch(selectedStatus, (val) => {
+    const query = { ...route.query }
+    if (val) {
+      query.status = val
+    } else {
+      delete query.status
+    }
+    router.replace({ query })
+  })
 
   // 含階段資料的案件（由 fetchAllCaseDetails 填充）
   const enrichedCases = ref<Case[]>([])
