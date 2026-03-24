@@ -263,13 +263,11 @@ watch(currentDate, () => {
         :class="selectedStatus === tab.value
           ? 'shadow-sm'
           : 'border-transparent opacity-60 hover:opacity-100'"
-        :style="tab.value
-          ? {
-              color: selectedStatus === tab.value ? 'white' : (STATUS_COLOR_HEX[tab.value] || '#6b7280'),
-              backgroundColor: selectedStatus === tab.value ? (STATUS_COLOR_HEX[tab.value] || '#6b7280') : 'transparent',
-              borderColor: STATUS_COLOR_HEX[tab.value] || '#6b7280'
-            }
-          : {}"
+        :style="{
+          color: selectedStatus === tab.value ? 'white' : (tab.value ? STATUS_COLOR_HEX[tab.value] : '#000000'),
+          backgroundColor: selectedStatus === tab.value ? (tab.value ? STATUS_COLOR_HEX[tab.value] : '#000000') : 'transparent',
+          borderColor: tab.value ? STATUS_COLOR_HEX[tab.value] : '#000000'
+        }"
         @click="selectedStatus = tab.value"
       >
         {{ tab.label }}
