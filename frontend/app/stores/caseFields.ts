@@ -88,7 +88,7 @@ const defaultSystemFields: SystemField[] = [
     is_required: false,
     is_visible: true,
     order: 6
-  }
+  },
 ]
 
 export const useCaseFieldsStore = defineStore('caseFields', () => {

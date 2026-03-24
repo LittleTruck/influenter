@@ -61,6 +61,7 @@ type CaseResponse struct {
 	ContactName       *string  `json:"contact_name,omitempty"`
 	ContactEmail      *string  `json:"contact_email,omitempty"`
 	ContactPhone      *string  `json:"contact_phone,omitempty"`
+	Notes             *string  `json:"notes,omitempty"`
 	EmailCount        int      `json:"email_count"`
 	TaskCount         int      `json:"task_count"`
 	CompletedTaskCount int     `json:"completed_task_count"`
@@ -88,6 +89,7 @@ func caseToResponse(c *models.Case, emailCount, taskCount, completedTaskCount in
 		ContactName:        c.ContactName,
 		ContactEmail:       c.ContactEmail,
 		ContactPhone:       c.ContactPhone,
+		Notes:              c.Notes,
 		EmailCount:         emailCount,
 		TaskCount:          taskCount,
 		CompletedTaskCount: completedTaskCount,
@@ -188,6 +190,126 @@ func (h *CaseHandler) CreateCase(c *gin.Context) {
 	go h.autoMatchCollaborationItemsForCase(cs.ID, userID)
 
 	c.JSON(http.StatusCreated, caseToResponse(&cs, 0, 0, 0))
+}
+
+// UpdateCaseRequest 更新案件請求
+type UpdateCaseRequest struct {
+	Title             *string  `json:"title"`
+	BrandName         *string  `json:"brand_name"`
+	AgencyName        *string  `json:"agency_name"`
+	CollaborationType *string  `json:"collaboration_type"`
+	Description       *string  `json:"description"`
+	Status            *string  `json:"status"`
+	QuotedAmount      *float64 `json:"quoted_amount"`
+	FinalAmount       *float64 `json:"final_amount"`
+	Currency          *string  `json:"currency"`
+	DeadlineDate      *string  `json:"deadline_date"`
+	ContactName       *string  `json:"contact_name"`
+	ContactEmail      *string  `json:"contact_email"`
+	ContactPhone      *string  `json:"contact_phone"`
+	Notes             *string  `json:"notes"`
+	Tags              []string `json:"tags"`
+}
+
+// UpdateCase 更新案件
+func (h *CaseHandler) UpdateCase(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req UpdateCaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if req.Title != nil {
+		updates["title"] = *req.Title
+	}
+	if req.BrandName != nil {
+		updates["brand_name"] = *req.BrandName
+	}
+	if req.AgencyName != nil {
+		updates["agency_name"] = *req.AgencyName
+	}
+	if req.CollaborationType != nil {
+		updates["collaboration_type"] = *req.CollaborationType
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+	if req.QuotedAmount != nil {
+		updates["quoted_amount"] = *req.QuotedAmount
+	}
+	if req.FinalAmount != nil {
+		updates["final_amount"] = *req.FinalAmount
+	}
+	if req.Currency != nil {
+		updates["currency"] = *req.Currency
+	}
+	if req.DeadlineDate != nil {
+		if *req.DeadlineDate == "" {
+			updates["deadline_date"] = nil
+		} else if t, err := time.Parse("2006-01-02", *req.DeadlineDate); err == nil {
+			updates["deadline_date"] = t
+		}
+	}
+	if req.ContactName != nil {
+		updates["contact_name"] = *req.ContactName
+	}
+	if req.ContactEmail != nil {
+		updates["contact_email"] = *req.ContactEmail
+	}
+	if req.ContactPhone != nil {
+		updates["contact_phone"] = *req.ContactPhone
+	}
+	if req.Notes != nil {
+		updates["notes"] = *req.Notes
+	}
+	if req.Tags != nil {
+		updates["tags"] = req.Tags
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no_changes", Message: "No fields to update"})
+		return
+	}
+
+	if err := h.db.Model(&cs).Updates(updates).Error; err != nil {
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to update case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to update case"})
+		return
+	}
+
+	// Reload
+	h.db.Where("id = ?", id).First(&cs)
+
+	var emailCount int64
+	h.db.Model(&models.Email{}).Where("case_id = ?", id).Count(&emailCount)
+
+	logger.Info().Str("case_id", caseID).Msg("Case updated")
+	c.JSON(http.StatusOK, caseToResponse(&cs, int(emailCount), 0, 0))
 }
 
 // ListCases 取得案件列表
@@ -367,6 +489,7 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 		"contact_name":            resp.ContactName,
 		"contact_email":           resp.ContactEmail,
 		"contact_phone":           resp.ContactPhone,
+		"notes":                   resp.Notes,
 		"email_count":             resp.EmailCount,
 		"task_count":              resp.TaskCount,
 		"completed_task_count":    resp.CompletedTaskCount,

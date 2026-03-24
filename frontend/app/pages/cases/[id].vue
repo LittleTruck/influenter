@@ -5,7 +5,7 @@ import { useErrorHandler } from '~/composables/useErrorHandler'
 import { formatAmount } from '~/utils/formatters'
 import { getStatusColor, getStatusLabel } from '~/utils/caseStatus'
 import { useCollaborationItems } from '~/composables/useCollaborationItems'
-import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton, BaseCard, BaseBadge, BaseIcon, BaseInput } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton, BaseCard, BaseBadge, BaseIcon, BaseInput, BaseRichTextEditor } from '~/components/base'
 import AppSectionWithHeader from '~/components/ui/AppSectionWithHeader.vue'
 import CasePropertiesPanel from '~/components/cases/detail/CasePropertiesPanel.vue'
 import CaseEmailsTimeline from '~/components/cases/detail/CaseEmailsTimeline.vue'
@@ -84,7 +84,7 @@ const startEditing = () => {
     brand_name: currentCase.value.brand_name || '',
     collaboration_type: currentCase.value.collaboration_type || '',
     deadline_date: currentCase.value.deadline_date || '',
-    contact_name: currentCase.value.contact_name || ''
+    contact_name: currentCase.value.contact_name || '',
   }
   isEditingProperties.value = true
 }
@@ -421,6 +421,43 @@ const displayTotal = computed(() => {
   return amount ? formatAmount(amount) : '-'
 })
 
+// ── 備註 ──
+const isEditingNotes = ref(false)
+const notesContent = ref('')
+
+const startEditingNotes = () => {
+  notesContent.value = currentCase.value?.notes || ''
+  isEditingNotes.value = true
+}
+
+const cancelEditingNotes = () => {
+  isEditingNotes.value = false
+  notesContent.value = ''
+}
+
+const notesPlainText = computed(() => {
+  const html = currentCase.value?.notes || ''
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+})
+
+const notesTruncatedHtml = computed(() => {
+  const plain = notesPlainText.value
+  if (!plain) return ''
+  return plain.length > 30 ? plain.slice(0, 30) + '…' : plain
+})
+
+const saveNotes = async () => {
+  try {
+    await updateCase(caseId.value, { notes: notesContent.value } as any)
+    handleSuccess('備註已更新')
+    isEditingNotes.value = false
+    await fetchCase(caseId.value)
+  } catch (error: any) {
+    handleError(error, '更新備註失敗')
+  }
+}
+
 // ── AI 擬信 Slideover ──
 const showDraftReply = ref(false)
 
@@ -545,6 +582,26 @@ const handleViewEmail = (emailId: string) => {
                   <BaseIcon name="i-lucide-user" class="w-4 h-4 text-muted flex-shrink-0" />
                   {{ currentCase.contact_name || '-' }}
                 </div>
+              </div>
+
+              <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+              <!-- 備註 -->
+              <div class="min-w-0" style="max-width: 200px;">
+                <div class="text-xs text-dimmed mb-0.5">備註</div>
+                <div
+                  v-if="currentCase.notes"
+                  class="text-sm font-semibold text-highlighted truncate cursor-pointer"
+                  :title="notesPlainText"
+                  @click="startEditingNotes"
+                >{{ notesTruncatedHtml }}</div>
+                <span
+                  v-else
+                  class="text-sm text-muted cursor-pointer hover:text-highlighted transition-colors"
+                  @click="startEditingNotes"
+                >
+                  點擊新增...
+                </span>
               </div>
 
               <!-- 分隔 + 編輯按鈕 -->
@@ -844,9 +901,32 @@ const handleViewEmail = (emailId: string) => {
             </BaseButton>
           </div>
         </AppSectionWithHeader>
+
       </div>
 
       <ErrorState v-else title="無法載入案件詳情" message="請重新整理頁面或返回列表" />
+
+      <!-- 備註編輯 Modal -->
+      <UModal v-model:open="isEditingNotes">
+        <template #content>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-highlighted">編輯備註</h3>
+              <BaseButton icon="i-lucide-x" size="xs" variant="ghost" @click="cancelEditingNotes" />
+            </div>
+            <BaseRichTextEditor
+              v-model="notesContent"
+              placeholder="自由輸入備註內容..."
+              min-height="200px"
+              :toolbar="true"
+            />
+            <div class="flex justify-end gap-2">
+              <BaseButton variant="outline" @click="cancelEditingNotes">取消</BaseButton>
+              <BaseButton @click="saveNotes">儲存</BaseButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
 
       <!-- Modals & Slideovers -->
       <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" :flow-layout="currentCase?.flow_layout" @saved="handlePhasesSaved" />

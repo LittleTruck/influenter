@@ -189,6 +189,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.GET("", caseHandler.ListCases)
 				casesGroup.GET("/fields", caseHandler.ListCaseFields)
 				casesGroup.GET("/:id", caseHandler.GetCase)
+				casesGroup.PATCH("/:id", caseHandler.UpdateCase)
 				casesGroup.GET("/:id/emails", caseHandler.ListCaseEmails)
 				casesGroup.POST("/:id/draft-reply", caseHandler.DraftReply)
 				// Case phases
