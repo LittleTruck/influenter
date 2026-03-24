@@ -85,6 +85,7 @@ const startEditing = () => {
     collaboration_type: currentCase.value.collaboration_type || '',
     deadline_date: currentCase.value.deadline_date || '',
     contact_name: currentCase.value.contact_name || '',
+    alias: currentCase.value.alias || '',
   }
   isEditingProperties.value = true
 }
@@ -474,7 +475,7 @@ const handleViewEmail = (emailId: string) => {
 <template>
   <BaseDashboardPanel>
     <template #header>
-      <BaseDashboardNavbar :title="currentCase?.title || '案件詳情'">
+      <BaseDashboardNavbar :title="currentCase ? (currentCase.alias ? `${currentCase.alias} - ${currentCase.title}` : currentCase.title) : '案件詳情'">
         <template #right>
           <div class="flex items-center gap-2">
             <BaseBadge
@@ -513,6 +514,19 @@ const handleViewEmail = (emailId: string) => {
           <!-- ① 屬性摘要列 -->
           <div class="bg-subtle rounded-xl p-4">
             <div class="flex flex-wrap items-center gap-6">
+              <!-- 別名 -->
+              <div class="min-w-0" style="max-width: 140px;">
+                <div class="text-xs text-dimmed mb-0.5">別名</div>
+                <template v-if="isEditingProperties">
+                  <BaseInput v-model="editValues.alias" placeholder="簡短別名" class="w-28" size="sm" />
+                </template>
+                <div v-else class="text-sm font-semibold text-highlighted truncate">
+                  {{ currentCase.alias || '-' }}
+                </div>
+              </div>
+
+              <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
               <!-- 品牌 -->
               <div class="min-w-0">
                 <div class="text-xs text-dimmed mb-0.5">品牌</div>

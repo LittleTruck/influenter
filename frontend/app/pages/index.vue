@@ -1,7 +1,7 @@
 <template>
   <BaseDashboardPanel>
     <template #header>
-      <BaseDashboardNavbar title="I'm working late, 'cause I'm a Influenter" />
+      <BaseDashboardNavbar title="I'm working late, cause I'm an Influencer 🫠" />
     </template>
 
     <template #body>
@@ -93,7 +93,7 @@
                   class="flex items-center justify-between py-3 first:pt-0 last:pb-0 hover:bg-elevated/50 -mx-2 px-2 rounded transition-colors"
                 >
                   <div class="min-w-0 flex-1">
-                    <p class="font-medium text-highlighted truncate">{{ c.title || c.brand_name }}</p>
+                    <p class="font-medium text-highlighted truncate">{{ c.alias || c.title || c.brand_name }}</p>
                     <p class="text-sm text-muted truncate">
                       {{ c.brand_name }}
                       <span v-if="c.quoted_amount"> · NT$ {{ c.quoted_amount.toLocaleString() }}</span>
@@ -132,7 +132,7 @@
                         class="inline-block w-2 h-2 rounded-full shrink-0"
                         :style="{ backgroundColor: getStatusColorHex(c.status) }"
                       />
-                      <p class="font-medium text-highlighted truncate">{{ c.title || c.brand_name }}</p>
+                      <p class="font-medium text-highlighted truncate">{{ c.alias || c.title || c.brand_name }}</p>
                     </div>
                     <p class="text-sm text-muted truncate ml-4">
                       {{ c.brand_name }}
@@ -178,7 +178,7 @@
                 >
                   <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0 flex-1">
-                      <p class="font-medium text-highlighted text-sm truncate">{{ c.title || c.brand_name }}</p>
+                      <p class="font-medium text-highlighted text-sm truncate">{{ c.alias || c.title || c.brand_name }}</p>
                       <p class="text-xs text-muted mt-0.5">{{ c.brand_name }}</p>
                     </div>
                     <span

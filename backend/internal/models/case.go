@@ -41,6 +41,7 @@ type Case struct {
 	ContactEmail *string `gorm:"column:contact_email;type:varchar(255)" json:"contact_email,omitempty"`
 	ContactPhone *string `gorm:"column:contact_phone;type:varchar(100)" json:"contact_phone,omitempty"`
 
+	Alias              *string         `gorm:"column:alias;type:varchar(100)" json:"alias,omitempty"`
 	Notes              *string         `gorm:"type:text" json:"notes,omitempty"`
 	Tags               pq.StringArray  `gorm:"type:text[]" json:"tags,omitempty"`
 	CollaborationItems pq.StringArray  `gorm:"column:collaboration_items;type:text[]" json:"-"` // Deprecated: use CaseCollaborationItems

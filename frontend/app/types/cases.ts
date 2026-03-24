@@ -40,6 +40,7 @@ export interface CaseCollaborationItem {
 export interface Case {
   id: string
   title: string
+  alias?: string
   brand_name: string
   agency_name?: string
   collaboration_type?: string
@@ -164,6 +165,7 @@ export interface CreateCaseRequest {
   contact_name?: string
   contact_email?: string
   contact_phone?: string
+  alias?: string
   notes?: string
   tags?: string[]
   collaboration_items?: string[] // 選中的合作項目 ID 列表
@@ -176,6 +178,7 @@ export interface CreateCaseRequest {
  */
 export interface UpdateCaseRequest {
   title?: string
+  alias?: string
   brand_name?: string
   agency_name?: string
   collaboration_type?: string

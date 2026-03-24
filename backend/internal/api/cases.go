@@ -61,6 +61,7 @@ type CaseResponse struct {
 	ContactName       *string  `json:"contact_name,omitempty"`
 	ContactEmail      *string  `json:"contact_email,omitempty"`
 	ContactPhone      *string  `json:"contact_phone,omitempty"`
+	Alias             *string  `json:"alias,omitempty"`
 	Notes             *string  `json:"notes,omitempty"`
 	EmailCount        int      `json:"email_count"`
 	TaskCount         int      `json:"task_count"`
@@ -89,6 +90,7 @@ func caseToResponse(c *models.Case, emailCount, taskCount, completedTaskCount in
 		ContactName:        c.ContactName,
 		ContactEmail:       c.ContactEmail,
 		ContactPhone:       c.ContactPhone,
+		Alias:              c.Alias,
 		Notes:              c.Notes,
 		EmailCount:         emailCount,
 		TaskCount:          taskCount,
@@ -207,6 +209,7 @@ type UpdateCaseRequest struct {
 	ContactName       *string  `json:"contact_name"`
 	ContactEmail      *string  `json:"contact_email"`
 	ContactPhone      *string  `json:"contact_phone"`
+	Alias             *string  `json:"alias"`
 	Notes             *string  `json:"notes"`
 	Tags              []string `json:"tags"`
 }
@@ -283,6 +286,9 @@ func (h *CaseHandler) UpdateCase(c *gin.Context) {
 	}
 	if req.ContactPhone != nil {
 		updates["contact_phone"] = *req.ContactPhone
+	}
+	if req.Alias != nil {
+		updates["alias"] = *req.Alias
 	}
 	if req.Notes != nil {
 		updates["notes"] = *req.Notes
@@ -489,6 +495,7 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 		"contact_name":            resp.ContactName,
 		"contact_email":           resp.ContactEmail,
 		"contact_phone":           resp.ContactPhone,
+		"alias":                   resp.Alias,
 		"notes":                   resp.Notes,
 		"email_count":             resp.EmailCount,
 		"task_count":              resp.TaskCount,

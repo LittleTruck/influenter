@@ -93,7 +93,7 @@ export const useCalendar = () => {
           if (!phase.end_date) return
           events.push({
             id: `phase-${phase.id}`,
-            title: `${caseItem.title} - ${phase.name}`,
+            title: `${caseItem.alias || caseItem.title} - ${phase.name}`,
             start: phase.end_date,
             allDay: true,
             extendedProps: {
@@ -107,7 +107,7 @@ export const useCalendar = () => {
         // 如果沒有階段但有截止日期，顯示截止日期事件
         events.push({
           id: caseItem.id,
-          title: `${caseItem.title} - ${caseItem.brand_name}`,
+          title: `${caseItem.alias || caseItem.title} - ${caseItem.brand_name}`,
           start: caseItem.deadline_date,
           allDay: true,
           extendedProps: {
