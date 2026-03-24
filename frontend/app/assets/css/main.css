@@ -1,6 +1,65 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* 自訂主色色盤 — 註冊為 Tailwind 色階，供 Nuxt UI plugin 的 var(--color-*) 查找 */
+:root {
+  /* skyblue — 基於 #D2E7FC */
+  --color-skyblue-50:  #F0F7FE;
+  --color-skyblue-100: #E2EFFD;
+  --color-skyblue-200: #D2E7FC;
+  --color-skyblue-300: #A9CFF8;
+  --color-skyblue-400: #7DB2F3;
+  --color-skyblue-500: #5693EC;
+  --color-skyblue-600: #3B76E0;
+  --color-skyblue-700: #2D60CC;
+  --color-skyblue-800: #2A4FA6;
+  --color-skyblue-900: #274483;
+  --color-skyblue-950: #1B2B51;
+
+  /* rosepink — 基於 #FCE1F6（淺化版） */
+  --color-rosepink-50:  #FFF7FD;
+  --color-rosepink-100: #FEF0FB;
+  --color-rosepink-200: #FDE8F8;
+  --color-rosepink-300: #FBCFF0;
+  --color-rosepink-400: #F8B0E4;
+  --color-rosepink-500: #F28ED4;
+  --color-rosepink-600: #E866C0;
+  --color-rosepink-700: #D44AAA;
+  --color-rosepink-800: #B03890;
+  --color-rosepink-900: #8E2F74;
+  --color-rosepink-950: #5C1A4A;
+
+}
+
+/* 分隔線 — 全部改為實黑色 */
+@property --ui-border {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #000000;
+}
+@property --ui-border-muted {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #000000;
+}
+@property --ui-border-accented {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #000000;
+}
+
+:root:root {
+  --ui-border: #000000;
+  --ui-border-muted: #000000;
+  --ui-border-accented: #000000;
+}
+
+.dark:root, :root.dark {
+  --ui-border: #ffffff;
+  --ui-border-muted: #ffffff;
+  --ui-border-accented: #ffffff;
+}
+
 /* ============================================
    全局拖拉樣式 - 適用於所有使用 vuedraggable 的組件
    這些樣式會自動套用到所有使用 ghost-class="drag-ghost" 等屬性的 draggable 組件

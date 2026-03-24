@@ -1,4 +1,4 @@
-export type ThemeColor = 'green' | 'blue' | 'violet' | 'rose' | 'amber' | 'cyan' | 'indigo'
+export type ThemeColor = 'green' | 'blue' | 'violet' | 'rose' | 'amber' | 'cyan' | 'indigo' | 'skyblue' | 'rosepink'
 
 export const THEME_COLORS: { value: ThemeColor; label: string }[] = [
   { value: 'green', label: '綠色' },
@@ -8,6 +8,8 @@ export const THEME_COLORS: { value: ThemeColor; label: string }[] = [
   { value: 'amber', label: '琥珀' },
   { value: 'cyan', label: '青色' },
   { value: 'indigo', label: '靛藍' },
+  { value: 'skyblue', label: '天藍' },
+  { value: 'rosepink', label: '玫粉' },
 ]
 
 const STORAGE_KEY = 'influenter-primary-color'

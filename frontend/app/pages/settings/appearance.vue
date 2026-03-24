@@ -15,6 +15,8 @@ const colorClasses: Record<ThemeColor, string> = {
   amber: 'bg-amber-500',
   cyan: 'bg-cyan-500',
   indigo: 'bg-indigo-500',
+  skyblue: '',
+  rosepink: '',
 }
 
 const ringClasses: Record<ThemeColor, string> = {
@@ -25,6 +27,26 @@ const ringClasses: Record<ThemeColor, string> = {
   amber: 'ring-amber-500',
   cyan: 'ring-cyan-500',
   indigo: 'ring-indigo-500',
+  skyblue: '',
+  rosepink: '',
+}
+
+// 自訂色沒有 Tailwind utility，用 inline style
+const customColorStyles: Partial<Record<ThemeColor, { bg: string; ring: string }>> = {
+  skyblue: { bg: '#5693EC', ring: '#5693EC' },
+  rosepink: { bg: '#F28ED4', ring: '#F28ED4' },
+}
+
+function getColorStyle(color: ThemeColor) {
+  const custom = customColorStyles[color]
+  if (!custom) return {}
+  return { backgroundColor: custom.bg }
+}
+
+function getRingStyle(color: ThemeColor, isSelected: boolean) {
+  const custom = customColorStyles[color]
+  if (!custom || !isSelected) return {}
+  return { boxShadow: `0 0 0 2px var(--color-white, #fff), 0 0 0 4px ${custom.ring}` }
 }
 
 definePageMeta({
@@ -88,8 +110,9 @@ definePageMeta({
             class="relative w-8 h-8 rounded-full cursor-pointer transition-transform hover:scale-110 focus:outline-none"
             :class="[
               colorClasses[color.value],
-              primaryColor === color.value ? `ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900 ${ringClasses[color.value]}` : ''
+              primaryColor === color.value && ringClasses[color.value] ? `ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-900 ${ringClasses[color.value]}` : ''
             ]"
+            :style="{ ...getColorStyle(color.value), ...getRingStyle(color.value, primaryColor === color.value) }"
             @click="setPrimaryColor(color.value)"
           >
             <span
