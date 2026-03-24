@@ -71,7 +71,7 @@ const columns: TableColumn<Case>[] = [
   },
   {
     accessorKey: 'deadline_date',
-    header: '截止日期'
+    header: '預計上線日'
   },
   {
     accessorKey: 'email_count',

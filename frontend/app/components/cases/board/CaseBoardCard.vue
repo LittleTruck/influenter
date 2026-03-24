@@ -74,7 +74,7 @@ const avatarText = computed(() => {
       </div>
     </div>
 
-    <!-- 截止日期 -->
+    <!-- 預計上線日 -->
     <div v-if="caseData.deadline_date" class="mb-2 flex items-center gap-1">
       <BaseIcon
         name="i-lucide-calendar"

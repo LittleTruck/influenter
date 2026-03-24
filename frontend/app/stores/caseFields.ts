@@ -70,7 +70,7 @@ const defaultSystemFields: SystemField[] = [
   {
     id: 'system-deadline_date',
     name: 'deadline_date',
-    label: '截止日期',
+    label: '預計上線日',
     type: 'date',
     is_system: true,
     system_column_name: SystemFieldName.DEADLINE_DATE,

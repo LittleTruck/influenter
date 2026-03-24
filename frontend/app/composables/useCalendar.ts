@@ -138,7 +138,7 @@ export const useCalendar = () => {
       await updateCase(caseId, {
         deadline_date: formattedDate
       })
-      handleSuccess('案件截止日期已更新')
+      handleSuccess('預計上線日已更新')
     } catch (error: any) {
       handleError(error, '更新案件日期失敗')
     } finally {

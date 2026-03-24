@@ -514,9 +514,9 @@ const handleViewEmail = (emailId: string) => {
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
 
-              <!-- 截止日 -->
+              <!-- 預計上線日 -->
               <div>
-                <div class="text-xs text-dimmed mb-0.5">截止日</div>
+                <div class="text-xs text-dimmed mb-0.5">預計上線日</div>
                 <template v-if="isEditingProperties">
                   <input v-model="editValues.deadline_date" type="date" class="w-36 px-2 py-1 text-sm rounded-md border border-default bg-default text-highlighted" />
                 </template>
