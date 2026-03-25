@@ -22,17 +22,16 @@ export const useAuthStore = defineStore('auth', {
 
     setToken(token: string | null) {
       this.token = token
-      if (token) {
-        // 儲存 token 到 localStorage
-        if (import.meta.client) {
+      if (import.meta.client) {
+        if (token) {
           localStorage.setItem('auth_token', token)
-        }
-      } else {
-        // 清除 token
-        if (import.meta.client) {
+        } else {
           localStorage.removeItem('auth_token')
         }
       }
+      // 同步寫入 cookie，讓 SSR middleware 也能讀取
+      const cookie = useCookie('auth_token', { maxAge: 60 * 60 * 24 * 7 }) // 7 天
+      cookie.value = token
     },
 
     setLoading(loading: boolean) {
@@ -40,10 +39,15 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async initAuth() {
-      // 從 localStorage 載入 token
+      // 從 cookie 或 localStorage 載入 token
       if (import.meta.client) {
-        const token = localStorage.getItem('auth_token')
+        const cookie = useCookie('auth_token')
+        const token = cookie.value || localStorage.getItem('auth_token')
         if (token) {
+          // 確保 cookie 同步
+          if (!cookie.value) {
+            cookie.value = token
+          }
           this.token = token
           // 這裡可以呼叫 API 驗證 token 並取得使用者資料
           try {
@@ -74,8 +78,6 @@ export const useAuthStore = defineStore('auth', {
       this.isAuthenticated = false
       // 導向登入頁面
       if (import.meta.client) {
-        await navigateTo('/auth/login', { replace: true })
-        // 強制刷新頁面以確保完全清除狀態
         window.location.href = '/auth/login'
       }
     },
