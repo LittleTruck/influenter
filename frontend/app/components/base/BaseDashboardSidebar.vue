@@ -11,11 +11,14 @@ interface Props {
   collapsible?: boolean
   /** 是否可調整大小 */
   resizable?: boolean
+  /** UI 樣式覆蓋 */
+  ui?: Record<string, string>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   collapsible: true,
-  resizable: true
+  resizable: true,
+  ui: undefined
 })
 </script>
 
@@ -24,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
     v-bind="$attrs"
     :collapsible="props.collapsible"
     :resizable="props.resizable"
+    :ui="props.ui"
   >
     <template #header="slotProps">
       <slot name="header" v-bind="slotProps" />

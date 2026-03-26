@@ -1,6 +1,6 @@
 <template>
   <BaseDashboardGroup>
-    <BaseDashboardSidebar collapsible resizable>
+    <BaseDashboardSidebar collapsible resizable >
       <template #header="{ collapsed }">
         <div v-if="!collapsed" class="flex items-center justify-between w-full">
           <div class="flex items-center gap-2">
@@ -40,8 +40,8 @@
           tooltip
           popover
           :ui="{
-            link: 'text-base',
-            linkLeadingIcon: 'size-5',
+            link: 'text-base hover:text-primary-500 dark:hover:text-primary-400',
+            linkLeadingIcon: 'size-5 group-hover:text-primary-500 dark:group-hover:text-primary-400',
             childLabel: 'font-semibold text-xs text-muted uppercase tracking-wide px-2 py-1.5 border-b border-default mb-1',
             childLink: 'text-sm',
           }"

@@ -60,6 +60,11 @@
   --ui-border-accented: #ffffff;
 }
 
+/* 覆蓋 Tailwind 編譯產生的 border-default（gray-200），改用 runtime --ui-border */
+.border-default {
+  border-color: var(--ui-border);
+}
+
 /* ============================================
    全局拖拉樣式 - 適用於所有使用 vuedraggable 的組件
    這些樣式會自動套用到所有使用 ghost-class="drag-ghost" 等屬性的 draggable 組件
