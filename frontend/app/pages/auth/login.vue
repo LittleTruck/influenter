@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { GoogleAuthResponse } from '~/types/auth'
 import { BaseCard, BaseAlert, BaseIcon } from '~/components/base'
 
 definePageMeta({
@@ -14,28 +13,6 @@ useSeoMeta({
 
 const config = useRuntimeConfig()
 const googleClientId = config.public.googleClientId
-
-const { loginWithGoogle, loading } = useAuth()
-const error = ref('')
-
-const handleGoogleLogin = async (response: any) => {
-  try {
-    error.value = ''
-    
-    const googleResponse: GoogleAuthResponse = {
-      credential: response.credential,
-      clientId: googleClientId as string,
-    }
-    
-    await loginWithGoogle(googleResponse)
-    
-    // 登入成功，導向首頁
-    await navigateTo('/')
-  } catch (err: any) {
-    console.error('Login failed:', err)
-    error.value = err.message || '登入失敗，請稍後再試'
-  }
-}
 </script>
 
 <template>
@@ -62,32 +39,15 @@ const handleGoogleLogin = async (response: any) => {
 
         <!-- Google 登入按鈕 -->
         <div class="flex flex-col items-center space-y-4">
-          <ClientOnly>
-            <div v-if="googleClientId" class="w-full max-w-md">
-              <GoogleLoginButton />
-            </div>
-            <BaseAlert
-              v-else
-              color="warning"
-              variant="soft"
-              title="Google Client ID 未設定"
-              description="請在環境變數中設定 NUXT_PUBLIC_GOOGLE_CLIENT_ID"
-            />
-          </ClientOnly>
-          
-          <!-- 載入狀態 -->
-          <div v-if="loading" class="text-center">
-            <BaseIcon name="i-lucide-loader-2" class="w-6 h-6 animate-spin text-primary" />
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">登入中...</p>
+          <div v-if="googleClientId" class="w-full max-w-md">
+            <GoogleLoginButton />
           </div>
-
-          <!-- 錯誤訊息 -->
           <BaseAlert
-            v-if="error"
-            color="error"
+            v-else
+            color="warning"
             variant="soft"
-            :title="error"
-            :close="true"
+            title="Google Client ID 未設定"
+            description="請在環境變數中設定 NUXT_PUBLIC_GOOGLE_CLIENT_ID"
           />
         </div>
 

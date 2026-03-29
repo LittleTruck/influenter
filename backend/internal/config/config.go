@@ -194,11 +194,11 @@ func Load() (*Config, error) {
 		},
 
 		// 前端 URL
-		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:3000"),
+		FrontendURL: getEnv("FRONTEND_URL", "https://influenter.dco.tw"),
 
 		// CORS 設定
 		CORS: CORSConfig{
-			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:8080"}),
+			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"https://influenter.dco.tw"}),
 		},
 
 		// Asynq 設定

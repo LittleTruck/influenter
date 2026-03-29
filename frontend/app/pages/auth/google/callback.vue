@@ -43,14 +43,19 @@ onMounted(async () => {
       timeout: 30000 // 30 秒，涵蓋 Google OAuth 交換時間
     })
     
+    // 驗證回應結構
+    if (!response.token || !response.user) {
+      throw new Error('後端回應格式異常，請稍後再試')
+    }
+
     // 儲存 token 和用戶資訊
     authStore.setToken(response.token)
     authStore.setUser(response.user)
-    
+
     // 顯示成功訊息
     toast.add({
       title: '登入成功',
-      description: `歡迎回來，${response.user.name}！`,
+      description: `歡迎回來，${response.user.name || response.user.email}！`,
       color: 'success'
     })
     
@@ -65,7 +70,7 @@ onMounted(async () => {
     // 針對「無法連線」情況提供較明確訊息
     const msg = e.message || ''
     if (msg.includes('Failed to fetch') || msg.includes('fetch')) {
-      error.value = '無法連線至後端 API，請確認後端服務已啟動（localhost:8080）'
+      error.value = '無法連線至後端 API，請確認後端服務已啟動'
     } else {
       error.value = msg || '登入失敗'
     }
