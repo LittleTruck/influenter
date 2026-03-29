@@ -77,22 +77,22 @@ services:
       # Google OAuth
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:3000/auth/google/callback}
-      
+      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-https://influenter.dco.tw/auth/google/callback}
+
       # JWT
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
       JWT_EXPIRY: ${JWT_EXPIRY:-168h}
-      
+
       # Encryption (32 bytes, base64 encoded)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uGqHOTtMeyJg4KQJwhIF0aapcFZesVENxPy3kvy8DY8=}
-      
+
       # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS:-2000}
-      
+
       # Frontend URL (CORS)
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-https://influenter.dco.tw}
     volumes:
       # 掛載原始碼以支援 hot reload
       - ./backend:/app
@@ -145,7 +145,7 @@ services:
       # Google OAuth（開發環境可選）
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:3000/auth/google/callback}
+      GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-https://influenter.dco.tw/auth/google/callback}
       
       # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -175,19 +175,15 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     container_name: influenter-frontend
     ports:
       - "3000:3000"
     environment:
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://influenter.dco.tw}
       NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      NODE_ENV: development
-    volumes:
-      # 掛載原始碼以支援 hot reload
-      - ./frontend:/app
-      - /app/node_modules  # 避免本地 node_modules 覆蓋容器內的
-      - /app/.nuxt
     depends_on:
       - backend-api
     networks:

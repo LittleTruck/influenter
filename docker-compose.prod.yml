@@ -74,11 +74,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     container_name: influenter-frontend-prod
     ports:
       - "3000:3000"
     environment:
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8080/api/v1}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://influenter.dco.tw/api/v1}
+      NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     depends_on:
       - backend-api
     restart: unless-stopped
