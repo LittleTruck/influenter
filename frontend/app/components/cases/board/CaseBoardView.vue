@@ -86,9 +86,9 @@ const handleColumnUpdate = (status: CaseStatus, updatedCases: Case[]) => {
   <!-- Board View -->
   <div
     v-else
-    class="flex h-full gap-4 overflow-x-auto -m-4 sm:-m-6 p-3 sm:p-4"
+    class="flex h-full gap-6 overflow-x-auto -m-4 sm:-m-6 p-5 sm:p-8"
   >
-    <div class="flex gap-4 h-full" style="min-width: fit-content;">
+    <div class="flex gap-6 h-full" style="min-width: fit-content;">
       <CaseBoardColumn
         v-for="column in statusColumns"
         :key="column.status"

@@ -38,6 +38,24 @@ export const STATUS_COLOR_HEX: Record<CaseStatus, string> = {
 } as const
 
 /**
+ * 狀態淺色背景映射（用於看板欄位背景）
+ */
+export const STATUS_COLOR_LIGHT: Record<CaseStatus, string> = {
+  to_confirm: '#fefef5',
+  in_progress: '#f8fbff',
+  completed: '#f8fefb',
+  cancelled: '#fff8f8',
+  other: '#fcfcfd'
+} as const
+
+/**
+ * 取得狀態淺色背景
+ */
+export const getStatusColorLight = (status: CaseStatus): string => {
+  return STATUS_COLOR_LIGHT[status] || '#f3f4f6'
+}
+
+/**
  * 取得狀態顏色
  */
 export const getStatusColor = (status: CaseStatus): 'warning' | 'primary' | 'success' | 'error' | 'neutral' => {

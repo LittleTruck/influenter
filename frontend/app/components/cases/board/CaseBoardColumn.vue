@@ -2,6 +2,7 @@
 import type { Case, CaseStatus } from '~/types/cases'
 import type { DragChangeEvent } from '~/types/dragEvents'
 import draggable from 'vuedraggable'
+import { getStatusColorLight } from '~/utils/caseStatus'
 import { BaseBadge } from '~/components/base'
 import CaseBoardCard from './CaseBoardCard.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
@@ -74,7 +75,8 @@ const handleCardClick = (caseId: string) => {
     ]"
   >
     <div
-      class="flex flex-col h-full bg-subtle rounded-xl p-4 transition-all duration-300"
+      class="flex flex-col h-full rounded-2xl p-6 border-2 shadow-lg transition-all duration-300"
+      :style="{ borderColor: color, backgroundColor: getStatusColorLight(status) }"
     >
       <!-- Header -->
       <div class="flex items-center gap-2 mb-3 pb-3 border-b border-default">
@@ -101,7 +103,7 @@ const handleCardClick = (caseId: string) => {
           @change="handleChange"
         >
           <template #item="{ element }">
-            <div class="case-card-item mb-2">
+            <div class="case-card-item mb-3">
               <CaseBoardCard :case-data="element" @card-click="handleCardClick" />
             </div>
           </template>

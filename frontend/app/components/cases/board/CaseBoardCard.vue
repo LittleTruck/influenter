@@ -19,18 +19,6 @@ const handleClick = () => {
   emit('card-click', props.caseData.id)
 }
 
-// 狀態邊框顏色類別
-const statusBorderClass = computed(() => {
-  const borders = {
-    to_confirm: 'border-yellow-500 dark:border-yellow-500',
-    in_progress: 'border-blue-500 dark:border-blue-500',
-    completed: 'border-green-500 dark:border-green-500',
-    cancelled: 'border-gray-400 dark:border-gray-500',
-    other: 'border-gray-400 dark:border-gray-500'
-  }
-  return borders[props.caseData.status] || borders.to_confirm
-})
-
 // 取得品牌名稱首字（用於頭像）
 const avatarText = computed(() => {
   return props.caseData.brand_name?.charAt(0) || '?'
@@ -40,10 +28,8 @@ const avatarText = computed(() => {
 <template>
   <div
     :class="[
-      'case-board-card rounded-lg p-4 transition-all duration-200 cursor-pointer',
-      'bg-elevated',
-      'hover:shadow-lg hover:-translate-y-1 border-2',
-      statusBorderClass
+      'case-board-card rounded-3xl p-4 transition-all duration-200 cursor-pointer',
+      'bg-elevated hover:shadow-lg hover:-translate-y-1 border border-black dark:border-white'
     ]"
     @click="handleClick"
   >
