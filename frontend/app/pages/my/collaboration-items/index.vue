@@ -103,21 +103,23 @@ const handleFormSubmit = () => {
       description="定義您提供的合作方案與報價，建立案件時可直接套用"
     >
       <template #actions>
-        <BaseButton
-          icon="i-lucide-plus"
-          size="sm"
-          @click="handleAddItem('individual')"
-        >
-          新增單項
-        </BaseButton>
-        <BaseButton
-          icon="i-lucide-plus"
-          size="sm"
-          variant="outline"
-          @click="handleAddItem('bundle')"
-        >
-          新增組合
-        </BaseButton>
+        <div class="flex items-center gap-2">
+          <BaseButton
+            icon="i-lucide-plus"
+            size="sm"
+            @click="handleAddItem('individual')"
+          >
+            新增單項
+          </BaseButton>
+          <BaseButton
+            icon="i-lucide-plus"
+            size="sm"
+            variant="outline"
+            @click="handleAddItem('bundle')"
+          >
+            新增組合
+          </BaseButton>
+        </div>
       </template>
     </SectionPageHeader>
 
