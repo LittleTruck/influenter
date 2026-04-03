@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Email, EmailDetail } from '~/stores/emails'
-import { BaseButton, BaseInput, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu } from '~/components/base'
+import { BaseDashboardPanel, BaseDashboardNavbar, BaseButton, BaseInput, BaseIcon, BaseBadge, BaseAvatar, BaseDropdownMenu } from '~/components/base'
 
 definePageMeta({
   middleware: 'auth'
@@ -301,57 +301,60 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 h-full">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-default">
-      <div class="flex items-center gap-3">
-        <h1 class="text-2xl font-bold text-highlighted">郵件</h1>
-        
-        <!-- 未讀數量標記 (參考 template) -->
-        <BaseBadge
-          size="sm"
-          :color="emailsStore.unreadCount > 0 ? 'primary' : 'neutral'"
-          variant="solid"
-        >
-          {{ emailsStore.unreadCount }}
-        </BaseBadge>
-      </div>
+  <BaseDashboardPanel grow>
+    <template #header>
+      <BaseDashboardNavbar>
+        <template #leading>
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-highlighted font-bold">郵件</span>
+            <BaseBadge
+              size="sm"
+              :color="emailsStore.unreadCount > 0 ? 'primary' : 'neutral'"
+              variant="solid"
+            >
+              {{ emailsStore.unreadCount }}
+            </BaseBadge>
+          </div>
+        </template>
+        <template #right>
+          <div class="flex items-center gap-2">
+            <!-- 同步按鈕 -->
+            <BaseButton
+              v-if="emailsStore.isConnected"
+              icon="i-lucide-refresh-cw"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              :loading="emailsStore.syncing"
+              :disabled="!emailsStore.canSync"
+              @click="handleSync"
+            >
+              {{ emailsStore.syncing ? '同步中...' : '同步郵件' }}
+            </BaseButton>
 
-      <div class="flex items-center gap-2">
-        <!-- 同步按鈕 -->
-        <BaseButton
-          v-if="emailsStore.isConnected"
-          icon="i-lucide-refresh-cw"
-          color="neutral"
-          variant="outline"
-          size="sm"
-          :loading="emailsStore.syncing"
-          :disabled="!emailsStore.canSync"
-          @click="handleSync"
-        >
-          {{ emailsStore.syncing ? '同步中...' : '同步郵件' }}
-        </BaseButton>
+            <!-- 重新整理 -->
+            <BaseButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :loading="refreshing"
+              :disabled="refreshing"
+              @click="refreshEmails"
+              aria-label="重新整理"
+            >
+              <template #leading>
+                <BaseIcon
+                  name="i-lucide-rotate-cw"
+                  :class="{ 'animate-spin': refreshing }"
+                />
+              </template>
+            </BaseButton>
+          </div>
+        </template>
+      </BaseDashboardNavbar>
+    </template>
 
-        <!-- 重新整理 -->
-        <BaseButton
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :loading="refreshing"
-          :disabled="refreshing"
-          @click="refreshEmails"
-          aria-label="重新整理"
-        >
-          <template #leading>
-            <BaseIcon 
-              name="i-lucide-rotate-cw" 
-              :class="{ 'animate-spin': refreshing }"
-            />
-          </template>
-        </BaseButton>
-      </div>
-    </div>
-
+    <template #body>
     <!-- Split View Container -->
     <div class="flex flex-1 overflow-hidden">
       <!-- Left Side: Email List -->
@@ -753,7 +756,8 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
         </div>
       </div>
     </div>
-  </div>
+    </template>
+  </BaseDashboardPanel>
 </template>
 
 <style scoped>

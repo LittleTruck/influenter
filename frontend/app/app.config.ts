@@ -19,6 +19,7 @@ export default defineAppConfig({
     dashboardNavbar: {
       slots: {
         root: 'bg-primary-50 dark:bg-primary-950',
+        title: 'text-xl',
       },
     },
     navigationMenu: {
