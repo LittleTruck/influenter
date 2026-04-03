@@ -301,7 +301,7 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
 </script>
 
 <template>
-  <BaseDashboardPanel grow>
+  <BaseDashboardPanel grow :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <BaseDashboardNavbar>
         <template #leading>
