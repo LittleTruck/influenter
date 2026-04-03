@@ -13,26 +13,6 @@
       </template>
 
       <template #default="{ collapsed }">
-        <UTooltip v-if="collapsed" text="搜尋" :delay-duration="0">
-          <BaseButton
-            icon="i-lucide-search"
-            color="neutral"
-            variant="outline"
-            block
-            square
-            class="mb-4"
-          />
-        </UTooltip>
-        <BaseButton
-          v-else
-          label="搜尋..."
-          icon="i-lucide-search"
-          color="neutral"
-          variant="outline"
-          block
-          class="mb-4"
-        />
-
         <BaseNavigationMenu
           :collapsed="collapsed"
           :items="navigationItems"
