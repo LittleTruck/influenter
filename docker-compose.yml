@@ -189,6 +189,28 @@ services:
     networks:
       - influenter-network
 
+  # 前端開發伺服器 (hot reload, port 3003)
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: influenter-frontend-dev
+    ports:
+      - "3003:3003"
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://influenter.dco.tw}
+      NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      PORT: 3003
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.nuxt
+    depends_on:
+      - backend-api
+    networks:
+      - influenter-network
+    command: npx nuxt dev --port 3003
+
   # Asynq Web UI (選用 - 監控背景任務)
   asynqmon:
     image: hibiken/asynqmon:latest
