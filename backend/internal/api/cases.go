@@ -891,7 +891,7 @@ func (h *CaseHandler) CreateCasePhase(c *gin.Context) {
 	if req.StartDate != "" {
 		if t, err := time.Parse("2006-01-02", req.StartDate); err == nil {
 			phase.StartDate = &t
-			endDate := t.AddDate(0, 0, durationDays)
+			endDate := addBusinessDays(t, durationDays)
 			phase.EndDate = &endDate
 		}
 	}
@@ -987,7 +987,7 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 	var createdPhases []models.CasePhase
 
 	for i, wp := range tmpl.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		endDate := addBusinessDays(currentDate, wp.DurationDays)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:          caseUUID,
@@ -1087,7 +1087,7 @@ func (h *CaseHandler) UpdateCasePhase(c *gin.Context) {
 			if req.DurationDays != nil {
 				dur = *req.DurationDays
 			}
-			endDate := t.AddDate(0, 0, dur)
+			endDate := addBusinessDays(t, dur)
 			updates["end_date"] = endDate
 		}
 	}
@@ -1745,6 +1745,9 @@ func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
 		return
 	}
 
+	// Idempotent：清除上一次移除時可能殘留的孤兒 phases，避免重複建立
+	h.deletePhasesForItem(tx, caseUUID, &item)
+
 	// Auto-create flow phases from the item's workflow
 	h.createPhasesForItem(tx, caseUUID, &item, cs.FlowLayout)
 
@@ -2024,6 +2027,23 @@ func (h *CaseHandler) UpdateFlowLayout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"flow_layout": req.FlowLayout, "phases": data})
 }
 
+// deletePhasesForItem 刪除指定 case 中屬於某個合作項目（含 bundle 內子項目）的流程階段。
+// 用於避免 add → remove → add 循環時，殘留的孤兒 phases 與新建 phases 並存導致重複。
+func (h *CaseHandler) deletePhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem) {
+	var ids []uuid.UUID
+	if item.Type == models.CollaborationItemTypeBundle {
+		for _, bi := range item.BundleItems {
+			ids = append(ids, bi.ItemID)
+		}
+	} else {
+		ids = append(ids, item.ID)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	tx.Where("case_id = ? AND collaboration_item_id IN ?", caseID, ids).Delete(&models.CasePhase{})
+}
+
 // createPhasesForItem 為合作項目建立流程階段
 func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem, _ string) {
 	if item.Type == models.CollaborationItemTypeBundle {
@@ -2038,6 +2058,24 @@ func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *m
 	}
 }
 
+// addBusinessDays 在 start 之上加上 days 個工作日（跳過週六、週日）。
+// 流程預設天數以工作日為單位，避免假日被計入。若 days <= 0 則回傳 start。
+func addBusinessDays(start time.Time, days int) time.Time {
+	if days <= 0 {
+		return start
+	}
+	d := start
+	added := 0
+	for added < days {
+		d = d.AddDate(0, 0, 1)
+		wd := d.Weekday()
+		if wd != time.Saturday && wd != time.Sunday {
+			added++
+		}
+	}
+	return d
+}
+
 // createPhasesFromWorkflow 從流程範本建立案件階段
 func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, itemID uuid.UUID, wf *models.WorkflowTemplate) {
 	var maxOrder int
@@ -2048,7 +2086,7 @@ func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, it
 	currentDate := startDate
 
 	for i, wp := range wf.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		endDate := addBusinessDays(currentDate, wp.DurationDays)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:              caseID,
@@ -2082,7 +2120,7 @@ func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.
 			currentItemID = p.CollaborationItemID
 		}
 
-		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		endDate := addBusinessDays(currentDate, p.DurationDays)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,
@@ -2148,7 +2186,7 @@ func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
 	currentDate := startDate
 	for i := range allPhases {
 		p := &allPhases[i]
-		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		endDate := addBusinessDays(currentDate, p.DurationDays)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,
