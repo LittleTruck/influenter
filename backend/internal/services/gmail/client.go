@@ -220,6 +220,26 @@ func (s *Service) GetMessage(messageID string) (*gmail.Message, error) {
 	return message, nil
 }
 
+// GetMessageIDHeader 取得指定 Gmail message 的 RFC822 Message-ID header（含 < >）。
+// 用於回信時設定 In-Reply-To / References，是 thread 在收件方仍能聚合的關鍵。
+func (s *Service) GetMessageIDHeader(providerMessageID string) (string, error) {
+	msg, err := s.client.Users.Messages.Get("me", providerMessageID).
+		Format("metadata").
+		MetadataHeaders("Message-ID").
+		Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch message-id header: %w", err)
+	}
+	if msg.Payload != nil {
+		for _, h := range msg.Payload.Headers {
+			if strings.EqualFold(h.Name, "Message-ID") {
+				return h.Value, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 // SendMessage 寄送郵件
 func (s *Service) SendMessage(req *SendMessageRequest) (string, error) {
 	// 建構 RFC 2822 格式的郵件
@@ -434,6 +454,7 @@ func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 	message += "MIME-Version: 1.0\r\n"
 
 	// Content-Type
+	// 明確聲明 Content-Transfer-Encoding: 8bit，避免某些收件 client 將 UTF-8 中文視為亂碼
 	if req.HTMLBody != "" {
 		// 同時包含 HTML 和 plain text
 		boundary := fmt.Sprintf("boundary_%d", time.Now().UnixNano())
@@ -443,6 +464,7 @@ func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 		// Plain text part
 		message += "--" + boundary + "\r\n"
 		message += "Content-Type: text/plain; charset=UTF-8\r\n"
+		message += "Content-Transfer-Encoding: 8bit\r\n"
 		message += "\r\n"
 		message += req.TextBody + "\r\n"
 		message += "\r\n"
@@ -450,6 +472,7 @@ func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 		// HTML part
 		message += "--" + boundary + "\r\n"
 		message += "Content-Type: text/html; charset=UTF-8\r\n"
+		message += "Content-Transfer-Encoding: 8bit\r\n"
 		message += "\r\n"
 		message += req.HTMLBody + "\r\n"
 		message += "\r\n"
@@ -457,6 +480,7 @@ func (s *Service) buildRFC2822Message(req *SendMessageRequest) string {
 	} else {
 		// 只有 plain text
 		message += "Content-Type: text/plain; charset=UTF-8\r\n"
+		message += "Content-Transfer-Encoding: 8bit\r\n"
 		message += "\r\n"
 		message += req.TextBody
 	}

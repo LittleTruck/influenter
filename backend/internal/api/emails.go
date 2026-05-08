@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -326,6 +327,13 @@ type SendReplyRequest struct {
 	Body string `json:"body" binding:"required"`
 }
 
+// plainTextToHTML 將純文字轉為 HTML（escape 後將換行轉為 <br>），
+// 用於 multipart/alternative 中的 HTML part。
+func plainTextToHTML(s string) string {
+	escaped := html.EscapeString(s)
+	return strings.ReplaceAll(escaped, "\n", "<br>\n")
+}
+
 // SendReply 寄出回信（透過 Gmail API）
 func (h *EmailHandler) SendReply(c *gin.Context) {
 	logger := middleware.GetLogger(c)
@@ -391,11 +399,23 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 		threadID = *email.ThreadID
 	}
 
+	// 取得原信 RFC822 Message-ID header；少了 In-Reply-To/References，
+	// 收件方的 mail client 不會把回信併入同一個 thread
+	inReplyTo := ""
+	if msgIDHeader, hdrErr := gmailSvc.GetMessageIDHeader(email.ProviderMessageID); hdrErr == nil {
+		inReplyTo = msgIDHeader
+	} else {
+		logger.Warn().Err(hdrErr).Str("email_id", emailID).Msg("Failed to fetch Message-ID header; reply may not thread")
+	}
+
 	req := &gmail.SendMessageRequest{
-		To:       []string{email.FromEmail},
-		Subject:  subject,
-		TextBody: body.Body,
-		ThreadID: threadID,
+		To:         []string{email.FromEmail},
+		Subject:    subject,
+		TextBody:   body.Body,
+		HTMLBody:   plainTextToHTML(body.Body),
+		ThreadID:   threadID,
+		InReplyTo:  inReplyTo,
+		References: inReplyTo,
 	}
 
 	sentID, err := gmailSvc.SendMessage(req)
