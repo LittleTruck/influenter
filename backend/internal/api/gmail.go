@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
@@ -13,7 +14,8 @@ import (
 
 // GmailHandler Gmail 整合處理器
 type GmailHandler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	syncRunning sync.Map // key: oauthAccount.ID (uuid.UUID), value: struct{}
 }
 
 // NewGmailHandler 建立新的 Gmail 處理器
@@ -164,6 +166,16 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 		return
 	}
 
+	// 防止同帳號平行同步：goroutine 尚未寫入 LastSyncAt 之前若使用者連按，
+	// 會繞過冷卻檢查並起多個同步 goroutine，造成 Gmail API rate limit 與 DB 競態
+	if _, loaded := h.syncRunning.LoadOrStore(oauthAccount.ID, struct{}{}); loaded {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "sync_in_progress",
+			"message": "A sync is already running for this account",
+		})
+		return
+	}
+
 	// 如果 token 已過期，記錄但繼續執行（讓 OAuth2 client 嘗試刷新）
 	if oauthAccount.IsTokenExpired() {
 		logger.Info().Msg("Token expired, will attempt to refresh during sync")
@@ -171,6 +183,7 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 
 	// 執行同步（使用 goroutine 以免阻塞 API）
 	go func() {
+		defer h.syncRunning.Delete(oauthAccount.ID)
 		ctx := context.Background()
 
 		// 重新建立 syncService（在 goroutine 中）
