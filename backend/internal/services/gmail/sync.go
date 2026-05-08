@@ -31,21 +31,21 @@ func NewSyncService(db *gorm.DB, oauthAccount *models.OAuthAccount) (*SyncServic
 	}, nil
 }
 
-// InitialSync 首次同步（抓取最近 100 封收件 + 100 封寄件）
+// InitialSync 首次同步（抓取最近 90 天，每個資料夾上限 500 封）
 func (s *SyncService) InitialSync(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{
 		SyncedAt: time.Now(),
 	}
 
-	// 同步收件匣：最近 7 天，限制 100 封
-	queryInbox := "in:inbox newer_than:7d"
-	if _, err := s.syncWithQueryLimited(ctx, queryInbox, result, 100); err != nil {
+	// 同步收件匣：最近 90 天，上限 500 封
+	queryInbox := "in:inbox newer_than:90d"
+	if _, err := s.syncWithQueryLimited(ctx, queryInbox, result, 500); err != nil {
 		return nil, err
 	}
 
-	// 同步已寄出：最近 7 天，限制 100 封
-	querySent := "in:sent newer_than:7d"
-	res2, err := s.syncWithQueryLimited(ctx, querySent, result, 100)
+	// 同步已寄出：最近 90 天，上限 500 封
+	querySent := "in:sent newer_than:90d"
+	res2, err := s.syncWithQueryLimited(ctx, querySent, result, 500)
 	if err != nil {
 		return result, nil // 收件已成功，寄件失敗不阻斷
 	}
