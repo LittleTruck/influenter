@@ -891,7 +891,7 @@ func (h *CaseHandler) CreateCasePhase(c *gin.Context) {
 	if req.StartDate != "" {
 		if t, err := time.Parse("2006-01-02", req.StartDate); err == nil {
 			phase.StartDate = &t
-			endDate := addBusinessDays(t, durationDays)
+			endDate := t.AddDate(0, 0, durationDays)
 			phase.EndDate = &endDate
 		}
 	}
@@ -987,7 +987,7 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 	var createdPhases []models.CasePhase
 
 	for i, wp := range tmpl.Phases {
-		endDate := addBusinessDays(currentDate, wp.DurationDays)
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:          caseUUID,
@@ -1087,7 +1087,7 @@ func (h *CaseHandler) UpdateCasePhase(c *gin.Context) {
 			if req.DurationDays != nil {
 				dur = *req.DurationDays
 			}
-			endDate := addBusinessDays(t, dur)
+			endDate := t.AddDate(0, 0, dur)
 			updates["end_date"] = endDate
 		}
 	}
@@ -2058,24 +2058,6 @@ func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *m
 	}
 }
 
-// addBusinessDays 在 start 之上加上 days 個工作日（跳過週六、週日）。
-// 流程預設天數以工作日為單位，避免假日被計入。若 days <= 0 則回傳 start。
-func addBusinessDays(start time.Time, days int) time.Time {
-	if days <= 0 {
-		return start
-	}
-	d := start
-	added := 0
-	for added < days {
-		d = d.AddDate(0, 0, 1)
-		wd := d.Weekday()
-		if wd != time.Saturday && wd != time.Sunday {
-			added++
-		}
-	}
-	return d
-}
-
 // createPhasesFromWorkflow 從流程範本建立案件階段
 func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, itemID uuid.UUID, wf *models.WorkflowTemplate) {
 	var maxOrder int
@@ -2086,7 +2068,7 @@ func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, it
 	currentDate := startDate
 
 	for i, wp := range wf.Phases {
-		endDate := addBusinessDays(currentDate, wp.DurationDays)
+		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:              caseID,
@@ -2120,7 +2102,7 @@ func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.
 			currentItemID = p.CollaborationItemID
 		}
 
-		endDate := addBusinessDays(currentDate, p.DurationDays)
+		endDate := currentDate.AddDate(0, 0, p.DurationDays)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,
@@ -2186,7 +2168,7 @@ func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
 	currentDate := startDate
 	for i := range allPhases {
 		p := &allPhases[i]
-		endDate := addBusinessDays(currentDate, p.DurationDays)
+		endDate := currentDate.AddDate(0, 0, p.DurationDays)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,

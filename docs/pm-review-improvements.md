@@ -11,6 +11,7 @@ Bug 修復另行於 branch `fix/pm-review-bugs` 直接處理，不在本清單�
 
 | 編號 | 類型 | 標題 | 優先級建議 |
 | --- | --- | --- | --- |
+| #2 | 需求釐清 | 流程預設天數的單位（calendar vs 工作日） | P1（先釐清） |
 | #3 | UI 連動 | 左下角頭像連動帳號頭像 | P2（小） |
 | #4 | UI 樣式 | AI 助理編輯器接近 Gmail 排版 | P2 |
 | #5b | 需求釐清 | 合作項目「描述」欄位用途 | P1（先釐清） |
@@ -18,7 +19,32 @@ Bug 修復另行於 branch `fix/pm-review-bugs` 直接處理，不在本清單�
 | #9 | 新功能 | 合作管理 → 數據分析頁 | P2 |
 | #10 | UI 風格 | 整體較少框線的設計風格 | P3 |
 
-> 備註：#1、#2、#5a（同步失敗）、#7、#8 屬於 bug，已在 `fix/pm-review-bugs` 直接修復。
+> 備註：#1、#5a（同步失敗）、#7、#8 屬於 bug，已在 `fix/pm-review-bugs` 直接修復。
+
+---
+
+## #2 — 流程預設天數的單位（待釐清）
+
+**PM 原話**：「流程的預設天數應該要僅包含工作日」。
+
+**初版修法（已 revert）**：後端 `addBusinessDays` 把 `DurationDays` 解讀為工作日，自動跳過六、日。
+**revert 原因**：前端尚未配套，會造成不一致：
+
+- 前端 label 仍寫「預設天數」（`PhaseFormModal.vue:150`）。使用者輸入 `5` 預期 5 個 calendar day，但後端會解為 5 工作日（≈ 7 calendar day）。
+- 前端 `calculateEndDate(start, days)`（`PhaseManagerModal.vue`、`PhaseDateEditor.vue`）用 calendar days；後端用 business days。**modal 預覽的 end_date 與 DB 實際存的不一致**。
+- 日曆/Timeline 區段視覺上會跨週末，但旁邊文字寫「5 天」，使用者會疑惑「為什麼日曆上看起來像 8 天？」。
+
+**待 PM 釐清**：
+
+| 選項 | 解讀「預設天數 = N」的方式 | 影響 |
+| --- | --- | --- |
+| A | N 是 calendar days（含假日） | 維持現狀；不需改動 |
+| B | N 是工作日 | 後端 + 前端 + 日曆視覺需一起改：label 改「工作日」、前端 calculateEndDate 同步跳週末、日曆把週六日淺背景 |
+| C | N 是工作日，日曆不顯示週末欄 | 較大 UI 改動，與案件以外的日曆視圖（活動）衝突 |
+
+**建議**：請 PM 看一下測試案例的日曆區段，確認「我要的天數是日曆上看到的格子數，還是只算上班日」，再決定採 A 或 B。
+
+**估時**（採 B）：1 day（後端 helper + 前端 label & 計算同步 + 日曆樣式）。
 
 ---
 
