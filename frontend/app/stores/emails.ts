@@ -346,7 +346,7 @@ export const useEmailsStore = defineStore('emails', () => {
     try {
       const config = useRuntimeConfig()
       const authStore = useAuthStore()
-      
+
       const data = await $fetch(`${config.public.apiBase}/api/v1/gmail/sync`, {
         method: 'POST',
         headers: {
@@ -359,8 +359,20 @@ export const useEmailsStore = defineStore('emails', () => {
       await fetchGmailStatus()
       await fetchEmails() // 自動刷新郵件列表
 
-      return data
+      return { ok: true, skipped: false, data } as const
     } catch (e: any) {
+      // 429 (cooldown) 與 409 (in-flight) 不是錯誤；使用者意圖已被接住，
+      // 把它呈現為「同步進行中」而不是紅色錯誤
+      const status = e?.response?.status ?? e?.statusCode
+      if (status === 429 || status === 409) {
+        await fetchGmailStatus()
+        return {
+          ok: true,
+          skipped: true,
+          reason: status === 409 ? 'in_progress' : 'cooldown',
+          remaining: e?.data?.remaining ?? e?.response?._data?.remaining,
+        } as const
+      }
       error.value = e.message
       console.error('Failed to trigger sync:', e)
       throw e

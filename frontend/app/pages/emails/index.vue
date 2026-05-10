@@ -36,19 +36,17 @@ onMounted(async () => {
   if (emailsStore.gmailStatus?.connected && emailsStore.gmailStatus?.token_expired) {
     try {
       console.log('Token expired, triggering auto-sync to refresh token...')
-      // triggerSync 會自動刷新郵件列表和狀態
-      await emailsStore.triggerSync()
-      
-      toast.add({
-        title: 'Token 已刷新',
-        description: '郵件同步已完成'
-      })
+      const result = await emailsStore.triggerSync()
+      // 若被 cooldown / in-progress 略過，不顯示「已刷新」訊息（語意不對）
+      if (!result.skipped) {
+        toast.add({
+          title: 'Token 已刷新',
+          description: '郵件同步已完成'
+        })
+      }
     } catch (error: any) {
       // 靜默失敗，不顯示錯誤通知（避免打擾使用者）
-      // 如果是冷卻期間，也不顯示錯誤
-      if (!error.message?.includes('cooldown')) {
-        console.warn('Auto-sync failed:', error)
-      }
+      console.warn('Auto-sync failed:', error)
     }
   }
 })
@@ -262,7 +260,17 @@ const refreshEmails = async () => {
 // 觸發同步
 const handleSync = async () => {
   try {
-    await emailsStore.triggerSync()
+    const result = await emailsStore.triggerSync()
+    if (result.skipped) {
+      toast.add({
+        title: result.reason === 'in_progress' ? '同步進行中' : '請稍候再試',
+        description: result.reason === 'in_progress'
+          ? '系統正在同步郵件，請稍候片刻'
+          : `剛剛已同步過，${result.remaining ? `${Math.ceil(Number(result.remaining))} 秒後` : '稍候'}可再次同步`,
+        icon: 'i-lucide-info'
+      })
+      return
+    }
     toast.add({
       title: '同步成功',
       description: '郵件已成功同步，列表已更新',

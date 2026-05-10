@@ -18,12 +18,20 @@ onMounted(async () => {
 // 觸發初次同步
 const triggerFirstSync = async () => {
   try {
-    await emailsStore.triggerSync()
+    const result = await emailsStore.triggerSync()
+    if (result.skipped) {
+      toast.add({
+        title: result.reason === 'in_progress' ? '同步進行中' : '請稍候再試',
+        description: result.reason === 'in_progress'
+          ? '系統正在同步郵件，請稍候片刻'
+          : `剛剛已同步過，${result.remaining ? `${Math.ceil(Number(result.remaining))} 秒後` : '稍候'}可再次同步`
+      })
+      return
+    }
     toast.add({
       title: '同步成功',
       description: '郵件已成功同步，正在更新列表...'
     })
-    // 導航到郵件頁面
     setTimeout(() => {
       router.push('/emails')
     }, 1500)
