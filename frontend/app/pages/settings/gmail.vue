@@ -234,7 +234,13 @@ const syncStatusColor = computed(() => {
             :disabled="!emailsStore.canSync"
             @click="triggerFirstSync"
           >
-            {{ emailsStore.syncing ? '同步中...' : '手動同步' }}
+            {{
+              emailsStore.syncing
+                ? '同步中...'
+                : emailsStore.cooldownRemaining > 0
+                  ? `${emailsStore.cooldownRemaining} 秒後可同步`
+                  : '手動同步'
+            }}
           </BaseButton>
         </div>
       </div>

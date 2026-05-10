@@ -329,7 +329,13 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               :disabled="!emailsStore.canSync"
               @click="handleSync"
             >
-              {{ emailsStore.syncing ? '同步中...' : '同步郵件' }}
+              {{
+                emailsStore.syncing
+                  ? '同步中...'
+                  : emailsStore.cooldownRemaining > 0
+                    ? `${emailsStore.cooldownRemaining}s`
+                    : '同步郵件'
+              }}
             </BaseButton>
 
             <!-- 重新整理 -->

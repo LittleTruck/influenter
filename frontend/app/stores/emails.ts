@@ -62,6 +62,8 @@ export interface GmailStatus {
   sync_error?: string
   token_expired?: boolean
   can_sync?: boolean
+  sync_cooldown_remaining_seconds?: number
+  sync_in_progress?: boolean
   stats?: {
     total_messages: number
     unread_messages: number
@@ -97,6 +99,8 @@ export const useEmailsStore = defineStore('emails', () => {
   // Gmail status
   const gmailStatus: Ref<GmailStatus | null> = ref(null)
   const syncing = ref(false)
+  // 同步冷卻剩餘秒數（前端每秒倒數，到 0 重新 fetch 確認）
+  const cooldownRemaining = ref(0)
 
   // Actions
   const fetchEmails = async (params?: Partial<EmailQueryParams>) => {
@@ -317,6 +321,7 @@ export const useEmailsStore = defineStore('emails', () => {
       })
 
       gmailStatus.value = data
+      cooldownRemaining.value = data.sync_cooldown_remaining_seconds ?? 0
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to fetch Gmail status:', e)
@@ -407,8 +412,21 @@ export const useEmailsStore = defineStore('emails', () => {
   })
 
   const canSync = computed(() => {
-    return gmailStatus.value?.can_sync === true && !syncing.value
+    if (syncing.value || cooldownRemaining.value > 0) return false
+    return gmailStatus.value?.can_sync === true
   })
+
+  // 每秒倒數冷卻；歸零時重新 fetch 確認後端是否解鎖
+  if (import.meta.client) {
+    setInterval(() => {
+      if (cooldownRemaining.value > 0) {
+        cooldownRemaining.value--
+        if (cooldownRemaining.value === 0) {
+          fetchGmailStatus()
+        }
+      }
+    }, 1000)
+  }
 
   // 重置狀態
   const reset = () => {
@@ -434,7 +452,8 @@ export const useEmailsStore = defineStore('emails', () => {
     filters,
     gmailStatus,
     syncing,
-    
+    cooldownRemaining,
+
     // Getters
     unreadCount,
     hasEmails,
