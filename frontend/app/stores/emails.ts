@@ -430,7 +430,11 @@ export const useEmailsStore = defineStore('emails', () => {
 
   const canSync = computed(() => {
     if (isSyncRunning.value || cooldownRemaining.value > 0) return false
-    return gmailStatus.value?.can_sync === true
+    // 不直接信任後端 can_sync——它會把上次同步有 error 的帳號也擋下，
+    // 使用者會卡在「按鈕 disable，要重刷頁面」。自己組合更寬鬆的條件：
+    if (!gmailStatus.value?.connected) return false
+    if (gmailStatus.value?.token_expired) return false
+    return true
   })
 
   // 1Hz tick：goroutine 跑的時候每 3 秒 polling 一次 status，

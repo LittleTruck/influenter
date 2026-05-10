@@ -24,7 +24,7 @@ const triggerFirstSync = async () => {
         title: result.reason === 'in_progress' ? '同步進行中' : '請稍候再試',
         description: result.reason === 'in_progress'
           ? '系統正在同步郵件，請稍候片刻'
-          : `剛剛已同步過，${result.remaining ? `${Math.ceil(Number(result.remaining))} 秒後` : '稍候'}可再次同步`
+          : '剛剛已同步過，稍候可再次同步'
       })
       return
     }
