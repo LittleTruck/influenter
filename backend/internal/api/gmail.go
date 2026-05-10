@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"sync"
 
@@ -11,6 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// syncCooldownMinutes 同步冷卻時間（分鐘）。前端顯示倒數時依此判斷。
+const syncCooldownMinutes = 1
 
 // GmailHandler Gmail 整合處理器
 type GmailHandler struct {
@@ -83,15 +87,26 @@ func (h *GmailHandler) GetStatus(c *gin.Context) {
 		return
 	}
 
+	// 計算冷卻剩餘秒數（向上取整避免顯示 0 卻仍被擋）
+	cooldownRemaining := 0
+	if ok, remaining, _ := syncService.CanSync(syncCooldownMinutes); !ok {
+		cooldownRemaining = int(math.Ceil(remaining.Seconds()))
+	}
+
+	// 是否正在同步中（in-flight 鎖）
+	_, syncInProgress := h.syncRunning.Load(oauthAccount.ID)
+
 	c.JSON(http.StatusOK, gin.H{
-		"connected":     true,
-		"email":         oauthAccount.Email,
-		"last_sync_at":  oauthAccount.LastSyncAt,
-		"sync_status":   oauthAccount.SyncStatus,
-		"sync_error":    oauthAccount.SyncError,
-		"token_expired": oauthAccount.IsTokenExpired(),
-		"can_sync":      oauthAccount.CanSync(),
-		"stats":         stats,
+		"connected":                       true,
+		"email":                           oauthAccount.Email,
+		"last_sync_at":                    oauthAccount.LastSyncAt,
+		"sync_status":                     oauthAccount.SyncStatus,
+		"sync_error":                      oauthAccount.SyncError,
+		"token_expired":                   oauthAccount.IsTokenExpired(),
+		"can_sync":                        oauthAccount.CanSync() && cooldownRemaining == 0 && !syncInProgress,
+		"sync_cooldown_remaining_seconds": cooldownRemaining,
+		"sync_in_progress":                syncInProgress,
+		"stats":                           stats,
 	})
 }
 
@@ -146,8 +161,8 @@ func (h *GmailHandler) TriggerSync(c *gin.Context) {
 		return
 	}
 
-	// 檢查是否可以同步（1 分鐘冷卻時間）
-	canSync, remaining, err := tempSyncService.CanSync(1)
+	// 檢查是否可以同步（與 GetStatus 共用 syncCooldownMinutes）
+	canSync, remaining, err := tempSyncService.CanSync(syncCooldownMinutes)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to check sync cooldown")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
