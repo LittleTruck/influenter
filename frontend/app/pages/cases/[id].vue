@@ -82,10 +82,10 @@ const startEditing = () => {
   if (!currentCase.value) return
   editValues.value = {
     brand_name: currentCase.value.brand_name || '',
-    collaboration_type: currentCase.value.collaboration_type || '',
     deadline_date: currentCase.value.deadline_date || '',
     contact_name: currentCase.value.contact_name || '',
-    alias: currentCase.value.alias || '',
+    contact_email: currentCase.value.contact_email || '',
+    agency_name: currentCase.value.agency_name || '',
   }
   isEditingProperties.value = true
 }
@@ -475,7 +475,7 @@ const handleViewEmail = (emailId: string) => {
 <template>
   <BaseDashboardPanel>
     <template #header>
-      <BaseDashboardNavbar :title="currentCase ? (currentCase.alias ? `${currentCase.alias} - ${currentCase.title}` : currentCase.title) : '案件詳情'">
+      <BaseDashboardNavbar :title="currentCase ? (currentCase.agency_name ? `${currentCase.agency_name} - ${currentCase.title}` : currentCase.title) : '案件詳情'">
         <template #right>
           <div class="flex items-center gap-2">
             <BaseBadge
@@ -514,14 +514,14 @@ const handleViewEmail = (emailId: string) => {
           <!-- ① 屬性摘要列 -->
           <div class="bg-subtle rounded-xl p-4">
             <div class="flex flex-wrap items-center gap-6">
-              <!-- 別名 -->
+              <!-- 代理商 -->
               <div class="min-w-0" style="max-width: 140px;">
-                <div class="text-xs text-dimmed mb-0.5">別名</div>
+                <div class="text-xs text-dimmed mb-0.5">代理商</div>
                 <template v-if="isEditingProperties">
-                  <BaseInput v-model="editValues.alias" placeholder="簡短別名" class="w-28" size="sm" />
+                  <BaseInput v-model="editValues.agency_name" placeholder="代理商名稱" class="w-28" size="sm" />
                 </template>
                 <div v-else class="text-sm font-semibold text-highlighted truncate">
-                  {{ currentCase.alias || '-' }}
+                  {{ currentCase.agency_name || '-' }}
                 </div>
               </div>
 
@@ -537,22 +537,6 @@ const handleViewEmail = (emailId: string) => {
                   <BaseIcon name="i-lucide-building-2" class="w-4 h-4 text-muted flex-shrink-0" />
                   {{ currentCase.brand_name || '-' }}
                 </div>
-              </div>
-
-              <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
-
-              <!-- 合作類型 -->
-              <div>
-                <div class="text-xs text-dimmed mb-0.5">合作類型</div>
-                <template v-if="isEditingProperties">
-                  <BaseInput v-model="editValues.collaboration_type" placeholder="合作類型" class="w-28" size="sm" />
-                </template>
-                <template v-else>
-                  <BaseBadge v-if="currentCase.collaboration_type" color="primary" variant="subtle" size="sm">
-                    {{ currentCase.collaboration_type }}
-                  </BaseBadge>
-                  <span v-else class="text-sm text-muted">-</span>
-                </template>
               </div>
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
@@ -595,6 +579,20 @@ const handleViewEmail = (emailId: string) => {
                 <div v-else class="text-sm font-semibold text-highlighted flex items-center gap-1.5">
                   <BaseIcon name="i-lucide-user" class="w-4 h-4 text-muted flex-shrink-0" />
                   {{ currentCase.contact_name || '-' }}
+                </div>
+              </div>
+
+              <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+
+              <!-- 聯絡人信箱 -->
+              <div class="min-w-0" style="max-width: 200px;">
+                <div class="text-xs text-dimmed mb-0.5">聯絡人信箱</div>
+                <template v-if="isEditingProperties">
+                  <BaseInput v-model="editValues.contact_email" type="email" placeholder="email@example.com" class="w-44" size="sm" />
+                </template>
+                <div v-else class="text-sm font-semibold text-highlighted flex items-center gap-1.5 truncate">
+                  <BaseIcon name="i-lucide-mail" class="w-4 h-4 text-muted flex-shrink-0" />
+                  <span class="truncate" :title="currentCase.contact_email || ''">{{ currentCase.contact_email || '-' }}</span>
                 </div>
               </div>
 
