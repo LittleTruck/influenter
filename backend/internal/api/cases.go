@@ -1745,11 +1745,11 @@ func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
 		return
 	}
 
-	// Idempotent：清除上一次移除時可能殘留的孤兒 phases，避免重複建立
-	h.deletePhasesForItem(tx, caseUUID, &item)
-
-	// Auto-create flow phases from the item's workflow
-	h.createPhasesForItem(tx, caseUUID, &item, cs.FlowLayout)
+	// 若該 item 已有 phases（例如上次取消選取後保留下來、user 可能已自行調整），
+	// 就不要再從 workflow 建一組新的，否則會覆蓋掉使用者的修改 + 重複
+	if !h.phasesExistForItem(tx, caseUUID, &item) {
+		h.createPhasesForItem(tx, caseUUID, &item, cs.FlowLayout)
+	}
 
 	tx.Commit()
 
@@ -1864,7 +1864,9 @@ func (h *CaseHandler) RemoveCaseCollaborationItem(c *gin.Context) {
 
 	tx := h.db.Begin()
 
-	// Delete the association
+	// 只刪除合作項目關聯，phases 完全保留。
+	// 設計：phases 跟 item 不是強綁定，user 可能已自行調整流程，
+	// 取消選取不應有「順手清掉流程」的副作用，由 user 自行判斷是否清理。
 	result := tx.Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).
 		Delete(&models.CaseCollaborationItem{})
 	if result.RowsAffected == 0 {
@@ -1872,19 +1874,6 @@ func (h *CaseHandler) RemoveCaseCollaborationItem(c *gin.Context) {
 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "not_linked", Message: "此合作項目未關聯到案件"})
 		return
 	}
-
-	// Delete associated phases (but check if it's the last phases)
-	var totalPhases int64
-	tx.Model(&models.CasePhase{}).Where("case_id = ?", caseUUID).Count(&totalPhases)
-
-	var itemPhases int64
-	tx.Model(&models.CasePhase{}).Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).Count(&itemPhases)
-
-	if totalPhases > itemPhases {
-		// Safe to delete — there will be remaining phases
-		tx.Where("case_id = ? AND collaboration_item_id = ?", caseUUID, itemUUID).Delete(&models.CasePhase{})
-	}
-	// If all phases belong to this item, keep them but set collaboration_item_id to NULL
 
 	tx.Commit()
 
@@ -2027,9 +2016,10 @@ func (h *CaseHandler) UpdateFlowLayout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"flow_layout": req.FlowLayout, "phases": data})
 }
 
-// deletePhasesForItem 刪除指定 case 中屬於某個合作項目（含 bundle 內子項目）的流程階段。
-// 用於避免 add → remove → add 循環時，殘留的孤兒 phases 與新建 phases 並存導致重複。
-func (h *CaseHandler) deletePhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem) {
+// phasesExistForItem 檢查指定 case 中，是否已存在屬於這個合作項目（含 bundle 內子項目）的流程階段。
+// 設計：phases 跟 item 不是強綁定，user 可能手動調整過。
+// 因此 add 時若已存在就保留現有 phases，避免覆蓋掉 user 的修改。
+func (h *CaseHandler) phasesExistForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem) bool {
 	var ids []uuid.UUID
 	if item.Type == models.CollaborationItemTypeBundle {
 		for _, bi := range item.BundleItems {
@@ -2039,9 +2029,13 @@ func (h *CaseHandler) deletePhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *m
 		ids = append(ids, item.ID)
 	}
 	if len(ids) == 0 {
-		return
+		return false
 	}
-	tx.Where("case_id = ? AND collaboration_item_id IN ?", caseID, ids).Delete(&models.CasePhase{})
+	var count int64
+	tx.Model(&models.CasePhase{}).
+		Where("case_id = ? AND collaboration_item_id IN ?", caseID, ids).
+		Count(&count)
+	return count > 0
 }
 
 // createPhasesForItem 為合作項目建立流程階段
