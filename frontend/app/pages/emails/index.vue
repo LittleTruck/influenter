@@ -325,12 +325,12 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
               color="neutral"
               variant="outline"
               size="sm"
-              :loading="emailsStore.syncing"
+              :loading="emailsStore.isSyncRunning"
               :disabled="!emailsStore.canSync"
               @click="handleSync"
             >
               {{
-                emailsStore.syncing
+                emailsStore.isSyncRunning
                   ? '同步中...'
                   : emailsStore.cooldownRemaining > 0
                     ? `${emailsStore.cooldownRemaining}s`

@@ -230,12 +230,12 @@ const syncStatusColor = computed(() => {
             icon="i-lucide-refresh-cw"
             color="primary"
             variant="outline"
-            :loading="emailsStore.syncing"
+            :loading="emailsStore.isSyncRunning"
             :disabled="!emailsStore.canSync"
             @click="triggerFirstSync"
           >
             {{
-              emailsStore.syncing
+              emailsStore.isSyncRunning
                 ? '同步中...'
                 : emailsStore.cooldownRemaining > 0
                   ? `${emailsStore.cooldownRemaining} 秒後可同步`

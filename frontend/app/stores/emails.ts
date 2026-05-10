@@ -411,14 +411,32 @@ export const useEmailsStore = defineStore('emails', () => {
     return gmailStatus.value?.connected === true
   })
 
+  // 後端同步是否在跑（goroutine 結束才解鎖）
+  const isSyncRunning = computed(() => {
+    return syncing.value || gmailStatus.value?.sync_in_progress === true
+  })
+
   const canSync = computed(() => {
-    if (syncing.value || cooldownRemaining.value > 0) return false
+    if (isSyncRunning.value || cooldownRemaining.value > 0) return false
     return gmailStatus.value?.can_sync === true
   })
 
-  // 每秒倒數冷卻；歸零時重新 fetch 確認後端是否解鎖
+  // 1Hz tick：goroutine 跑的時候每 3 秒 polling 一次 status，
+  // 否則正常倒數冷卻；歸零時 fetch 一次確認後端解鎖。
+  // 缺了這個 polling，trigger 後 2 秒拿到的 status 永遠是「LastSyncAt 還沒寫」，
+  // 前端會以為冷卻 0 而 enable 按鈕，但實際 backend 還在跑或已寫入冷卻。
   if (import.meta.client) {
+    let pollCounter = 0
     setInterval(() => {
+      if (gmailStatus.value?.sync_in_progress) {
+        pollCounter++
+        if (pollCounter >= 3) {
+          pollCounter = 0
+          fetchGmailStatus()
+        }
+        return
+      }
+      pollCounter = 0
       if (cooldownRemaining.value > 0) {
         cooldownRemaining.value--
         if (cooldownRemaining.value === 0) {
@@ -459,6 +477,7 @@ export const useEmailsStore = defineStore('emails', () => {
     hasEmails,
     isConnected,
     canSync,
+    isSyncRunning,
     
     // Actions
     fetchEmails,
