@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui'
 import { BaseTable, BaseButton, BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
 import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
+import { getCaseDisplayTotal } from '~/utils/caseCalculations'
 
 interface Props {
   /** 案件列表 */
@@ -23,6 +24,9 @@ const emit = defineEmits<{
 const handleRowClick = (caseId: string) => {
   emit('case-click', caseId)
 }
+
+// 表格 row 型別為 Row<unknown>，包一層取得顯示用總價
+const rowDisplayTotal = (row: unknown) => getCaseDisplayTotal(row as Case)
 
 // 處理表格點擊事件（事件委派）
 const handleTableClick = (event: MouseEvent) => {
@@ -116,9 +120,9 @@ const columns: TableColumn<Case>[] = [
         <CaseStatusBadge :status="row.status" />
       </template>
 
-      <!-- 報價金額列 -->
+      <!-- 報價金額列（優先顯示手動調整後的總價） -->
       <template #quoted_amount-data="{ row }">
-        {{ row.quoted_amount ? formatAmount(row.quoted_amount, row.currency) : '-' }}
+        {{ rowDisplayTotal(row) ? formatAmount(rowDisplayTotal(row), (row as unknown as Case).currency) : '-' }}
       </template>
 
       <!-- 截止日期列 -->

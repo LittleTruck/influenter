@@ -201,6 +201,10 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.PATCH("/:id/collaboration-items/reorder", caseHandler.ReorderCaseCollaborationItems)
 				casesGroup.PATCH("/:id/collaboration-items/:itemId", caseHandler.UpdateCaseCollaborationItem)
 				casesGroup.DELETE("/:id/collaboration-items/:itemId", caseHandler.RemoveCaseCollaborationItem)
+				// Case total adjustments (manually negotiated total price + history)
+				casesGroup.GET("/:id/total-adjustments", caseHandler.ListCaseTotalAdjustments)
+				casesGroup.POST("/:id/total-adjustments", caseHandler.AdjustCaseTotal)
+				casesGroup.DELETE("/:id/total-adjustments", caseHandler.ClearCaseTotalAdjustment)
 				// Flow layout
 				casesGroup.PATCH("/:id/flow-layout", caseHandler.UpdateFlowLayout)
 				// Case phases

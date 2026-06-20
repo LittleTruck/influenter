@@ -42,6 +42,9 @@ export const useCases = () => {
     removeCaseCollaborationItem: casesStore.removeCaseCollaborationItem,
     updateCaseCollaborationItem: casesStore.updateCaseCollaborationItem,
     reorderCaseCollaborationItems: casesStore.reorderCaseCollaborationItems,
+    adjustCaseTotal: casesStore.adjustCaseTotal,
+    clearCaseTotalAdjustment: casesStore.clearCaseTotalAdjustment,
+    fetchCaseTotalAdjustments: casesStore.fetchCaseTotalAdjustments,
     updateFlowLayout: casesStore.updateFlowLayout,
 
     // 格式化函數（從 utils 重新匯出，保持向後兼容）

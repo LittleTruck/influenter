@@ -33,7 +33,9 @@ type Case struct {
 
 	QuotedAmount *float64 `gorm:"column:quoted_amount" json:"quoted_amount,omitempty"`
 	FinalAmount  *float64 `gorm:"column:final_amount" json:"final_amount,omitempty"`
-	Currency     *string  `gorm:"type:varchar(10)" json:"currency,omitempty"`
+	// AdjustedTotal 手動調整後的案件總價（廠商殺價時微調）。為 nil 時使用合作項目價格加總。
+	AdjustedTotal *float64 `gorm:"column:adjusted_total" json:"adjusted_total,omitempty"`
+	Currency      *string  `gorm:"type:varchar(10)" json:"currency,omitempty"`
 
 	DeadlineDate *time.Time `gorm:"column:deadline_date;type:date" json:"deadline_date,omitempty"`
 

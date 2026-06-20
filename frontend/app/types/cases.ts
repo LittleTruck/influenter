@@ -48,6 +48,7 @@ export interface Case {
   flow_layout: FlowLayout
   quoted_amount?: number
   final_amount?: number
+  adjusted_total?: number // 手動調整後的總價，未設定時使用合作項目加總
   currency?: string
   deadline_date?: string
   contact_name?: string
@@ -123,6 +124,18 @@ export interface CaseUpdate {
   update_type: string
   old_value?: string
   new_value?: string
+  created_at: string
+}
+
+/**
+ * 案件總價調整歷史記錄
+ */
+export interface CaseTotalAdjustment {
+  id: string
+  case_id: string
+  original_total: number // 調整前的合作項目加總
+  adjusted_total: number // 調整後的總價
+  reason: string // 調整原因
   created_at: string
 }
 

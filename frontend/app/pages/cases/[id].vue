@@ -14,6 +14,7 @@ import CasePhaseStepper from '~/components/cases/detail/CasePhaseStepper.vue'
 import DraftReplySlideover from '~/components/cases/detail/DraftReplySlideover.vue'
 import EmailDetailSlideover from '~/components/cases/detail/EmailDetailSlideover.vue'
 import PhaseManagerModal from '~/components/cases/detail/PhaseManagerModal.vue'
+import CaseTotalAdjustModal from '~/components/cases/detail/CaseTotalAdjustModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
 import { format, differenceInDays } from 'date-fns'
@@ -422,6 +423,12 @@ const displayTotal = computed(() => {
   return amount ? formatAmount(amount) : '-'
 })
 
+// ── 總價手動調整 ──
+const showTotalAdjust = ref(false)
+// 是否已套用手動調整後的總價
+const hasAdjustedTotal = computed(() => currentCase.value?.adjusted_total != null)
+const adjustedTotalValue = computed(() => currentCase.value?.adjusted_total ?? 0)
+
 // ── 備註 ──
 const isEditingNotes = ref(false)
 const notesContent = ref('')
@@ -541,10 +548,25 @@ const handleViewEmail = (emailId: string) => {
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
 
-              <!-- 總價（由合作項目加總，不可手動編輯） -->
+              <!-- 總價（由合作項目加總，可手動微調並記錄原因） -->
               <div>
                 <div class="text-xs text-dimmed mb-0.5">總價</div>
-                <div class="text-sm font-semibold text-highlighted">{{ displayTotal }}</div>
+                <div class="flex items-center gap-1.5">
+                  <template v-if="hasAdjustedTotal">
+                    <span class="text-xs text-muted line-through">{{ formatAmount(collaborationItemsTotal) }}</span>
+                    <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">{{ formatAmount(adjustedTotalValue) }}</span>
+                    <BaseBadge color="warning" variant="subtle" size="xs">已調整</BaseBadge>
+                  </template>
+                  <span v-else class="text-sm font-semibold text-highlighted">{{ displayTotal }}</span>
+                  <BaseButton
+                    icon="i-lucide-pencil"
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    title="編輯總價"
+                    @click="showTotalAdjust = true"
+                  />
+                </div>
               </div>
 
               <div class="w-px h-8 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
@@ -939,6 +961,15 @@ const handleViewEmail = (emailId: string) => {
           </div>
         </template>
       </UModal>
+
+      <!-- 編輯總價 Modal -->
+      <CaseTotalAdjustModal
+        v-model="showTotalAdjust"
+        :case-id="caseId"
+        :original-total="collaborationItemsTotal"
+        :current-adjusted="currentCase?.adjusted_total"
+        @saved="fetchCase(caseId)"
+      />
 
       <!-- Modals & Slideovers -->
       <PhaseManagerModal v-model="showPhaseManager" :phases="casePhases" :case-id="caseId" :item-name-map="itemNameMap" :flow-layout="currentCase?.flow_layout" @saved="handlePhasesSaved" />

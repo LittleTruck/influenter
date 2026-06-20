@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Case } from '~/types/cases'
 import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
+import { getCaseDisplayTotal } from '~/utils/caseCalculations'
 import { BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
 
@@ -23,6 +24,9 @@ const handleClick = () => {
 const avatarText = computed(() => {
   return props.caseData.brand_name?.charAt(0) || '?'
 })
+
+// 顯示用總價（優先顯示手動調整後的總價）
+const displayTotal = computed(() => getCaseDisplayTotal(props.caseData))
 </script>
 
 <template>
@@ -54,9 +58,9 @@ const avatarText = computed(() => {
     </div>
 
     <!-- 金額 -->
-    <div v-if="caseData.quoted_amount" class="mb-2">
+    <div v-if="displayTotal" class="mb-2">
       <div class="text-xs font-semibold text-highlighted">
-        {{ formatAmount(caseData.quoted_amount, caseData.currency) }}
+        {{ formatAmount(displayTotal, caseData.currency) }}
       </div>
     </div>
 

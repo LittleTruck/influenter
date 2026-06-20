@@ -96,7 +96,7 @@
                     <p class="font-medium text-highlighted truncate">{{ c.alias || c.title || c.brand_name }}</p>
                     <p class="text-sm text-muted truncate">
                       {{ c.brand_name }}
-                      <span v-if="c.quoted_amount"> · NT$ {{ c.quoted_amount.toLocaleString() }}</span>
+                      <span v-if="getCaseDisplayTotal(c)"> · NT$ {{ getCaseDisplayTotal(c)!.toLocaleString() }}</span>
                     </p>
                   </div>
                   <div class="text-sm text-muted shrink-0 ml-3">
@@ -237,6 +237,7 @@
 <script setup lang="ts">
 import { BaseDashboardPanel, BaseDashboardNavbar, BaseCard, BaseIcon } from '~/components/base'
 import { getStatusLabel, getStatusColorHex } from '~/utils/caseStatus'
+import { getCaseDisplayTotal } from '~/utils/caseCalculations'
 import type { CaseStatus } from '~/types/cases'
 
 definePageMeta({
@@ -273,7 +274,7 @@ const monthlyRevenue = computed(() => {
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   return casesStore.cases
     .filter(c => (c.status === 'in_progress' || c.status === 'completed') && c.deadline_date?.startsWith(thisMonth))
-    .reduce((sum, c) => sum + (c.quoted_amount || 0), 0)
+    .reduce((sum, c) => sum + (getCaseDisplayTotal(c) || 0), 0)
 })
 
 const formattedRevenue = computed(() => {

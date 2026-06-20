@@ -56,6 +56,7 @@ type CaseResponse struct {
 	FlowLayout        string   `json:"flow_layout"`
 	QuotedAmount      *float64 `json:"quoted_amount,omitempty"`
 	FinalAmount       *float64 `json:"final_amount,omitempty"`
+	AdjustedTotal     *float64 `json:"adjusted_total,omitempty"`
 	Currency          *string  `json:"currency,omitempty"`
 	DeadlineDate      *string  `json:"deadline_date,omitempty"`
 	ContactName       *string  `json:"contact_name,omitempty"`
@@ -86,6 +87,7 @@ func caseToResponse(c *models.Case, emailCount, taskCount, completedTaskCount in
 		FlowLayout:         flowLayout,
 		QuotedAmount:       c.QuotedAmount,
 		FinalAmount:        c.FinalAmount,
+		AdjustedTotal:      c.AdjustedTotal,
 		Currency:           c.Currency,
 		ContactName:        c.ContactName,
 		ContactEmail:       c.ContactEmail,
@@ -318,6 +320,189 @@ func (h *CaseHandler) UpdateCase(c *gin.Context) {
 	c.JSON(http.StatusOK, caseToResponse(&cs, int(emailCount), 0, 0))
 }
 
+// computeCaseItemsTotal 計算案件合作項目的價格加總（案件個別價格優先，否則用項目預設價格）
+func (h *CaseHandler) computeCaseItemsTotal(caseID uuid.UUID) float64 {
+	var items []models.CaseCollaborationItem
+	h.db.Where("case_id = ?", caseID).Preload("CollaborationItem").Find(&items)
+	var total float64
+	for _, cci := range items {
+		if cci.Price != nil {
+			total += *cci.Price
+		} else {
+			total += cci.CollaborationItem.Price
+		}
+	}
+	return total
+}
+
+// AdjustTotalRequest 調整案件總價請求
+type AdjustTotalRequest struct {
+	AdjustedTotal float64 `json:"adjusted_total"`
+	Reason        string  `json:"reason"` // 調整原因，選填
+}
+
+// CaseTotalAdjustmentResponse 總價調整歷史回應
+type CaseTotalAdjustmentResponse struct {
+	ID            string  `json:"id"`
+	CaseID        string  `json:"case_id"`
+	OriginalTotal float64 `json:"original_total"`
+	AdjustedTotal float64 `json:"adjusted_total"`
+	Reason        string  `json:"reason"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+func caseTotalAdjustmentToResponse(a *models.CaseTotalAdjustment) CaseTotalAdjustmentResponse {
+	return CaseTotalAdjustmentResponse{
+		ID:            a.ID.String(),
+		CaseID:        a.CaseID.String(),
+		OriginalTotal: a.OriginalTotal,
+		AdjustedTotal: a.AdjustedTotal,
+		Reason:        a.Reason,
+		CreatedAt:     a.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+	}
+}
+
+// AdjustCaseTotal 手動調整案件總價（並記錄調整原因與歷史）
+func (h *CaseHandler) AdjustCaseTotal(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userIDStr := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "unauthorized", Message: "Invalid user ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var req AdjustTotalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: err.Error()})
+		return
+	}
+	if req.AdjustedTotal < 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_params", Message: "調整後總價不可為負數"})
+		return
+	}
+
+	// 原始總價以合作項目加總為準
+	originalTotal := h.computeCaseItemsTotal(id)
+
+	tx := h.db.Begin()
+
+	adjustment := models.CaseTotalAdjustment{
+		CaseID:        id,
+		UserID:        userID,
+		OriginalTotal: originalTotal,
+		AdjustedTotal: req.AdjustedTotal,
+		Reason:        req.Reason,
+	}
+	if err := tx.Create(&adjustment).Error; err != nil {
+		tx.Rollback()
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to create total adjustment")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to record adjustment"})
+		return
+	}
+
+	if err := tx.Model(&cs).Update("adjusted_total", req.AdjustedTotal).Error; err != nil {
+		tx.Rollback()
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to update adjusted total")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to update case total"})
+		return
+	}
+
+	tx.Commit()
+
+	logger.Info().Str("case_id", caseID).Msg("Case total adjusted")
+	c.JSON(http.StatusOK, caseTotalAdjustmentToResponse(&adjustment))
+}
+
+// ClearCaseTotalAdjustment 清除手動調整的總價，恢復為合作項目加總
+func (h *CaseHandler) ClearCaseTotalAdjustment(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	if err := h.db.Model(&cs).Update("adjusted_total", nil).Error; err != nil {
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to clear adjusted total")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to clear case total"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "已恢復為合作項目加總"})
+}
+
+// ListCaseTotalAdjustments 取得案件總價調整歷史
+func (h *CaseHandler) ListCaseTotalAdjustments(c *gin.Context) {
+	logger := middleware.GetLogger(c)
+	userID := c.GetString("user_id")
+	caseID := c.Param("id")
+
+	id, err := uuid.Parse(caseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
+		return
+	}
+
+	// 確認案件屬於當前使用者
+	var cs models.Case
+	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
+			return
+		}
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to fetch case")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to fetch case"})
+		return
+	}
+
+	var adjustments []models.CaseTotalAdjustment
+	if err := h.db.Where("case_id = ?", id).Order("created_at DESC").Find(&adjustments).Error; err != nil {
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to list total adjustments")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to list adjustments"})
+		return
+	}
+
+	data := make([]CaseTotalAdjustmentResponse, 0, len(adjustments))
+	for i := range adjustments {
+		data = append(data, caseTotalAdjustmentToResponse(&adjustments[i]))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
 // ListCases 取得案件列表
 func (h *CaseHandler) ListCases(c *gin.Context) {
 	logger := middleware.GetLogger(c)
@@ -490,6 +675,7 @@ func (h *CaseHandler) GetCase(c *gin.Context) {
 		"flow_layout":             resp.FlowLayout,
 		"quoted_amount":           resp.QuotedAmount,
 		"final_amount":            resp.FinalAmount,
+		"adjusted_total":          resp.AdjustedTotal,
 		"currency":                resp.Currency,
 		"deadline_date":           resp.DeadlineDate,
 		"contact_name":            resp.ContactName,

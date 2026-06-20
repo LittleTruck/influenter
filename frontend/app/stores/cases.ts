@@ -11,7 +11,8 @@ import type {
   Task,
   CreateTaskRequest,
   UpdateTaskRequest,
-  ReorderTasksRequest
+  ReorderTasksRequest,
+  CaseTotalAdjustment
 } from '~/types/cases'
 
 export const useCasesStore = defineStore('cases', () => {
@@ -725,6 +726,71 @@ export const useCasesStore = defineStore('cases', () => {
   }
 
   /**
+   * 調整案件總價（手動微調合作費用，記錄原因與歷史）
+   */
+  const adjustCaseTotal = async (caseId: string, data: { adjusted_total: number; reason: string }) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const result = await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/total-adjustments`, {
+        method: 'POST',
+        body: data,
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+      return result
+    } catch (e: unknown) {
+      error.value = logError(e, '調整案件總價失敗', { component: 'casesStore', action: 'adjustCaseTotal' })
+      throw e
+    }
+  }
+
+  /**
+   * 清除手動調整的總價，恢復為合作項目加總
+   */
+  const clearCaseTotalAdjustment = async (caseId: string) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      await $fetch(`${config.public.apiBase}/api/v1/cases/${caseId}/total-adjustments`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      })
+
+      if (currentCase.value?.id === caseId) {
+        await fetchCase(caseId)
+      }
+    } catch (e: unknown) {
+      error.value = logError(e, '恢復案件總價失敗', { component: 'casesStore', action: 'clearCaseTotalAdjustment' })
+      throw e
+    }
+  }
+
+  /**
+   * 取得案件總價調整歷史
+   */
+  const fetchCaseTotalAdjustments = async (caseId: string) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const result = await $fetch<{ data: CaseTotalAdjustment[] }>(
+        `${config.public.apiBase}/api/v1/cases/${caseId}/total-adjustments`,
+        { headers: { Authorization: `Bearer ${authStore.token}` } }
+      )
+      return result.data ?? []
+    } catch (e: unknown) {
+      error.value = logError(e, '取得總價調整歷史失敗', { component: 'casesStore', action: 'fetchCaseTotalAdjustments' })
+      throw e
+    }
+  }
+
+  /**
    * 切換流程排列模式（並聯/串聯）
    */
   const updateFlowLayout = async (caseId: string, flowLayout: 'parallel' | 'sequential', startDate?: string) => {
@@ -805,6 +871,9 @@ export const useCasesStore = defineStore('cases', () => {
     removeCaseCollaborationItem,
     updateCaseCollaborationItem,
     reorderCaseCollaborationItems,
+    adjustCaseTotal,
+    clearCaseTotalAdjustment,
+    fetchCaseTotalAdjustments,
     updateFlowLayout,
     reset
   }
