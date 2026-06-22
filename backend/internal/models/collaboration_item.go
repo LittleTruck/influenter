@@ -21,6 +21,7 @@ type CollaborationItem struct {
 	UserID      uuid.UUID             `gorm:"column:user_id;not null;index" json:"user_id"`
 	Title       string                `gorm:"type:varchar(500);not null" json:"title"`
 	Description *string               `gorm:"type:text" json:"description,omitempty"`
+	Notes       *string               `gorm:"type:text" json:"notes,omitempty"`
 	Price       float64               `gorm:"column:price;type:numeric(12,2);not null;default:0" json:"price"`
 	Type        CollaborationItemType `gorm:"column:type;type:varchar(20);not null;default:'individual'" json:"type"`
 	ParentID    *uuid.UUID            `gorm:"column:parent_id;index" json:"-"` // Deprecated: kept for migration rollback

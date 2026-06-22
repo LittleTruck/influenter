@@ -87,6 +87,11 @@ const bundleItemNames = computed(() => {
           {{ name }}
         </span>
       </div>
+      <!-- 注意事項預覽 -->
+      <div v-if="item.notes" class="flex items-start gap-1 mt-1 text-xs text-muted">
+        <BaseIcon name="i-lucide-info" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+        <p class="whitespace-pre-line line-clamp-2">{{ item.notes }}</p>
+      </div>
     </div>
 
     <!-- 操作按鈕 -->

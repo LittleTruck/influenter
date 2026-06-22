@@ -28,6 +28,7 @@ export interface CollaborationItem {
   id: string
   title: string
   description?: string
+  notes?: string // 注意事項（純文字）
   price: number
   type: CollaborationItemType // 'individual' 或 'bundle'
   bundle_items?: BundleItemRef[] // 僅 bundle 類型有值
@@ -55,6 +56,7 @@ export interface BundleItemRef {
 export interface CreateCollaborationItemRequest {
   title: string
   description?: string
+  notes?: string
   price: number
   type: CollaborationItemType
   bundle_item_ids?: string[] // 僅 bundle 類型：包含的 individual 項目 ID
@@ -67,6 +69,7 @@ export interface CreateCollaborationItemRequest {
 export interface UpdateCollaborationItemRequest {
   title?: string
   description?: string
+  notes?: string
   price?: number
   bundle_item_ids?: string[] // 僅 bundle 類型
   workflow_id?: string | null // 僅 individual 類型

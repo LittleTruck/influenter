@@ -25,6 +25,7 @@ func NewCollaborationItemHandler(db *gorm.DB) *CollaborationItemHandler {
 type CreateCollaborationItemRequest struct {
 	Title         string  `json:"title" binding:"required"`
 	Description   *string `json:"description"`
+	Notes         *string `json:"notes"`
 	Price         float64 `json:"price"`
 	Type          string  `json:"type"`           // "individual" or "bundle", defaults to "individual"
 	BundleItemIDs []string `json:"bundle_item_ids"` // Only for bundle type
@@ -35,6 +36,7 @@ type CreateCollaborationItemRequest struct {
 type UpdateCollaborationItemRequest struct {
 	Title         *string  `json:"title"`
 	Description   *string  `json:"description"`
+	Notes         *string  `json:"notes"`
 	Price         *float64 `json:"price"`
 	BundleItemIDs *[]string `json:"bundle_item_ids"` // Only for bundle type
 	WorkflowID    *string  `json:"workflow_id"`      // Only for individual type
@@ -124,6 +126,9 @@ func (h *CollaborationItemHandler) CreateItem(c *gin.Context) {
 	}
 	if req.Description != nil {
 		item.Description = req.Description
+	}
+	if req.Notes != nil {
+		item.Notes = req.Notes
 	}
 	if itemType == models.CollaborationItemTypeIndividual && req.WorkflowID != nil && *req.WorkflowID != "" {
 		wid, err := uuid.Parse(*req.WorkflowID)
@@ -215,6 +220,9 @@ func (h *CollaborationItemHandler) UpdateItem(c *gin.Context) {
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+	}
+	if req.Notes != nil {
+		updates["notes"] = *req.Notes
 	}
 	if req.Price != nil {
 		updates["price"] = *req.Price

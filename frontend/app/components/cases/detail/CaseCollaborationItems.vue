@@ -261,6 +261,10 @@ const getBundleItemNames = (item: CollaborationItem): string[] => {
                 <p v-if="getBundleItemNames(cci.collaboration_item).length > 0" class="text-xs text-muted mt-0.5">
                   包含：{{ getBundleItemNames(cci.collaboration_item).join('、') }}
                 </p>
+                <div v-if="cci.collaboration_item.notes" class="flex items-start gap-1 mt-0.5 text-xs text-muted">
+                  <BaseIcon name="i-lucide-info" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <p class="whitespace-pre-line line-clamp-2">{{ cci.collaboration_item.notes }}</p>
+                </div>
               </div>
             </div>
 

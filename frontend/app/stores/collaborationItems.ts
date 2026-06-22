@@ -138,6 +138,7 @@ export const useCollaborationItemsStore = defineStore('collaborationItems', () =
         id: tempId,
         title: data.title,
         description: data.description,
+        notes: data.notes,
         price: data.price,
         type: data.type || 'individual',
         order: maxOrder + 1,

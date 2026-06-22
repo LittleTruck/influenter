@@ -42,6 +42,7 @@ const isEditMode = computed(() => !!props.item)
 const formData = reactive<{
   title: string
   description: string
+  notes: string
   price: number | null
   type: CollaborationItemType
   workflow_id: string | null
@@ -49,6 +50,7 @@ const formData = reactive<{
 }>({
   title: '',
   description: '',
+  notes: '',
   price: null,
   type: 'individual',
   workflow_id: null,
@@ -89,6 +91,7 @@ const initForm = () => {
   if (props.item) {
     formData.title = props.item.title
     formData.description = props.item.description || ''
+    formData.notes = props.item.notes || ''
     formData.price = props.item.price
     formData.type = props.item.type
     formData.workflow_id = props.item.workflow_id || null
@@ -96,6 +99,7 @@ const initForm = () => {
   } else {
     formData.title = ''
     formData.description = ''
+    formData.notes = ''
     formData.price = null
     formData.type = props.defaultType || 'individual'
     formData.workflow_id = null
@@ -157,6 +161,7 @@ const handleSubmit = async () => {
         await updateItem(props.item.id, {
           title: formData.title.trim(),
           description: formData.description?.trim() || undefined,
+          notes: formData.notes?.trim() || undefined,
           price: formData.price!,
           workflow_id: formData.type === 'individual' ? formData.workflow_id : null,
           bundle_item_ids: formData.type === 'bundle' ? formData.bundle_item_ids : undefined
@@ -166,6 +171,7 @@ const handleSubmit = async () => {
         await createItem({
           title: formData.title.trim(),
           description: formData.description?.trim() || undefined,
+          notes: formData.notes?.trim() || undefined,
           price: formData.price!,
           type: formData.type,
           workflow_id: formData.type === 'individual' ? formData.workflow_id : null,
@@ -239,6 +245,15 @@ const handleCancel = () => {
             v-model="formData.description"
             placeholder="請輸入項目描述（選填）"
             :rows="3"
+            class="w-full"
+          />
+        </BaseFormField>
+
+        <BaseFormField label="注意事項" name="notes">
+          <BaseTextarea
+            v-model="formData.notes"
+            placeholder="請輸入注意事項（選填），例如修改次數限制、解約費用比例、報價有效期等"
+            :rows="6"
             class="w-full"
           />
         </BaseFormField>
