@@ -11,6 +11,8 @@ import (
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
 	"github.com/designcomb/influenter-backend/internal/services/openai"
+	"github.com/designcomb/influenter-backend/internal/services/schedule"
+	"github.com/designcomb/influenter-backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -400,8 +402,14 @@ func (h *CaseHandler) AdjustCaseTotal(c *gin.Context) {
 		return
 	}
 
-	// 原始總價以合作項目加總為準
-	originalTotal := h.computeCaseItemsTotal(id)
+	// 原始總價以「目前生效的總價」為準：若先前已手動調整過，則以上次調整後的金額為起點，
+	// 否則才用合作項目加總。如此連續調整時歷史會呈現 100→50、50→20 而非 100→20。
+	var originalTotal float64
+	if cs.AdjustedTotal != nil {
+		originalTotal = *cs.AdjustedTotal
+	} else {
+		originalTotal = h.computeCaseItemsTotal(id)
+	}
 
 	tx := h.db.Begin()
 
@@ -443,9 +451,14 @@ func (h *CaseHandler) ClearCaseTotalAdjustment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid_id", Message: "Invalid case ID"})
 		return
 	}
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "unauthorized", Message: "Invalid user ID"})
+		return
+	}
 
 	var cs models.Case
-	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&cs).Error; err != nil {
+	if err := h.db.Where("id = ? AND user_id = ?", id, uid).First(&cs).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "case_not_found", Message: "Case not found"})
 			return
@@ -455,11 +468,39 @@ func (h *CaseHandler) ClearCaseTotalAdjustment(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Model(&cs).Update("adjusted_total", nil).Error; err != nil {
+	// 未曾調整則無需處理
+	if cs.AdjustedTotal == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "已恢復為合作項目加總"})
+		return
+	}
+
+	// 恢復原始總價也要留下記錄：原始=目前生效的調整後金額，調整後=合作項目加總
+	itemsTotal := h.computeCaseItemsTotal(id)
+
+	tx := h.db.Begin()
+
+	adjustment := models.CaseTotalAdjustment{
+		CaseID:        id,
+		UserID:        uid,
+		OriginalTotal: *cs.AdjustedTotal,
+		AdjustedTotal: itemsTotal,
+		Reason:        "恢復原始總價",
+	}
+	if err := tx.Create(&adjustment).Error; err != nil {
+		tx.Rollback()
+		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to record clear adjustment")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to record adjustment"})
+		return
+	}
+
+	if err := tx.Model(&cs).Update("adjusted_total", nil).Error; err != nil {
+		tx.Rollback()
 		logger.Error().Err(err).Str("case_id", caseID).Msg("Failed to clear adjusted total")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database_error", Message: "Failed to clear case total"})
 		return
 	}
+
+	tx.Commit()
 
 	c.JSON(http.StatusOK, gin.H{"message": "已恢復為合作項目加總"})
 }
@@ -1076,8 +1117,10 @@ func (h *CaseHandler) CreateCasePhase(c *gin.Context) {
 
 	if req.StartDate != "" {
 		if t, err := time.Parse("2006-01-02", req.StartDate); err == nil {
-			phase.StartDate = &t
-			endDate := t.AddDate(0, 0, durationDays)
+			cfg := schedule.ResolveDayCalcConfig(h.db, c.GetString("user_id"))
+			start := cfg.EnsureWorkingDay(t)
+			endDate := cfg.AddWorkingDays(start, durationDays-1)
+			phase.StartDate = &start
 			phase.EndDate = &endDate
 		}
 	}
@@ -1169,16 +1212,18 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 
 	tx := h.db.Begin()
 
-	currentDate := startDate
+	cfg := schedule.ResolveDayCalcConfig(h.db, userID)
+	currentDate := cfg.EnsureWorkingDay(startDate)
 	var createdPhases []models.CasePhase
 
 	for i, wp := range tmpl.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		start := currentDate
+		endDate := cfg.AddWorkingDays(start, wp.DurationDays-1)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:          caseUUID,
 			Name:            wp.Name,
-			StartDate:       &currentDate,
+			StartDate:       &start,
 			EndDate:         &endDate,
 			DurationDays:    wp.DurationDays,
 			Order:           maxOrder + 1 + i,
@@ -1191,7 +1236,7 @@ func (h *CaseHandler) ApplyTemplate(c *gin.Context) {
 			return
 		}
 		createdPhases = append(createdPhases, phase)
-		currentDate = endDate
+		currentDate = cfg.NextWorkingDay(endDate)
 	}
 
 	tx.Commit()
@@ -1260,6 +1305,9 @@ func (h *CaseHandler) UpdateCasePhase(c *gin.Context) {
 		updates["name"] = *req.Name
 	}
 	if req.DurationDays != nil {
+		if *req.DurationDays < 1 {
+			*req.DurationDays = 1 // 與建立路徑一致：工期至少 1 個工作日
+		}
 		updates["duration_days"] = *req.DurationDays
 	}
 	if req.Order != nil {
@@ -1267,14 +1315,15 @@ func (h *CaseHandler) UpdateCasePhase(c *gin.Context) {
 	}
 	if req.StartDate != nil {
 		if t, err := time.Parse("2006-01-02", *req.StartDate); err == nil {
-			updates["start_date"] = t
-			// 如果有 duration_days，自動計算 end_date
+			// 如果有 duration_days，自動計算 end_date（工作日語意，含起始日）
 			dur := phase.DurationDays
 			if req.DurationDays != nil {
 				dur = *req.DurationDays
 			}
-			endDate := t.AddDate(0, 0, dur)
-			updates["end_date"] = endDate
+			cfg := schedule.ResolveDayCalcConfig(h.db, userID)
+			start := cfg.EnsureWorkingDay(t)
+			updates["start_date"] = start
+			updates["end_date"] = cfg.AddWorkingDays(start, dur-1)
 		}
 	}
 	if req.EndDate != nil {
@@ -1446,13 +1495,15 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 	skippedItems := []string{}
 	totalPhases := 0
 
+	cfg := schedule.ResolveDayCalcConfig(h.db, c.GetString("user_id"))
+
 	for _, cci := range cciList {
 		item := cci.CollaborationItem
 		if item.Type == models.CollaborationItemTypeBundle {
 			// Bundle：為每個內含的 individual 項目套用流程
 			for _, bi := range item.BundleItems {
 				if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
-					h.createPhasesFromWorkflow(tx, caseUUID, bi.ItemID, bi.Item.Workflow)
+					h.createPhasesFromWorkflow(tx, caseUUID, bi.ItemID, bi.Item.Workflow, cfg)
 					appliedItems = append(appliedItems, bi.Item.Title)
 					totalPhases += len(bi.Item.Workflow.Phases)
 				} else {
@@ -1462,7 +1513,7 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 		} else {
 			// Individual：直接套用
 			if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
-				h.createPhasesFromWorkflow(tx, caseUUID, item.ID, item.Workflow)
+				h.createPhasesFromWorkflow(tx, caseUUID, item.ID, item.Workflow, cfg)
 				appliedItems = append(appliedItems, item.Title)
 				totalPhases += len(item.Workflow.Phases)
 			} else {
@@ -1487,9 +1538,9 @@ func (h *CaseHandler) AutoApplyTemplate(c *gin.Context) {
 	// 根據 flow_layout 計算日期
 	startDate := time.Now().Truncate(24 * time.Hour)
 	if cs.FlowLayout == "parallel" {
-		h.recalculateParallelDates(caseUUID, startDate)
+		h.recalculateParallelDates(caseUUID, startDate, cfg)
 	} else {
-		h.recalculateSequentialDates(caseUUID)
+		h.recalculateSequentialDates(caseUUID, cfg)
 	}
 
 	// 回傳更新後的階段
@@ -1628,6 +1679,7 @@ func (h *CaseHandler) AutoMatchCollaborationItems(c *gin.Context) {
 
 	// 建立關聯 + 套用流程
 	matchedNames := []string{}
+	cfg := schedule.ResolveDayCalcConfig(h.db, c.GetString("user_id"))
 	for i, matchedID := range matchResult.MatchedItemIDs {
 		itemUUID, err := uuid.Parse(matchedID)
 		if err != nil {
@@ -1647,7 +1699,7 @@ func (h *CaseHandler) AutoMatchCollaborationItems(c *gin.Context) {
 			if items[idx].ID.String() == matchedID {
 				matchedNames = append(matchedNames, items[idx].Title)
 				// 建立流程階段
-				h.createPhasesForItem(h.db, caseUUID, &items[idx], cs.FlowLayout)
+				h.createPhasesForItem(h.db, caseUUID, &items[idx], cfg)
 				break
 			}
 		}
@@ -1747,6 +1799,7 @@ func (h *CaseHandler) autoMatchCollaborationItemsForCase(caseID, userID uuid.UUI
 		return
 	}
 
+	cfg := schedule.ResolveDayCalcConfig(h.db, cs.UserID.String())
 	for i, matchedID := range matchResult.MatchedItemIDs {
 		itemUUID, err := uuid.Parse(matchedID)
 		if err != nil {
@@ -1761,7 +1814,7 @@ func (h *CaseHandler) autoMatchCollaborationItemsForCase(caseID, userID uuid.UUI
 
 		for idx := range items {
 			if items[idx].ID.String() == matchedID {
-				h.createPhasesForItem(h.db, caseID, &items[idx], cs.FlowLayout)
+				h.createPhasesForItem(h.db, caseID, &items[idx], cfg)
 				break
 			}
 		}
@@ -1934,7 +1987,8 @@ func (h *CaseHandler) AddCaseCollaborationItem(c *gin.Context) {
 	// 若該 item 已有 phases（例如上次取消選取後保留下來、user 可能已自行調整），
 	// 就不要再從 workflow 建一組新的，否則會覆蓋掉使用者的修改 + 重複
 	if !h.phasesExistForItem(tx, caseUUID, &item) {
-		h.createPhasesForItem(tx, caseUUID, &item, cs.FlowLayout)
+		cfg := schedule.ResolveDayCalcConfig(h.db, c.GetString("user_id"))
+		h.createPhasesForItem(tx, caseUUID, &item, cfg)
 	}
 
 	tx.Commit()
@@ -2116,7 +2170,8 @@ func (h *CaseHandler) ReorderCaseCollaborationItems(c *gin.Context) {
 
 	// If sequential layout, recalculate phase dates
 	if cs.FlowLayout == "sequential" {
-		h.recalculateSequentialDates(caseUUID)
+		cfg := schedule.ResolveDayCalcConfig(h.db, c.GetString("user_id"))
+		h.recalculateSequentialDates(caseUUID, cfg)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Reordered successfully"})
@@ -2184,10 +2239,11 @@ func (h *CaseHandler) UpdateFlowLayout(c *gin.Context) {
 		}
 	}
 
+	cfg := schedule.ResolveDayCalcConfig(h.db, userID)
 	if req.FlowLayout == "parallel" {
-		h.recalculateParallelDates(caseUUID, startDate)
+		h.recalculateParallelDates(caseUUID, startDate, cfg)
 	} else {
-		h.recalculateSequentialDates(caseUUID)
+		h.recalculateSequentialDates(caseUUID, cfg)
 	}
 
 	// Return updated phases
@@ -2225,35 +2281,35 @@ func (h *CaseHandler) phasesExistForItem(tx *gorm.DB, caseID uuid.UUID, item *mo
 }
 
 // createPhasesForItem 為合作項目建立流程階段
-func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem, _ string) {
+func (h *CaseHandler) createPhasesForItem(tx *gorm.DB, caseID uuid.UUID, item *models.CollaborationItem, cfg utils.DayCalcConfig) {
 	if item.Type == models.CollaborationItemTypeBundle {
 		// For bundles, create phases for each individual item inside
 		for _, bi := range item.BundleItems {
 			if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
-				h.createPhasesFromWorkflow(tx, caseID, bi.ItemID, bi.Item.Workflow)
+				h.createPhasesFromWorkflow(tx, caseID, bi.ItemID, bi.Item.Workflow, cfg)
 			}
 		}
 	} else if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
-		h.createPhasesFromWorkflow(tx, caseID, item.ID, item.Workflow)
+		h.createPhasesFromWorkflow(tx, caseID, item.ID, item.Workflow, cfg)
 	}
 }
 
 // createPhasesFromWorkflow 從流程範本建立案件階段
-func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, itemID uuid.UUID, wf *models.WorkflowTemplate) {
+func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, itemID uuid.UUID, wf *models.WorkflowTemplate, cfg utils.DayCalcConfig) {
 	var maxOrder int
 	tx.Model(&models.CasePhase{}).Where("case_id = ?", caseID).
 		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
 
-	startDate := time.Now().Truncate(24 * time.Hour)
-	currentDate := startDate
+	currentDate := cfg.EnsureWorkingDay(time.Now())
 
 	for i, wp := range wf.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		start := currentDate
+		endDate := cfg.AddWorkingDays(start, wp.DurationDays-1)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:              caseID,
 			Name:                wp.Name,
-			StartDate:           &currentDate,
+			StartDate:           &start,
 			EndDate:             &endDate,
 			DurationDays:        wp.DurationDays,
 			Order:               maxOrder + 1 + i,
@@ -2261,38 +2317,56 @@ func (h *CaseHandler) createPhasesFromWorkflow(tx *gorm.DB, caseID uuid.UUID, it
 			CollaborationItemID: &itemID,
 		}
 		tx.Create(&phase)
-		currentDate = endDate
+		currentDate = cfg.NextWorkingDay(endDate)
+	}
+}
+
+// RecalculateCaseDates 依 flow_layout 重算案件所有階段的日期（工作日引擎）。
+// 對外公開，供 backfill 命令（cmd/recalc-phases）重用排程邏輯。
+// 並聯模式以既有最早 start_date 作為共同錨點，避免既有時間軸整體跳到今天。
+func (h *CaseHandler) RecalculateCaseDates(caseID uuid.UUID, flowLayout string, cfg utils.DayCalcConfig) {
+	if flowLayout == "parallel" {
+		startDate := time.Now().Truncate(24 * time.Hour)
+		var firstPhase models.CasePhase
+		if err := h.db.Where("case_id = ? AND start_date IS NOT NULL", caseID).
+			Order("start_date ASC").First(&firstPhase).Error; err == nil && firstPhase.StartDate != nil {
+			startDate = *firstPhase.StartDate
+		}
+		h.recalculateParallelDates(caseID, startDate, cfg)
+	} else {
+		h.recalculateSequentialDates(caseID, cfg)
 	}
 }
 
 // recalculateParallelDates 重新計算並聯模式日期（所有流程從同一天開始）
-func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.Time) {
+func (h *CaseHandler) recalculateParallelDates(caseID uuid.UUID, startDate time.Time, cfg utils.DayCalcConfig) {
 	// Group phases by collaboration_item_id
 	var phases []models.CasePhase
 	h.db.Where("case_id = ?", caseID).Order(`collaboration_item_id, "order" ASC`).Find(&phases)
 
-	currentDate := startDate
+	anchor := cfg.EnsureWorkingDay(startDate)
+	currentDate := anchor
 	var currentItemID *uuid.UUID
 
 	for i := range phases {
 		p := &phases[i]
 		// Reset date for each new item group
 		if currentItemID == nil || p.CollaborationItemID == nil || *currentItemID != *p.CollaborationItemID {
-			currentDate = startDate
+			currentDate = anchor
 			currentItemID = p.CollaborationItemID
 		}
 
-		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		endDate := cfg.AddWorkingDays(currentDate, p.DurationDays-1)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,
 		})
-		currentDate = endDate
+		currentDate = cfg.NextWorkingDay(endDate)
 	}
 }
 
 // recalculateSequentialDates 重新計算串聯模式日期（所有階段頭尾相接）
-func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
+func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID, cfg utils.DayCalcConfig) {
 	// 找出最早的開始日期作為起點
 	startDate := time.Now().Truncate(24 * time.Hour)
 	var firstPhase models.CasePhase
@@ -2344,15 +2418,15 @@ func (h *CaseHandler) recalculateSequentialDates(caseID uuid.UUID) {
 		return allPhases[i].Order < allPhases[j].Order
 	})
 
-	// 串聯：每個階段頭尾相接
-	currentDate := startDate
+	// 串聯：每個階段頭尾相接（工作日，含起始日，下一階段從前一階段結束日之後的工作日開始）
+	currentDate := cfg.EnsureWorkingDay(startDate)
 	for i := range allPhases {
 		p := &allPhases[i]
-		endDate := currentDate.AddDate(0, 0, p.DurationDays)
+		endDate := cfg.AddWorkingDays(currentDate, p.DurationDays-1)
 		h.db.Model(p).Updates(map[string]any{
 			"start_date": currentDate,
 			"end_date":   endDate,
 		})
-		currentDate = endDate
+		currentDate = cfg.NextWorkingDay(endDate)
 	}
 }
