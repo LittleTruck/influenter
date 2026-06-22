@@ -1,0 +1,122 @@
+/**
+ * 郵件內容顯示樣式（共用）
+ *
+ * 用於以 v-html 渲染信件內文的容器：在元素上加 class="email-content"。
+ * 同時用於郵件詳情頁、郵件列表預覽窗、案件信件側欄，確保三處呈現一致。
+ *
+ * 排版對齊 Gmail 規格：行高 1.5、段落不額外加間距。
+ * 透過 all:initial / all:unset 將外部與來信自帶樣式隔離後，再套用統一的基礎樣式。
+ *
+ * 全域樣式（非 scoped），故不需 :deep()，即可命中 v-html 注入的子節點。
+ */
+
+.email-content {
+  /* 重置所有可能影響外部的樣式 */
+  all: initial;
+  display: block;
+  font-family: inherit;
+  line-height: 1.5;
+  color: inherit;
+
+  /* 確保隔離 */
+  contain: style layout;
+  isolation: isolate;
+}
+
+/* 重置郵件內容內的所有元素 */
+.email-content * {
+  all: unset;
+  display: revert;
+  box-sizing: border-box;
+}
+
+.email-content body {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+}
+
+.email-content html {
+  margin: 0;
+  padding: 0;
+}
+
+/* 恢復必要的文字樣式 */
+.email-content p,
+.email-content div,
+.email-content span {
+  display: block;
+  margin: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 連結樣式 */
+.email-content a {
+  color: rgb(37 99 235);
+  text-decoration: none;
+  display: inline;
+}
+
+.email-content a:hover {
+  text-decoration: underline;
+}
+
+/* 圖片樣式 */
+.email-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  display: block;
+  margin: 1rem 0;
+}
+
+/* 引用樣式 */
+.email-content blockquote {
+  border-left: 4px solid rgb(229 231 235);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  display: block;
+}
+
+/* 標題樣式 */
+.email-content h1,
+.email-content h2,
+.email-content h3,
+.email-content h4,
+.email-content h5,
+.email-content h6 {
+  font-weight: bold;
+  margin: 1.5rem 0 1rem 0;
+  color: inherit;
+  display: block;
+}
+
+.email-content h1 { font-size: 1.5rem; }
+.email-content h2 { font-size: 1.25rem; }
+.email-content h3 { font-size: 1.125rem; }
+
+/* 列表樣式 */
+.email-content ul,
+.email-content ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+  display: block;
+}
+
+.email-content li {
+  display: list-item;
+  margin: 0.5rem 0;
+}
+
+/* Dark mode */
+.dark .email-content a {
+  color: rgb(96 165 250);
+}
+
+.dark .email-content blockquote {
+  border-color: rgb(31 41 55);
+}

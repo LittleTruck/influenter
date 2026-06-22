@@ -105,7 +105,7 @@ const formatDate = (dateStr: string) => {
         <div class="email-body">
           <div
             v-if="isHtml"
-            class="prose prose-sm dark:prose-invert max-w-none"
+            class="email-content isolate"
             v-html="displayContent"
           />
           <pre v-else class="text-sm text-highlighted whitespace-pre-wrap font-sans">{{ displayContent }}</pre>
@@ -132,9 +132,3 @@ const formatDate = (dateStr: string) => {
   </BaseSlideover>
 </template>
 
-<style scoped>
-.email-body :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-</style>

@@ -334,6 +334,44 @@ func plainTextToHTML(s string) string {
 	return strings.ReplaceAll(escaped, "\n", "<br>\n")
 }
 
+var replyHTMLTagRe = regexp.MustCompile(`<[a-zA-Z/!][^>]*>`)
+var replyHTMLBrRe = regexp.MustCompile(`(?i)<br\s*/?>`)
+var replyHTMLBlockEndRe = regexp.MustCompile(`(?i)</(p|div|li|tr|h[1-6]|blockquote|pre)>`)
+var replyHTMLMultiNewlineRe = regexp.MustCompile(`\n{3,}`)
+var replyLooksLikeHTMLRe = regexp.MustCompile(`<[a-zA-Z][^>]*>`)
+var replyPEmptyRe = regexp.MustCompile(`(?i)<p>\s*</p>`)
+var replyPOpenRe = regexp.MustCompile(`(?i)<p(\s[^>]*)?>`)
+var replyPCloseRe = regexp.MustCompile(`(?i)</p>`)
+
+// looksLikeHTML 判斷字串是否含 HTML 標籤；
+// 前端 BaseRichTextEditor 永遠產生 HTML，但保留這個 fallback 處理外部呼叫送入純文字的情境。
+func looksLikeHTML(s string) bool {
+	return replyLooksLikeHTMLRe.MatchString(s)
+}
+
+// htmlToPlainText 把 HTML 轉為純文字版本，給 multipart/alternative 的 text/plain part 使用。
+// block-level 結尾轉成換行、<br> 轉換行、其餘 tag 拔掉、HTML entity 解碼。
+func htmlToPlainText(s string) string {
+	s = replyHTMLBrRe.ReplaceAllString(s, "\n")
+	s = replyHTMLBlockEndRe.ReplaceAllString(s, "\n\n")
+	s = replyHTMLTagRe.ReplaceAllString(s, "")
+	s = html.UnescapeString(s)
+	s = replyHTMLMultiNewlineRe.ReplaceAllString(s, "\n\n")
+	return strings.TrimSpace(s)
+}
+
+// gmailStyleHTML 將 TipTap 產生的 HTML 轉成接近 Gmail 寄件格式。
+// email client（含 Gmail）對 <p> 會套用預設上下 margin，使行距偏大；
+// app 內用 scoped CSS 壓掉 margin，但那段 CSS 不會隨郵件送出。
+// 故寄出前把 <p> 改為 <div>（無預設 margin）、空段落轉 <div><br></div> 保留空行，
+// 並在最外層包一層帶 inline style 的字型容器（email client 只套用 inline style）。
+func gmailStyleHTML(s string) string {
+	s = replyPEmptyRe.ReplaceAllString(s, "<div><br></div>")
+	s = replyPOpenRe.ReplaceAllString(s, "<div$1>")
+	s = replyPCloseRe.ReplaceAllString(s, "</div>")
+	return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#222222">` + s + `</div>`
+}
+
 // SendReply 寄出回信（透過 Gmail API）
 func (h *EmailHandler) SendReply(c *gin.Context) {
 	logger := middleware.GetLogger(c)
@@ -408,11 +446,25 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 		logger.Warn().Err(hdrErr).Str("email_id", emailID).Msg("Failed to fetch Message-ID header; reply may not thread")
 	}
 
+	// 前端富文字編輯器產生的 body 是 HTML；以前端格式為主，反向衍生純文字 part。
+	// 若呼叫端送入純文字（沒有 tag），fallback 走純文字 → HTML 的舊路徑。
+	var textBody, htmlBody string
+	if looksLikeHTML(body.Body) {
+		htmlBody = body.Body
+		textBody = htmlToPlainText(body.Body)
+	} else {
+		textBody = body.Body
+		htmlBody = plainTextToHTML(body.Body)
+	}
+	// 正規化成 Gmail 寄件格式（<div> 取代 <p>、inline 字型樣式），
+	// 收件方與 app 內顯示行距才會一致、不會被外部 client 的 <p> 預設邊距撐大
+	htmlBody = gmailStyleHTML(htmlBody)
+
 	req := &gmail.SendMessageRequest{
 		To:         []string{email.FromEmail},
 		Subject:    subject,
-		TextBody:   body.Body,
-		HTMLBody:   plainTextToHTML(body.Body),
+		TextBody:   textBody,
+		HTMLBody:   htmlBody,
 		ThreadID:   threadID,
 		InReplyTo:  inReplyTo,
 		References: inReplyTo,
@@ -436,8 +488,9 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 		FromEmail:         oauthAccount.Email,
 		ToEmail:           &email.FromEmail,
 		Subject:           &subject,
-		BodyText:          &body.Body,
-		Snippet:           stringPtr(truncateStr(body.Body, 150)),
+		BodyText:          &textBody,
+		BodyHTML:          &htmlBody,
+		Snippet:           stringPtr(truncateStr(textBody, 150)),
 		ReceivedAt:        time.Now(),
 		Labels:            pq.StringArray{"SENT"},
 		IsRead:            true,

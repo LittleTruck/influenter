@@ -406,18 +406,18 @@ defineExpose({
   overflow-y: auto;
 }
 
-/* TipTap 編輯區內容樣式 */
+/* TipTap 編輯區內容樣式 - 對齊 Gmail（Sans Serif / Normal）的字型、字級、行高 */
 .base-rich-editor__content :deep(.tiptap) {
   outline: none;
   min-height: inherit;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
+/* Gmail 規格：段落之間不額外加間距，換行即為下一行（空行需自行多按一次 Enter） */
 .base-rich-editor__content :deep(.tiptap p) {
-  margin: 0 0 0.5em;
-}
-
-.base-rich-editor__content :deep(.tiptap p:last-child) {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .base-rich-editor__content :deep(.tiptap h1) {

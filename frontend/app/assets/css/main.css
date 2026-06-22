@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./email-content.css";
 
 /* 自訂主色色盤 — 註冊為 Tailwind 色階，供 Nuxt UI plugin 的 var(--color-*) 查找 */
 :root {
