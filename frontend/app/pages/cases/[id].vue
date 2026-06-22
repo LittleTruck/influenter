@@ -17,7 +17,7 @@ import PhaseManagerModal from '~/components/cases/detail/PhaseManagerModal.vue'
 import CaseTotalAdjustModal from '~/components/cases/detail/CaseTotalAdjustModal.vue'
 import LoadingState from '~/components/common/LoadingState.vue'
 import ErrorState from '~/components/common/ErrorState.vue'
-import { format, differenceInDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 definePageMeta({
   middleware: 'auth'
@@ -401,12 +401,14 @@ const phasesGroupedByItem = computed(() => {
 })
 
 // ── 摘要列 computed ──
+// 期限倒數以「工作日」計（排除週末與國定假日）
+const { workingDaysBetween } = useWorkdays()
 const deadlineDaysText = computed(() => {
   if (!currentCase.value?.deadline_date) return null
-  const days = differenceInDays(new Date(currentCase.value.deadline_date), new Date())
-  if (days < 0) return `已過期 ${Math.abs(days)} 天`
+  const days = workingDaysBetween(new Date(), parseISO(currentCase.value.deadline_date))
+  if (days < 0) return `已過期 ${Math.abs(days)} 個工作日`
   if (days === 0) return '今天截止'
-  return `剩 ${days} 天`
+  return `剩 ${days} 個工作日`
 })
 
 const formattedDeadline = computed(() => {

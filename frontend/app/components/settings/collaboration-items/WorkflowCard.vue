@@ -199,7 +199,7 @@ const handlePhaseSubmit = async (data: CreateCollaborationItemPhaseRequest | Upd
                   <div class="flex items-center gap-2">
                     <h4 class="font-medium text-highlighted truncate">{{ phase.name }}</h4>
                     <BaseBadge size="sm" variant="soft" color="neutral">
-                      {{ phase.duration_days }} 天
+                      {{ phase.duration_days }} 工作日
                     </BaseBadge>
                   </div>
                 </template>

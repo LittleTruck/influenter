@@ -37,7 +37,7 @@ const formData = reactive({
 // 表單驗證
 const schema = z.object({
   name: z.string().min(1, '階段名稱不能為空'),
-  duration_days: z.number().int().min(1, '天數必須大於 0')
+  duration_days: z.number().int().min(1, '工作日數必須大於 0')
 })
 
 const errors = ref<Record<string, string>>({})
@@ -145,12 +145,12 @@ watch(isOpen, (open) => {
           />
         </BaseFormField>
 
-        <!-- 天數 -->
+        <!-- 工作日數 -->
         <BaseFormField
-          label="預設天數"
+          label="預設工作日數"
           :error="errors.duration_days"
           required
-          description="此階段的預設執行天數"
+          description="此階段的預設執行工作日數（不含週末與國定假日）"
         >
           <BaseInput
             v-model.number="formData.duration_days"

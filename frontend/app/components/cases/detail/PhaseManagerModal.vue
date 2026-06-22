@@ -2,7 +2,7 @@
 import type { CasePhase, FlowLayout } from '~/types/cases'
 import draggable from 'vuedraggable'
 import { BaseModal, BaseButton, BaseIcon } from '~/components/base'
-import { format, addDays, parseISO, isBefore, isEqual } from 'date-fns'
+import { format, parseISO, isBefore, isEqual } from 'date-fns'
 
 interface PhaseRow {
   id: string
@@ -48,6 +48,15 @@ const apiHeaders = computed(() => ({
 
 const saving = ref(false)
 
+// 工作日計算（含起始日語意，排除週末與國定假日）
+const { calculateEndDate, nextWorkingDay, ensureWorkingDay } = useWorkdays()
+
+// 串接：下一階段從前一階段結束日「之後的工作日」開始
+const chainStart = (prevEndDate: string): string =>
+  format(nextWorkingDay(parseISO(prevEndDate)), 'yyyy-MM-dd')
+// 無前序階段時的預設開始日（今天起算、正規化到工作日）
+const todayWorkdayStr = (): string => format(ensureWorkingDay(new Date()), 'yyyy-MM-dd')
+
 // 流程排列模式（本地編輯用）
 const localFlowLayout = ref<FlowLayout>('parallel')
 
@@ -57,7 +66,7 @@ const chainDatesSequentially = () => {
     const prev = rows.value[i - 1]!
     const curr = rows.value[i]!
     if (!prev.end_date) continue
-    const newStart = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+    const newStart = chainStart(prev.end_date)
     curr.start_date = newStart
     curr.end_date = calculateEndDate(newStart, curr.duration_days)
   }
@@ -120,13 +129,6 @@ const itemColorMap = computed(() => {
 // 編輯用的本地副本（只存可見項目，已刪除的另外存）
 const rows = ref<PhaseRow[]>([])
 const deletedRows = ref<PhaseRow[]>([])
-
-const calculateEndDate = (startDate: string, days: number): string => {
-  if (!startDate || days < 1) return ''
-  const start = parseISO(startDate)
-  const end = addDays(start, days)
-  return format(end, 'yyyy-MM-dd')
-}
 
 // 打開時初始化
 watch(isOpen, (open) => {
@@ -218,7 +220,7 @@ const cascadeAfter = (changedRow: PhaseRow) => {
       const prev = rows.value[i - 1]!
       const curr = rows.value[i]!
       if (!prev.end_date) continue
-      curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+      curr.start_date = chainStart(prev.end_date)
       curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
     }
   } else {
@@ -231,7 +233,7 @@ const cascadeAfter = (changedRow: PhaseRow) => {
       const prev = groupRows[i - 1]!
       const curr = groupRows[i]!
       if (!prev.end_date) continue
-      curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+      curr.start_date = chainStart(prev.end_date)
       curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
     }
   }
@@ -253,7 +255,7 @@ const onDragEnd = () => {
         const prev = groupRows[i - 1]!
         const curr = groupRows[i]!
         if (!prev.end_date) continue
-        curr.start_date = format(addDays(parseISO(prev.end_date), 1), 'yyyy-MM-dd')
+        curr.start_date = chainStart(prev.end_date)
         curr.end_date = calculateEndDate(curr.start_date, curr.duration_days)
       }
     }
@@ -264,8 +266,8 @@ const onDragEnd = () => {
 const addRow = () => {
   const lastRow = rows.value[rows.value.length - 1]
   const startDate: string = lastRow?.end_date
-    ? format(addDays(parseISO(lastRow.end_date), 1), 'yyyy-MM-dd')
-    : new Date().toISOString().split('T')[0]!
+    ? chainStart(lastRow.end_date)
+    : todayWorkdayStr()
 
   const newRow: PhaseRow = {
     id: `new_${Date.now()}`,
@@ -289,8 +291,8 @@ const addRowForGroup = (itemId: string | null) => {
   const groupRows = rows.value.filter(r => (r.collaboration_item_id || '__none__') === groupKey)
   const lastRow = groupRows[groupRows.length - 1]
   const startDate: string = lastRow?.end_date
-    ? format(addDays(parseISO(lastRow.end_date), 1), 'yyyy-MM-dd')
-    : new Date().toISOString().split('T')[0]!
+    ? chainStart(lastRow.end_date)
+    : todayWorkdayStr()
 
   const newRow: PhaseRow = {
     id: `new_${Date.now()}`,
@@ -344,7 +346,7 @@ const validate = (): boolean => {
       return false
     }
     if (row.duration_days < 1) {
-      toast.add({ title: `「${row.name}」天數至少為 1`, color: 'error' })
+      toast.add({ title: `「${row.name}」工作日數至少為 1`, color: 'error' })
       return false
     }
   }
@@ -427,7 +429,7 @@ const handleSave = async () => {
   <BaseModal
     v-model="isOpen"
     title="編輯專案流程"
-    description="拖曳左側圖示調整順序，管理所有階段的名稱與日期"
+    description="拖曳左側圖示調整順序，管理所有階段的名稱與日期（工期以工作日計，不含週末與國定假日）"
     size="lg"
   >
     <template #body>
@@ -548,7 +550,7 @@ const handleSave = async () => {
                         class="w-[64px] rounded-md border border-default bg-default px-2 py-1.5 text-sm text-highlighted text-center shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         @input="updateEndDate(row)"
                       />
-                      <span class="text-xs text-dimmed">天</span>
+                      <span class="text-xs text-dimmed">工作日</span>
                     </div>
                     <span class="text-xs text-dimmed whitespace-nowrap min-w-[80px] text-right">
                       → {{ row.end_date ? format(parseISO(row.end_date), 'MM/dd') : '-' }}

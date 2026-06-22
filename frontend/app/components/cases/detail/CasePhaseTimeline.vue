@@ -111,7 +111,7 @@ const timelineItems = computed<TimelineItem[]>(() => {
   return sortedPhases.value.map((phase) => {
     const status = getPhaseStatus(phase)
     return {
-      date: `${formatDate(phase.start_date)} ~ ${formatDate(phase.end_date)} (${phase.duration_days} 天)`,
+      date: `${formatDate(phase.start_date)} ~ ${formatDate(phase.end_date)} (${phase.duration_days} 工作日)`,
       title: phase.name,
       icon: getPhaseIcon(status),
       value: phase.id,

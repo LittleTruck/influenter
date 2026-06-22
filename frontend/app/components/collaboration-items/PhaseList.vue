@@ -114,7 +114,7 @@ const handleAdd = () => {
             <div class="flex items-center gap-2">
               <h4 class="font-medium text-highlighted">{{ phase.name }}</h4>
               <BaseBadge size="xs" variant="subtle" color="neutral">
-                {{ phase.duration_days }} 天
+                {{ phase.duration_days }} 工作日
               </BaseBadge>
             </div>
             <div v-if="editable" class="flex items-center gap-2">

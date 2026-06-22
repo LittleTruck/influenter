@@ -235,6 +235,7 @@
 </template>
 
 <script setup lang="ts">
+import { parseISO } from 'date-fns'
 import { BaseDashboardPanel, BaseDashboardNavbar, BaseCard, BaseIcon } from '~/components/base'
 import { getStatusLabel, getStatusColorHex } from '~/utils/caseStatus'
 import { getCaseDisplayTotal } from '~/utils/caseCalculations'
@@ -336,25 +337,20 @@ function formatRelativeDate(dateStr: string): string {
   return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
 }
 
-function formatDeadline(dateStr: string): string {
-  const deadline = new Date(dateStr)
-  const now = new Date()
-  const diffMs = deadline.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+// 期限倒數以「工作日」計（排除週末與國定假日）
+const { workingDaysBetween } = useWorkdays()
 
-  if (diffDays === 0) return '今天'
-  if (diffDays === 1) return '明天'
-  if (diffDays <= 7) return `${diffDays} 天後`
-  return deadline.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
+function formatDeadline(dateStr: string): string {
+  const days = workingDaysBetween(new Date(), parseISO(dateStr))
+  if (days <= 0) return '今天'
+  if (days <= 7) return `${days} 個工作日後`
+  return parseISO(dateStr).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
 }
 
 function deadlineUrgencyClass(dateStr: string): string {
-  const deadline = new Date(dateStr)
-  const now = new Date()
-  const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-
-  if (diffDays <= 2) return 'bg-error/10 text-error'
-  if (diffDays <= 7) return 'bg-warning/10 text-warning'
+  const days = workingDaysBetween(new Date(), parseISO(dateStr))
+  if (days <= 2) return 'bg-error/10 text-error'
+  if (days <= 7) return 'bg-warning/10 text-warning'
   return 'bg-primary/10 text-primary'
 }
 </script>

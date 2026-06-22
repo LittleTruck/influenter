@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Case } from '~/types/cases'
-import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
+import { formatAmount, formatRelativeDate } from '~/utils/formatters'
 import { getCaseDisplayTotal } from '~/utils/caseCalculations'
 import { BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
@@ -15,6 +15,9 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'card-click': [caseId: string]
 }>()
+
+// 截止緊急判定以工作日計（排除週末與國定假日）
+const { isDeadlineUrgent } = useWorkdays()
 
 const handleClick = () => {
   emit('card-click', props.caseData.id)

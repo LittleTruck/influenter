@@ -3,7 +3,7 @@ import type { Case } from '~/types/cases'
 import type { TableColumn } from '@nuxt/ui'
 import { BaseTable, BaseButton, BaseIcon } from '~/components/base'
 import CaseStatusBadge from '~/components/cases/common/CaseStatusBadge.vue'
-import { formatAmount, formatRelativeDate, isDeadlineUrgent } from '~/utils/formatters'
+import { formatAmount, formatRelativeDate } from '~/utils/formatters'
 import { getCaseDisplayTotal } from '~/utils/caseCalculations'
 
 interface Props {
@@ -16,6 +16,9 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   loading: false
 })
+
+// 截止緊急判定以工作日計（排除週末與國定假日）
+const { isDeadlineUrgent } = useWorkdays()
 
 const emit = defineEmits<{
   'case-click': [caseId: string]

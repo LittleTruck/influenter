@@ -16,6 +16,8 @@ import (
 	"github.com/designcomb/influenter-backend/internal/models"
 	"github.com/designcomb/influenter-backend/internal/services/gmail"
 	"github.com/designcomb/influenter-backend/internal/services/openai"
+	"github.com/designcomb/influenter-backend/internal/services/schedule"
+	"github.com/designcomb/influenter-backend/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -793,34 +795,36 @@ func (h *EmailHandler) autoMatchCollaborationItems(ctx context.Context, logger *
 
 // applyItemWorkflowToCase 為單個合作項目套用流程到案件
 func (h *EmailHandler) applyItemWorkflowToCase(logger *zerolog.Logger, cs *models.Case, item *models.CollaborationItem) {
+	cfg := schedule.ResolveDayCalcConfig(h.db, cs.UserID.String())
 	currentDate := time.Now().Truncate(24 * time.Hour)
 
 	if item.Type == models.CollaborationItemTypeBundle {
 		// For bundles, apply each individual item's workflow
 		for _, bi := range item.BundleItems {
 			if bi.Item.Workflow != nil && len(bi.Item.Workflow.Phases) > 0 {
-				h.createPhasesForItem(logger, cs, bi.ItemID, bi.Item.Workflow, currentDate)
+				h.createPhasesForItem(logger, cs, bi.ItemID, bi.Item.Workflow, currentDate, cfg)
 			}
 		}
 	} else if item.Workflow != nil && len(item.Workflow.Phases) > 0 {
-		h.createPhasesForItem(logger, cs, item.ID, item.Workflow, currentDate)
+		h.createPhasesForItem(logger, cs, item.ID, item.Workflow, currentDate, cfg)
 	}
 }
 
 // createPhasesForItem 為特定合作項目建立案件流程階段
-func (h *EmailHandler) createPhasesForItem(logger *zerolog.Logger, cs *models.Case, itemID uuid.UUID, workflow *models.WorkflowTemplate, startDate time.Time) {
+func (h *EmailHandler) createPhasesForItem(logger *zerolog.Logger, cs *models.Case, itemID uuid.UUID, workflow *models.WorkflowTemplate, startDate time.Time, cfg utils.DayCalcConfig) {
 	var maxOrder int
 	h.db.Model(&models.CasePhase{}).Where("case_id = ?", cs.ID).
 		Select(`COALESCE(MAX("order"), -1)`).Scan(&maxOrder)
 
-	currentDate := startDate
+	currentDate := cfg.EnsureWorkingDay(startDate)
 	for i, wp := range workflow.Phases {
-		endDate := currentDate.AddDate(0, 0, wp.DurationDays)
+		start := currentDate
+		endDate := cfg.AddWorkingDays(start, wp.DurationDays-1)
 		wpID := wp.ID
 		phase := models.CasePhase{
 			CaseID:              cs.ID,
 			Name:                wp.Name,
-			StartDate:           &currentDate,
+			StartDate:           &start,
 			EndDate:             &endDate,
 			DurationDays:        wp.DurationDays,
 			Order:               maxOrder + 1 + i,
@@ -831,7 +835,7 @@ func (h *EmailHandler) createPhasesForItem(logger *zerolog.Logger, cs *models.Ca
 			logger.Error().Err(err).Str("phase_name", wp.Name).Msg("Failed to create auto case phase")
 			return
 		}
-		currentDate = endDate
+		currentDate = cfg.NextWorkingDay(endDate)
 	}
 
 	logger.Info().

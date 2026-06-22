@@ -137,6 +137,7 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 	collaborationItemHandler := api.NewCollaborationItemHandler(db.DB)
 	workflowTemplateHandler := api.NewWorkflowTemplateHandler(db.DB)
 	replyTemplateHandler := api.NewReplyTemplateHandler(db.DB)
+	holidayHandler := api.NewHolidayHandler(db.DB)
 
 	// API v1 路由群組
 	v1 := router.Group("/api/v1")
@@ -181,6 +182,9 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				gmailGroup.POST("/sync", gmailHandler.TriggerSync)
 				gmailGroup.DELETE("/disconnect", gmailHandler.DisconnectGmail)
 			}
+
+			// 國定假日（工作日計算用，全域）
+			protected.GET("/holidays", holidayHandler.ListHolidays)
 
 			// Case routes（/fields 必須在 /:id 之前，否則 "fields" 會被當成 id）
 			casesGroup := protected.Group("/cases")

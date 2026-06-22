@@ -134,8 +134,8 @@ const closePopover = () => {
                   </p>
                 </div>
                 <div>
-                  <span class="text-dimmed text-xs">天數</span>
-                  <p class="font-medium text-highlighted">{{ phase.duration_days }} 天</p>
+                  <span class="text-dimmed text-xs">工作日數</span>
+                  <p class="font-medium text-highlighted">{{ phase.duration_days }} 工作日</p>
                 </div>
                 <div class="flex gap-2 pt-1 border-t border-default">
                   <BaseButton

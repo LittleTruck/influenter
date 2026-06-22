@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { CasePhase, UpdateCasePhaseRequest } from '~/types/cases'
 import { BaseModal, BaseButton, BaseFormField, BaseInput } from '~/components/base'
-import { format, addDays, parseISO } from 'date-fns'
 
 interface Props {
   /** 是否顯示 */
@@ -26,6 +25,9 @@ const isOpen = computed({
 
 const toast = useToast()
 
+// 工作日計算（含起始日語意，排除週末與國定假日）
+const { calculateEndDate } = useWorkdays()
+
 // 表單數據
 const formData = reactive({
   name: '',
@@ -33,14 +35,6 @@ const formData = reactive({
   duration_days: 1,
   end_date: ''
 })
-
-// 計算結束日期
-const calculateEndDate = (startDate: string, days: number): string => {
-  if (!startDate) return ''
-  const start = parseISO(startDate)
-  const end = addDays(start, days - 1) // 減1因為開始日算第一天
-  return format(end, 'yyyy-MM-dd')
-}
 
 // 初始化表單數據
 watch(() => props.phase, (phase) => {
@@ -109,7 +103,7 @@ watch(isOpen, (open) => {
   <BaseModal
     v-model="isOpen"
     title="編輯階段"
-    description="調整階段名稱、開始日期和執行天數"
+    description="調整階段名稱、開始日期和執行工作日數"
   >
     <template #body>
       <div class="space-y-4">
@@ -136,11 +130,11 @@ watch(isOpen, (open) => {
           />
         </BaseFormField>
 
-        <!-- 天數 -->
+        <!-- 工作日數 -->
         <BaseFormField
-          label="執行天數"
+          label="執行工作日數"
           required
-          description="此階段的執行天數"
+          description="此階段的執行工作日數（不含週末與國定假日）"
         >
           <BaseInput
             v-model.number="formData.duration_days"
@@ -153,7 +147,7 @@ watch(isOpen, (open) => {
         <!-- 結束日期（自動計算，唯讀） -->
         <BaseFormField
           label="結束日期"
-          description="自動根據開始日期和天數計算"
+          description="自動依開始日期與工作日數計算（不含週末與國定假日）"
         >
           <input
             :value="formData.end_date"
