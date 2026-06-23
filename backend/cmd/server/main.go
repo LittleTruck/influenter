@@ -221,6 +221,12 @@ func setupRouter(cfg *config.Config, db *database.DB, logger *zerolog.Logger) *g
 				casesGroup.DELETE("/:id/phases", caseHandler.ClearCasePhases)
 			}
 
+			// Analytics（數據分析：依月份聚合、依合作項目堆疊）
+			analyticsGroup := protected.Group("/analytics")
+			{
+				analyticsGroup.GET("/collaboration-items", caseHandler.CollaborationItemAnalytics)
+			}
+
 			// Collaboration items
 			collabGroup := protected.Group("/collaboration-items")
 			{

@@ -68,6 +68,10 @@ const navigationItems: NavigationMenuItem[][] = [[{
   label: '合作管理',
   icon: 'i-lucide-handshake',
   to: '/my'
+}, {
+  label: '數據分析',
+  icon: 'i-lucide-chart-column',
+  to: '/analytics'
 }], [{
   label: '設定',
   icon: 'i-lucide-settings',
