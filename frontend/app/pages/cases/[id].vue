@@ -485,6 +485,17 @@ const handleViewEmail = (emailId: string) => {
   <BaseDashboardPanel>
     <template #header>
       <BaseDashboardNavbar :title="currentCase ? (currentCase.agency_name ? `${currentCase.agency_name} - ${currentCase.title}` : currentCase.title) : '案件詳情'">
+        <template #leading>
+          <BaseButton
+            icon="i-lucide-arrow-left"
+            variant="ghost"
+            color="neutral"
+            class="mr-1"
+            @click="navigateTo('/cases')"
+          >
+            返回列表
+          </BaseButton>
+        </template>
         <template #right>
           <div class="flex items-center gap-2">
             <BaseBadge
@@ -495,9 +506,6 @@ const handleViewEmail = (emailId: string) => {
             >
               {{ getStatusLabel(currentCase.status) }}
             </BaseBadge>
-            <BaseButton icon="i-lucide-arrow-left" variant="ghost" @click="navigateTo('/cases')">
-              返回列表
-            </BaseButton>
           </div>
         </template>
       </BaseDashboardNavbar>

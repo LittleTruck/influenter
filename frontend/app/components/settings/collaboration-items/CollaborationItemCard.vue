@@ -41,10 +41,7 @@ const bundleItemNames = computed(() => {
 </script>
 
 <template>
-  <div
-    class="spec-card"
-    :class="isBundle ? 'flex-col items-start' : 'items-center'"
-  >
+  <div class="spec-card flex-col items-stretch">
     <!-- 主列：拖曳把手 / 名稱 / 類型 Badge / 報價 / 操作 -->
     <div class="flex items-center gap-2.5 w-full">
       <!-- 拖曳把手 -->
@@ -54,10 +51,20 @@ const bundleItemNames = computed(() => {
         @click.stop
       />
 
-      <!-- 項目名稱 -->
-      <h4 class="flex-1 min-w-0 truncate text-[12px] font-medium text-[#26215C] dark:text-gray-100">
-        {{ item.title }}
-      </h4>
+      <!-- 項目名稱 + 注意事項（注意事項放在標題下方） -->
+      <div class="flex-1 min-w-0">
+        <h4 class="truncate text-[12px] font-medium text-[#26215C] dark:text-gray-100">
+          {{ item.title }}
+        </h4>
+        <!-- 注意事項預覽 -->
+        <div
+          v-if="item.notes"
+          class="flex items-start gap-1 mt-1 text-[11px] text-[#888780] dark:text-gray-400"
+        >
+          <BaseIcon name="i-lucide-info" class="size-3.5 shrink-0 mt-0.5" />
+          <p class="whitespace-pre-line line-clamp-2">{{ item.notes }}</p>
+        </div>
+      </div>
 
       <!-- 類型 Badge -->
       <span
@@ -119,16 +126,6 @@ const bundleItemNames = computed(() => {
       >
         {{ name }}
       </span>
-    </div>
-
-    <!-- 注意事項預覽 -->
-    <div
-      v-if="item.notes"
-      class="flex items-start gap-1 mt-1.5 text-[11px] text-[#888780] dark:text-gray-400"
-      :class="isBundle ? 'pl-[22px]' : ''"
-    >
-      <BaseIcon name="i-lucide-info" class="size-3.5 shrink-0 mt-0.5" />
-      <p class="whitespace-pre-line line-clamp-2">{{ item.notes }}</p>
     </div>
   </div>
 </template>

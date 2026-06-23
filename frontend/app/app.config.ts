@@ -30,11 +30,11 @@ export default defineAppConfig({
       variants: {
         active: {
           true: {
-            link: 'bg-white/18 text-white font-medium before:hidden',
-            linkLeadingIcon: 'text-white',
+            link: 'bg-white/18 !text-white font-medium before:hidden',
+            linkLeadingIcon: '!text-white',
           },
           false: {
-            link: 'text-white/55 hover:text-white hover:bg-white/10',
+            link: '!text-white/55 hover:!text-white hover:bg-white/10',
             linkLeadingIcon: 'text-white/70 group-hover:text-white',
           },
         },

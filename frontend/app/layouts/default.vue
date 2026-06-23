@@ -43,36 +43,48 @@ import { BaseButton, BaseIcon, BaseDashboardGroup, BaseDashboardSidebar, BaseDas
 import UserDropdown from '~/components/UserDropdown.vue'
 
 // Col 1 主導覽（依 redesign.md 扁平化：日曆提升為頂層）
-const navigationItems: NavigationMenuItem[][] = [[{
-  label: '首頁',
-  icon: 'i-lucide-house',
-  to: '/',
-  exact: true
-}, {
-  label: '案件',
-  icon: 'i-lucide-briefcase',
-  to: '/cases'
-}, {
-  label: '日曆',
-  icon: 'i-lucide-calendar-days',
-  to: '/calendar'
-}, {
-  label: '郵件',
-  icon: 'i-lucide-mail',
-  to: '/emails'
-}, {
-  label: '合作管理',
-  icon: 'i-lucide-handshake',
-  to: '/my'
-}, {
-  label: '數據分析',
-  icon: 'i-lucide-chart-column',
-  to: '/analytics'
-}], [{
-  label: '設定',
-  icon: 'i-lucide-settings',
-  to: '/settings'
-}]]
+// 以路由前綴判斷 active，讓子頁（如 /cases/[id]）也能正確高亮對應的主導覽
+const route = useRoute()
+
+const navigationItems = computed<NavigationMenuItem[][]>(() => {
+  const p = route.path
+  return [[{
+    label: '首頁',
+    icon: 'i-lucide-house',
+    to: '/',
+    active: p === '/'
+  }, {
+    label: '案件',
+    icon: 'i-lucide-briefcase',
+    to: '/cases',
+    active: p === '/cases' || p.startsWith('/cases/')
+  }, {
+    label: '日曆',
+    icon: 'i-lucide-calendar-days',
+    to: '/calendar',
+    active: p.startsWith('/calendar')
+  }, {
+    label: '郵件',
+    icon: 'i-lucide-mail',
+    to: '/emails',
+    active: p.startsWith('/emails')
+  }, {
+    label: '合作管理',
+    icon: 'i-lucide-handshake',
+    to: '/my',
+    active: p.startsWith('/my')
+  }, {
+    label: '數據分析',
+    icon: 'i-lucide-chart-column',
+    to: '/analytics',
+    active: p.startsWith('/analytics')
+  }], [{
+    label: '設定',
+    icon: 'i-lucide-settings',
+    to: '/settings',
+    active: p.startsWith('/settings')
+  }]]
+})
 </script>
 
 
