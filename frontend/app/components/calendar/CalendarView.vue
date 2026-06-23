@@ -6,6 +6,7 @@ import type { EventDropArg } from '@fullcalendar/core'
 import { format } from 'date-fns'
 import { STATUS_LABELS, STATUS_COLOR_HEX, STATUS_COLORS } from '~/utils/caseStatus'
 import type { CaseStatus } from '~/types/cases'
+import type { Holiday } from '~/stores/holidays'
 
 // 狀態篩選 Tab 選項
 const statusTabs: { label: string; value: CaseStatus | null; color: string }[] = [
@@ -31,6 +32,20 @@ const {
   handleEventDrop,
   selectedStatus
 } = useCalendar()
+
+// 國定假日資料（標註於日曆格；非事件，不佔用案件卡片空間、無需拖曳/點擊處理）
+const holidaysStore = useHolidaysStore()
+onMounted(() => holidaysStore.fetchHolidays())
+
+// 日期鍵（yyyy-MM-dd）→ 假日，供 day cell hook 查詢
+const holidayMap = computed(() => {
+  const m = new Map<string, Holiday>()
+  for (const h of holidaysStore.holidays) m.set(h.date, h)
+  return m
+})
+
+// 是否有補班日（無則圖例不顯示補班）
+const hasMakeup = computed(() => holidaysStore.holidays.some(h => h.is_workday))
 
 // Header title
 const headerTitle = computed(() => format(currentDate.value, 'MMMM yyyy'))
@@ -78,6 +93,34 @@ const calendarOptions = computed(() => ({
   eventDisplay: 'block',
   eventDragMinDistance: 5,
   dragScroll: true,
+  // 非工作日標註：整格底色 class。優先序 補班 > 國定假日 > 週末
+  // （補班日雖落在週末仍是工作日，故排除於週末標註之外）
+  dayCellClassNames: (arg: { date: Date }) => {
+    const h = holidayMap.value.get(format(arg.date, 'yyyy-MM-dd'))
+    if (h) return [h.is_workday ? 'inf-makeup' : 'inf-holiday']
+    const dow = arg.date.getDay()
+    return dow === 0 || dow === 6 ? ['inf-weekend'] : []
+  },
+  // 國定假日／補班日標註：在日期數字列左側放假日名稱
+  dayCellContent: (arg: { date: Date; dayNumberText: string; isToday: boolean }) => {
+    const h = holidayMap.value.get(format(arg.date, 'yyyy-MM-dd'))
+    if (!h) return { html: String(arg.dayNumberText) }
+    const label = h.is_workday ? `${h.name}·補班` : h.name
+    const nameEl = document.createElement('span')
+    nameEl.className = 'inf-holi-name'
+    nameEl.textContent = label
+    nameEl.title = label
+    const nodes: HTMLElement[] = [nameEl]
+    // 週/日視圖的 dayNumberText 為空（日期顯示於欄首），略過數字 span
+    if (arg.dayNumberText) {
+      const numEl = document.createElement('span')
+      // 同時是今天時，把「今天」綠色圓圈套在數字上（而非整列）
+      numEl.className = arg.isToday ? 'inf-holi-num inf-num-today' : 'inf-holi-num'
+      numEl.textContent = String(arg.dayNumberText)
+      nodes.push(numEl)
+    }
+    return { domNodes: nodes }
+  },
   // Custom event rendering
   eventContent: (arg: any) => {
     const props = arg.event.extendedProps
@@ -207,6 +250,13 @@ watch(currentDate, () => {
     }
   })
 })
+
+// 假日資料載入後強制重繪：day cell hook 在渲染當下才讀 holidayMap，
+// 故 options 不會因假日載入而改變，需主動重繪一次套上標註。
+watch(() => holidaysStore.loaded, (loaded) => {
+  if (!loaded) return
+  nextTick(() => calendarRef.value?.getApi?.().render())
+})
 </script>
 
 <template>
@@ -272,6 +322,22 @@ watch(currentDate, () => {
       >
         {{ tab.label }}
       </button>
+
+      <!-- 圖例：說明日曆格標註 -->
+      <div class="ml-auto flex items-center gap-3 pl-2 text-xs text-dimmed">
+        <span class="inline-flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-sm holiday-legend-dot" />
+          國定假日
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-sm weekend-legend-dot" />
+          週末
+        </span>
+        <span v-if="hasMakeup" class="inline-flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-sm makeup-legend-dot" />
+          補班日
+        </span>
+      </div>
     </div>
 
     <!-- Calendar grid -->
@@ -510,5 +576,134 @@ watch(currentDate, () => {
 
 .dark :deep(.fc-daygrid-more-link) {
   color: rgb(74 222 128);
+}
+
+/* ========== 國定假日 / 補班日 標註 ========== */
+/* 整格淡底色 */
+:deep(.inf-holiday) {
+  background: rgba(244, 63, 94, 0.06); /* rose */
+}
+:deep(.inf-makeup) {
+  background: rgba(245, 158, 11, 0.08); /* amber */
+}
+:deep(.inf-weekend) {
+  background: rgba(100, 116, 139, 0.07); /* slate */
+}
+
+/* 假日格的數字列改為左名稱、右日期 */
+:deep(.inf-holiday .fc-daygrid-day-number),
+:deep(.inf-makeup .fc-daygrid-day-number) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+
+/* 假日名稱（左側，過長省略） */
+:deep(.inf-holi-name) {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:deep(.inf-holi-num) {
+  flex-shrink: 0;
+}
+
+/* 假日（休假）配色 */
+:deep(.inf-holiday .fc-daygrid-day-number),
+:deep(.inf-holiday .inf-holi-name) {
+  color: rgb(225 29 72); /* rose-600 */
+}
+/* 補班日配色 */
+:deep(.inf-makeup .fc-daygrid-day-number),
+:deep(.inf-makeup .inf-holi-name) {
+  color: rgb(217 119 6); /* amber-600 */
+}
+
+/* 圖例色塊 */
+.holiday-legend-dot {
+  background: rgba(244, 63, 94, 0.55);
+}
+.weekend-legend-dot {
+  background: rgba(100, 116, 139, 0.55);
+}
+.makeup-legend-dot {
+  background: rgba(245, 158, 11, 0.6);
+}
+
+/* Dark mode */
+.dark :deep(.inf-holiday) {
+  background: rgba(244, 63, 94, 0.12);
+}
+.dark :deep(.inf-makeup) {
+  background: rgba(245, 158, 11, 0.14);
+}
+.dark :deep(.inf-weekend) {
+  background: rgba(148, 163, 184, 0.10);
+}
+.dark :deep(.inf-holiday .fc-daygrid-day-number),
+.dark :deep(.inf-holiday .inf-holi-name) {
+  color: rgb(251 113 133); /* rose-400 */
+}
+.dark :deep(.inf-makeup .fc-daygrid-day-number),
+.dark :deep(.inf-makeup .inf-holi-name) {
+  color: rgb(251 191 36); /* amber-400 */
+}
+
+/* 修正：週/日視圖中，非假日格被強制渲染的空白日期列。
+   （定義 dayCellContent 會讓 FullCalendar 在所有視圖強制 day-top，
+    但週/日視圖的日期本就顯示在欄首，故隱藏非假日格的空白列；
+    假日格保留以顯示假日名稱。） */
+:deep(.fc-dayGridWeek-view .fc-daygrid-day:not(.inf-holiday):not(.inf-makeup) .fc-daygrid-day-top),
+:deep(.fc-dayGridDay-view .fc-daygrid-day:not(.inf-holiday):not(.inf-makeup) .fc-daygrid-day-top) {
+  display: none;
+}
+
+/* 修正：今天又是假日時，把「今天」綠圈套在數字上，避免整列被撐成綠色長條 */
+:deep(.fc-day-today.inf-holiday .fc-daygrid-day-number),
+:deep(.fc-day-today.inf-makeup .fc-daygrid-day-number) {
+  display: flex; /* 不依賴 source order，明確覆蓋今天的 inline-flex */
+  background: transparent !important;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  color: inherit !important;
+}
+:deep(.inf-num-today) {
+  background: rgb(22 163 74);
+  color: white !important;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.dark :deep(.inf-num-today) {
+  background: rgb(74 222 128);
+  color: rgb(17 24 39) !important;
+}
+
+/* 修正：鄰月（other-month）假日格維持淡灰，不套用假日飽和色 */
+:deep(.fc-day-other.inf-holiday .fc-daygrid-day-number),
+:deep(.fc-day-other.inf-makeup .fc-daygrid-day-number),
+:deep(.fc-day-other.inf-holiday .inf-holi-name),
+:deep(.fc-day-other.inf-makeup .inf-holi-name) {
+  color: rgb(209 213 219);
+}
+.dark :deep(.fc-day-other.inf-holiday .fc-daygrid-day-number),
+.dark :deep(.fc-day-other.inf-makeup .fc-daygrid-day-number),
+.dark :deep(.fc-day-other.inf-holiday .inf-holi-name),
+.dark :deep(.fc-day-other.inf-makeup .inf-holi-name) {
+  color: rgb(75 85 99);
 }
 </style>
