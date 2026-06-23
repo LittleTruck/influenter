@@ -30,35 +30,48 @@
   --color-rosepink-900: #8E2F74;
   --color-rosepink-950: #5C1A4A;
 
+  /* iris — 品牌紫，精確對應設計稿 redesign.md（主色 #534AB7） */
+  --color-iris-50:  #F6F5FF;
+  --color-iris-100: #EEEDFE;
+  --color-iris-200: #E8E6FA;
+  --color-iris-300: #AFA9EC;
+  --color-iris-400: #7F77DD;
+  --color-iris-500: #534AB7;
+  --color-iris-600: #463E9F;
+  --color-iris-700: #3C3489;
+  --color-iris-800: #312A6E;
+  --color-iris-900: #26215C;
+  --color-iris-950: #1A1640;
+
 }
 
-/* 分隔線 — 全部改為實黑色 */
+/* 分隔線 — 移除原本的純黑框線，改用設計稿的淡紫分隔色（redesign.md：#E8E6FA） */
 @property --ui-border {
   syntax: '<color>';
   inherits: true;
-  initial-value: #000000;
+  initial-value: #E8E6FA;
 }
 @property --ui-border-muted {
   syntax: '<color>';
   inherits: true;
-  initial-value: #000000;
+  initial-value: #F0EFFB;
 }
 @property --ui-border-accented {
   syntax: '<color>';
   inherits: true;
-  initial-value: #000000;
+  initial-value: #D9D5F2;
 }
 
 :root:root {
-  --ui-border: #000000;
-  --ui-border-muted: #000000;
-  --ui-border-accented: #000000;
+  --ui-border: #E8E6FA;
+  --ui-border-muted: #F0EFFB;
+  --ui-border-accented: #D9D5F2;
 }
 
 .dark:root, :root.dark {
-  --ui-border: #ffffff;
-  --ui-border-muted: #ffffff;
-  --ui-border-accented: #ffffff;
+  --ui-border: #2E2A52;
+  --ui-border-muted: #252247;
+  --ui-border-accented: #3A3566;
 }
 
 /* 覆蓋 Tailwind 編譯產生的 border-default（gray-200），改用 runtime --ui-border */
@@ -75,8 +88,8 @@
 .drag-ghost,
 .sortable-ghost {
   opacity: 0.4;
-  background: rgba(147, 197, 253, 0.15);
-  border: 2px dashed rgba(59, 130, 246, 0.4);
+  background: rgba(127, 119, 221, 0.15);
+  border: 2px dashed rgba(83, 74, 183, 0.4);
   border-radius: 8px;
   transform: scale(0.96);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -174,11 +187,11 @@
   font-size: 0.875rem;
 }
 
-/* 按鈕樣式 - 符合 BaseButton */
+/* 按鈕樣式 - 符合 BaseButton（品牌紫） */
 .fc-button {
-  background-color: rgb(34 197 94);
+  background-color: #534AB7;
   color: white;
-  border: 1px solid rgb(34 197 94);
+  border: 1px solid #534AB7;
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
@@ -189,14 +202,14 @@
 }
 
 .fc-button:hover {
-  background-color: rgb(22 163 74);
-  border-color: rgb(22 163 74);
+  background-color: #3C3489;
+  border-color: #3C3489;
 }
 
 .fc-button:focus {
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 0 2px rgba(83, 74, 183, 0.3);
 }
 
 .fc-button:disabled {
@@ -215,8 +228,8 @@
 
 .fc-button-primary:not(:disabled):active,
 .fc-button-primary:not(:disabled).fc-button-active {
-  background-color: rgb(21 128 61);
-  border-color: rgb(21 128 61);
+  background-color: #26215C;
+  border-color: #26215C;
 }
 
 /* 日期數字 */
@@ -325,21 +338,21 @@
 
 /* 今天 */
 .fc-day-today {
-  background-color: rgb(240 253 244);
+  background-color: #EEEDFE;
   position: relative;
 }
 
 .dark .fc-day-today {
-  background-color: rgba(20, 83, 45, 0.15);
+  background-color: rgba(83, 74, 183, 0.18);
 }
 
 .fc-day-today .fc-daygrid-day-number {
-  color: rgb(22 163 74);
+  color: #534AB7;
   font-weight: 600;
 }
 
 .dark .fc-day-today .fc-daygrid-day-number {
-  color: rgb(74 222 128);
+  color: #AFA9EC;
 }
 
 /* 事件樣式 - 符合 BaseCard 設計 */
@@ -396,9 +409,9 @@
 
 .fc-event.fc-event-mirror {
   opacity: 0.4;
-  background: rgba(147, 197, 253, 0.15) !important;
-  border: 2px dashed rgba(59, 130, 246, 0.4) !important;
-  border-left: 3px solid rgba(59, 130, 246, 0.4) !important;
+  background: rgba(127, 119, 221, 0.15) !important;
+  border: 2px dashed rgba(83, 74, 183, 0.4) !important;
+  border-left: 3px solid rgba(83, 74, 183, 0.4) !important;
   transform: scale(0.96);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -918,7 +931,7 @@
 
 /* 更多連結 */
 .fc-more-link {
-  color: rgb(34 197 94);
+  color: #534AB7;
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.25rem 0.5rem;
@@ -927,17 +940,17 @@
 }
 
 .fc-more-link:hover {
-  color: rgb(22 163 74);
-  background-color: rgb(240 253 244);
+  color: #3C3489;
+  background-color: #EEEDFE;
 }
 
 .dark .fc-more-link {
-  color: rgb(74 222 128);
+  color: #AFA9EC;
 }
 
 .dark .fc-more-link:hover {
-  color: rgb(134 239 172);
-  background-color: rgba(20, 83, 45, 0.2);
+  color: #C9C4F0;
+  background-color: rgba(83, 74, 183, 0.2);
 }
 
 /* 事件網格 */

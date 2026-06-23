@@ -1,7 +1,7 @@
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'skyblue', // 可切換: 'skyblue' | 'rosepink' | 'green' | 'blue' | 任何內建色
+      primary: 'iris', // 品牌紫（redesign.md #534AB7）。可切換: 'iris' | 'skyblue' | 'rosepink' | 任何內建色
       secondary: 'rosepink',
       neutral: 'slate',
     },

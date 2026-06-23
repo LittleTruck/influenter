@@ -8,6 +8,7 @@ const colorMode = useColorMode()
 const { primaryColor, setPrimaryColor } = useThemeColor()
 
 const colorClasses: Record<ThemeColor, string> = {
+  iris: '',
   green: 'bg-green-500',
   blue: 'bg-blue-500',
   violet: 'bg-violet-500',
@@ -20,6 +21,7 @@ const colorClasses: Record<ThemeColor, string> = {
 }
 
 const ringClasses: Record<ThemeColor, string> = {
+  iris: '',
   green: 'ring-green-500',
   blue: 'ring-blue-500',
   violet: 'ring-violet-500',
@@ -33,6 +35,7 @@ const ringClasses: Record<ThemeColor, string> = {
 
 // 自訂色沒有 Tailwind utility，用 inline style
 const customColorStyles: Partial<Record<ThemeColor, { bg: string; ring: string }>> = {
+  iris: { bg: '#534AB7', ring: '#534AB7' },
   skyblue: { bg: '#5693EC', ring: '#5693EC' },
   rosepink: { bg: '#F28ED4', ring: '#F28ED4' },
 }

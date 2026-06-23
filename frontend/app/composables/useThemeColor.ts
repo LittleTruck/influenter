@@ -1,6 +1,7 @@
-export type ThemeColor = 'green' | 'blue' | 'violet' | 'rose' | 'amber' | 'cyan' | 'indigo' | 'skyblue' | 'rosepink'
+export type ThemeColor = 'iris' | 'green' | 'blue' | 'violet' | 'rose' | 'amber' | 'cyan' | 'indigo' | 'skyblue' | 'rosepink'
 
 export const THEME_COLORS: { value: ThemeColor; label: string }[] = [
+  { value: 'iris', label: '品牌紫' },
   { value: 'green', label: '綠色' },
   { value: 'blue', label: '藍色' },
   { value: 'violet', label: '紫色' },
