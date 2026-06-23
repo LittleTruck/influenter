@@ -45,13 +45,11 @@ const handleReorderBundle = (itemIds: string[]) => {
 </script>
 
 <template>
-  <div class="collaboration-item-tree space-y-6">
+  <div class="collaboration-item-tree space-y-5">
     <!-- 單項區塊 -->
     <div>
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm font-semibold text-highlighted">單項</h3>
-      </div>
-      <div v-if="localIndividualItems.length === 0" class="text-sm text-muted p-4 text-center border border-dashed border-default rounded-lg">
+      <h3 class="section-label">單項</h3>
+      <div v-if="localIndividualItems.length === 0" class="text-[12px] text-[#888780] dark:text-gray-400 p-4 text-center border border-dashed border-default rounded-[10px]">
         尚未建立單項
       </div>
       <DraggableList
@@ -72,10 +70,8 @@ const handleReorderBundle = (itemIds: string[]) => {
 
     <!-- 組合區塊 -->
     <div>
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm font-semibold text-highlighted">組合</h3>
-      </div>
-      <div v-if="localBundleItems.length === 0" class="text-sm text-muted p-4 text-center border border-dashed border-default rounded-lg">
+      <h3 class="section-label">組合</h3>
+      <div v-if="localBundleItems.length === 0" class="text-[12px] text-[#888780] dark:text-gray-400 p-4 text-center border border-dashed border-default rounded-[10px]">
         尚未建立組合
       </div>
       <DraggableList
@@ -99,5 +95,15 @@ const handleReorderBundle = (itemIds: string[]) => {
 <style scoped>
 .collaboration-item-tree {
   min-height: 100px;
+}
+
+/* 區塊標題（Section Label）— 依 redesign.md */
+.section-label {
+  font-size: 10px;
+  color: #888780;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 </style>

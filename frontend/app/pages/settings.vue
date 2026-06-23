@@ -15,9 +15,9 @@ const navItems = [
       <BaseDashboardNavbar title="設定" />
     </template>
     <template #body>
-      <div class="flex h-full">
-        <SubNav :items="navItems" class="w-56 shrink-0 border-r border-default" />
-        <div class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div class="flex h-full bg-[#f6f5ff] dark:bg-[#0f0d1a]">
+        <SubNav :items="navItems" label="設定" />
+        <div class="flex-1 overflow-y-auto p-5 sm:p-6">
           <NuxtPage />
         </div>
       </div>

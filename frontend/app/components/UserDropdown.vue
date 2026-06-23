@@ -41,7 +41,7 @@ const items = computed(() => [
       :label="collapsed ? undefined : (authStore.user?.name || authStore.user?.email || '使用者')"
       color="neutral"
       variant="ghost"
-      class="w-full"
+      class="w-full !text-white/90 hover:!bg-white/10"
       :block="collapsed"
     />
   </BaseDropdownMenu>
