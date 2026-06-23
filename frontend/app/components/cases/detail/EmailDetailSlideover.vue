@@ -19,9 +19,30 @@ const isOpen = computed({
 })
 
 const emailsStore = useEmailsStore()
+const toast = useToast()
 const loading = ref(false)
 
 const email = computed(() => emailsStore.currentEmail)
+
+// 設為／取消「優質範例」（僅寄出回信，供 AI 擬信 few-shot 參考）
+const togglingGoodExample = ref(false)
+const toggleGoodExample = async () => {
+  if (!email.value) return
+  const next = !email.value.is_good_example
+  togglingGoodExample.value = true
+  try {
+    await emailsStore.markAsGoodExample(email.value.id, next)
+    toast.add({
+      title: next ? '已設為優質範例' : '已取消優質範例',
+      description: next ? 'AI 擬信時會優先參考這封回信的語氣與寫法' : undefined,
+      color: 'success'
+    })
+  } catch (e: any) {
+    // error 已在 store 中處理
+  } finally {
+    togglingGoodExample.value = false
+  }
+}
 
 // 載入郵件詳情（合併為單一 watcher，避免雙重觸發）
 watch(
@@ -119,7 +140,19 @@ const formatDate = (dateStr: string) => {
     </template>
 
     <template #footer>
-      <div class="flex justify-end">
+      <div class="flex items-center justify-between gap-2">
+        <!-- 設為優質範例（僅寄出回信，供 AI 擬信參考） -->
+        <BaseButton
+          v-if="email && email.direction === 'outgoing'"
+          :icon="email.is_good_example ? 'i-lucide-star' : 'i-lucide-star-off'"
+          :color="email.is_good_example ? 'warning' : 'neutral'"
+          variant="outline"
+          :loading="togglingGoodExample"
+          @click="toggleGoodExample"
+        >
+          {{ email.is_good_example ? '優質範例' : '設為範例' }}
+        </BaseButton>
+        <span v-else />
         <BaseButton
           color="neutral"
           variant="outline"

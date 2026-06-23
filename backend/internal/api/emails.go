@@ -283,6 +283,35 @@ func (h *EmailHandler) UpdateEmail(c *gin.Context) {
 		return
 	}
 
+	// 驗證：is_good_example 僅適用於寄出的回信
+	if req.IsGoodExample != nil && email.Direction != models.EmailDirectionOutgoing {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "invalid_operation",
+			Message: "只有寄出的回信可以設為優質範例",
+		})
+		return
+	}
+
+	// 驗證：指定的 case_id 必須屬於當前使用者，避免將郵件關聯到他人案件
+	if req.CaseID != nil {
+		var targetCase models.Case
+		if err := h.db.Where("id = ? AND user_id = ?", *req.CaseID, userID).First(&targetCase).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusForbidden, ErrorResponse{
+					Error:   "case_not_found",
+					Message: "指定的案件不存在或不屬於您",
+				})
+				return
+			}
+			logger.Error().Err(err).Msg("Failed to verify target case ownership")
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Error:   "database_error",
+				Message: "Failed to verify case",
+			})
+			return
+		}
+	}
+
 	// 建立更新 map
 	updates := make(map[string]interface{})
 
@@ -292,6 +321,10 @@ func (h *EmailHandler) UpdateEmail(c *gin.Context) {
 
 	if req.CaseID != nil {
 		updates["case_id"] = *req.CaseID
+	}
+
+	if req.IsGoodExample != nil {
+		updates["is_good_example"] = *req.IsGoodExample
 	}
 
 	// 執行更新
@@ -520,8 +553,9 @@ func (h *EmailHandler) SendReply(c *gin.Context) {
 
 // UpdateEmailRequest 更新郵件請求
 type UpdateEmailRequest struct {
-	IsRead *bool      `json:"is_read"`
-	CaseID *uuid.UUID `json:"case_id"`
+	IsRead        *bool      `json:"is_read"`
+	CaseID        *uuid.UUID `json:"case_id"`
+	IsGoodExample *bool      `json:"is_good_example"` // 標記／取消「優質範例」（供擬信 few-shot 檢索）
 }
 
 // stringPtr 返回字串指標

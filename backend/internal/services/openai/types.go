@@ -83,6 +83,16 @@ type AnalyzeEmailRequest struct {
 	Options AnalysisOptions
 }
 
+// DraftReplyExample 用於 few-shot 的單筆過往回信範例（依相似度檢索而來）
+type DraftReplyExample struct {
+	BrandName         string  // 品牌名稱
+	CollaborationType string  // 合作類型
+	IncomingSubject   string  // 當時來信主旨（可能為空）
+	IncomingBody      string  // 當時來信摘要（已截斷，可能為空）
+	ReplyBody         string  // 使用者當時寫的回信（純文字，已截斷）
+	Similarity        float64 // 與本次來信情境的相似度分數（除錯/排序用）
+}
+
 // DraftReplyRequest 擬回信請求（案件摘要 + 要回覆的郵件 + 可選補充說明）
 type DraftReplyRequest struct {
 	CaseTitle    string // 案件標題
@@ -98,11 +108,51 @@ type DraftReplyRequest struct {
 	UserAIReplyHeader   string // 使用者信件標頭
 	UserAIReplyFooter   string // 使用者信件標尾
 	TemplatePrompt      string // 回覆範本提示詞
+	// FewShotExamples 依品牌、案件類型、語氣檢索出的過往優質回信，作為 few-shot 範例
+	FewShotExamples []DraftReplyExample
+}
+
+// 來信分類代碼（用於判斷回信策略與是否需人工介入）
+const (
+	EmailTypeFirstInviteFull = "first_invite_full"         // 首次邀約（資訊完整）
+	EmailTypeFirstInviteLack = "first_invite_insufficient" // 首次邀約（資訊不足）
+	EmailTypeBarter          = "barter"                    // 互惠／公關品邀約
+	EmailTypeFollowUp        = "follow_up"                 // 追蹤回覆
+	EmailTypeNegotiation     = "negotiation"               // 議價討論
+	EmailTypeExecution       = "execution"                 // 執行階段（合約、腳本、時程）
+	EmailTypeOther           = "other"                     // 其他
+)
+
+// EmailTypeLabel 將來信分類代碼轉為正體中文標籤
+func EmailTypeLabel(code string) string {
+	switch code {
+	case EmailTypeFirstInviteFull:
+		return "首次邀約（資訊完整）"
+	case EmailTypeFirstInviteLack:
+		return "首次邀約（資訊不足）"
+	case EmailTypeBarter:
+		return "互惠／公關品邀約"
+	case EmailTypeFollowUp:
+		return "追蹤回覆"
+	case EmailTypeNegotiation:
+		return "議價討論"
+	case EmailTypeExecution:
+		return "執行階段"
+	case EmailTypeOther:
+		return "其他"
+	default:
+		return ""
+	}
 }
 
 // DraftReplyResult 擬回信結果
 type DraftReplyResult struct {
-	Draft string `json:"draft"` // 回信草稿內文（純文字）
+	Draft            string `json:"draft"`              // 回信草稿內文（HTML）
+	EmailType        string `json:"email_type"`         // 來信分類代碼
+	EmailTypeLabel   string `json:"email_type_label"`   // 來信分類（正體中文）
+	NeedsHumanReview bool   `json:"needs_human_review"` // 是否建議人工介入
+	ReviewReason     string `json:"review_reason"`      // 建議人工介入的原因
+	UsedExamples     int    `json:"used_examples"`      // 實際注入的 few-shot 範例數量
 }
 
 // ReplyCaseUpdateRequest 回信後 AI 分析案件更新請求

@@ -38,6 +38,14 @@ type Email struct {
 	AIAnalyzed   bool       `gorm:"default:false;index:idx_emails_ai_analyzed,where:ai_analyzed = false" json:"ai_analyzed"` // 是否已 AI 分析
 	AIAnalysisID *uuid.UUID `gorm:"index" json:"ai_analysis_id,omitempty"`                                                   // AI 分析結果 ID
 
+	// RAG few-shot（僅 outgoing 回信使用）
+	// ContextEmbedding 快取「這封回信所回應的來信情境」之向量，供擬信時檢索相似的過往回信
+	ContextEmbedding      pq.Float64Array `gorm:"column:context_embedding;type:float8[]" json:"-"`
+	ContextEmbeddingModel *string         `gorm:"column:context_embedding_model;type:varchar(100)" json:"-"`
+	ContextEmbeddingHash  *string         `gorm:"column:context_embedding_hash;type:varchar(64)" json:"-"`
+	// IsGoodExample 使用者標記為「優質範例」的回信，檢索時優先採用
+	IsGoodExample bool `gorm:"column:is_good_example;not null;default:false" json:"is_good_example"`
+
 	// 案件關聯
 	CaseID *uuid.UUID `gorm:"index" json:"case_id,omitempty"` // 關聯的案件 ID
 
@@ -117,6 +125,7 @@ type EmailListResponse struct {
 	Labels         []string   `json:"labels,omitempty"`
 	CaseID         *uuid.UUID `json:"case_id,omitempty"`
 	AIAnalyzed     bool       `json:"ai_analyzed"`
+	IsGoodExample  bool       `json:"is_good_example"`
 }
 
 // ToListResponse 轉換為列表 API 回應格式
@@ -138,6 +147,7 @@ func (e *Email) ToListResponse() EmailListResponse {
 		Labels:         e.Labels,
 		CaseID:         e.CaseID,
 		AIAnalyzed:     e.AIAnalyzed,
+		IsGoodExample:  e.IsGoodExample,
 	}
 }
 
@@ -162,6 +172,7 @@ type EmailDetailResponse struct {
 	CaseID            *uuid.UUID `json:"case_id,omitempty"`
 	AIAnalyzed        bool       `json:"ai_analyzed"`
 	AIAnalysisID      *uuid.UUID `json:"ai_analysis_id,omitempty"`
+	IsGoodExample     bool       `json:"is_good_example"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
@@ -192,6 +203,7 @@ func (e *Email) ToDetailResponse() EmailDetailResponse {
 		CaseID:            e.CaseID,
 		AIAnalyzed:        e.AIAnalyzed,
 		AIAnalysisID:      e.AIAnalysisID,
+		IsGoodExample:     e.IsGoodExample,
 		CreatedAt:         e.CreatedAt,
 		UpdatedAt:         e.UpdatedAt,
 	}

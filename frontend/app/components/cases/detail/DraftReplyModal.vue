@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CaseDetail, CaseEmail } from '~/types/cases'
-import { BaseModal, BaseButton, BaseFormField, BaseSelect, BaseTextarea } from '~/components/base'
+import { BaseModal, BaseButton, BaseFormField, BaseSelect, BaseTextarea, BaseAlert, BaseBadge } from '~/components/base'
 
 interface Props {
   modelValue: boolean
@@ -39,6 +39,17 @@ const loading = ref(false)
 const draft = ref('')
 const selectedTemplateId = ref<string | undefined>(undefined)
 const templates = ref<ReplyTemplate[]>([])
+
+// AI 擬信回傳的判斷結果（來信類型、是否需人工介入）
+const needsReview = ref(false)
+const reviewReason = ref('')
+const emailTypeLabel = ref('')
+
+const resetDraftMeta = () => {
+  needsReview.value = false
+  reviewReason.value = ''
+  emailTypeLabel.value = ''
+}
 
 const emailOptions = computed(() => {
   return props.emails.map((e) => ({
@@ -83,8 +94,12 @@ const handleGenerate = async () => {
 
   loading.value = true
   draft.value = ''
+  resetDraftMeta()
   try {
-    const res = await $fetch<{ draft: string }>(
+    const res = await $fetch<{
+      draft: string
+      meta?: { needs_human_review?: boolean; review_reason?: string; email_type_label?: string }
+    }>(
       `${config.public.apiBase}/api/v1/cases/${props.caseId}/draft-reply`,
       {
         method: 'POST',
@@ -101,13 +116,18 @@ const handleGenerate = async () => {
     )
     const draftText = res.draft ?? ''
     draft.value = draftText
+    needsReview.value = res.meta?.needs_human_review ?? false
+    reviewReason.value = res.meta?.review_reason ?? ''
+    emailTypeLabel.value = res.meta?.email_type_label ?? ''
     toast.add({ title: '草稿已產生', color: 'success' })
 
-    // 存入 sessionStorage 並導向該信件的回覆頁
+    // 存入 sessionStorage；若需人工確認則留在 Modal 顯示提示，否則導向回覆頁
     try {
       sessionStorage.setItem(`${DRAFT_STORAGE_KEY_PREFIX}${emailId}`, draftText)
-      isOpen.value = false
-      router.push(`/emails/${emailId}?reply=draft`)
+      if (!needsReview.value) {
+        isOpen.value = false
+        router.push(`/emails/${emailId}?reply=draft`)
+      }
     } catch {
       // 導向失敗時草稿仍顯示在 modal 內
     }
@@ -132,6 +152,7 @@ const handleCancel = () => {
   selectedEmailId.value = defaultEmailId.value
   instruction.value = ''
   draft.value = ''
+  resetDraftMeta()
   isOpen.value = false
 }
 
@@ -141,6 +162,7 @@ watch(isOpen, (open) => {
     instruction.value = ''
     draft.value = ''
     selectedTemplateId.value = undefined
+    resetDraftMeta()
     fetchTemplates()
   }
 })
@@ -183,6 +205,20 @@ watch(isOpen, (open) => {
             :disabled="loading"
           />
         </BaseFormField>
+
+        <div v-if="emailTypeLabel" class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+          <span>來信判斷：</span>
+          <BaseBadge color="neutral" variant="soft" size="sm">{{ emailTypeLabel }}</BaseBadge>
+        </div>
+
+        <BaseAlert
+          v-if="needsReview"
+          color="warning"
+          variant="soft"
+          icon="i-lucide-alert-triangle"
+          title="建議由真人確認後再寄出"
+          :description="reviewReason || '此來信可能涉及議價、合約或敏感內容，AI 草稿僅供參考。'"
+        />
 
         <div v-if="hasDraft" class="space-y-2">
           <BaseFormField label="回信草稿">

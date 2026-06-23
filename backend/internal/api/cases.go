@@ -11,6 +11,7 @@ import (
 	"github.com/designcomb/influenter-backend/internal/middleware"
 	"github.com/designcomb/influenter-backend/internal/models"
 	"github.com/designcomb/influenter-backend/internal/services/openai"
+	"github.com/designcomb/influenter-backend/internal/services/replyrag"
 	"github.com/designcomb/influenter-backend/internal/services/schedule"
 	"github.com/designcomb/influenter-backend/internal/utils"
 	"github.com/gin-gonic/gin"
@@ -905,6 +906,10 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 	if cs.ContactEmail != nil {
 		contactEmail = *cs.ContactEmail
 	}
+	collaborationType := ""
+	if cs.CollaborationType != nil {
+		collaborationType = *cs.CollaborationType
+	}
 
 	// 取得使用者 AI 助理設定
 	userAIInstructions := ""
@@ -935,6 +940,24 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		}
 	}
 
+	// few-shot 檢索：找出與本次來信最相似的過往回信作為範例（失敗則照常擬信）
+	var fewShotExamples []openai.DraftReplyExample
+	if userUUID, perr := uuid.Parse(userID); perr == nil {
+		rag := replyrag.New(h.db, h.openaiService, logger)
+		examples, rerr := rag.RetrieveExamples(c.Request.Context(), replyrag.Query{
+			UserID:            userUUID,
+			BrandName:         cs.BrandName,
+			CollaborationType: collaborationType,
+			IncomingSubject:   subject,
+			IncomingBody:      bodyText,
+		})
+		if rerr != nil {
+			logger.Warn().Err(rerr).Str("case_id", caseID).Msg("Reply RAG retrieval failed; drafting without examples")
+		} else {
+			fewShotExamples = examples
+		}
+	}
+
 	req := openai.DraftReplyRequest{
 		CaseTitle:           cs.Title,
 		BrandName:           cs.BrandName,
@@ -948,6 +971,7 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		UserAIReplyHeader:   userAIReplyHeader,
 		UserAIReplyFooter:   userAIReplyFooter,
 		TemplatePrompt:      templatePrompt,
+		FewShotExamples:     fewShotExamples,
 	}
 
 	result, err := h.openaiService.DraftReply(c.Request.Context(), req)
@@ -957,7 +981,16 @@ func (h *CaseHandler) DraftReply(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"draft": result.Draft})
+	c.JSON(http.StatusOK, gin.H{
+		"draft": result.Draft,
+		"meta": gin.H{
+			"email_type":         result.EmailType,
+			"email_type_label":   result.EmailTypeLabel,
+			"needs_human_review": result.NeedsHumanReview,
+			"review_reason":      result.ReviewReason,
+			"used_examples":      result.UsedExamples,
+		},
+	})
 }
 
 // --- Case Phase types and handlers ---

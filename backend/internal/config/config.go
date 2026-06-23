@@ -95,6 +95,9 @@ type OpenAIConfig struct {
 	APIKey    string
 	Model     string
 	MaxTokens int
+	// Embedding 設定（RAG few-shot 檢索用）
+	EmbeddingModel      string
+	EmbeddingDimensions int
 }
 
 // CORSConfig CORS 配置
@@ -188,9 +191,11 @@ func Load() (*Config, error) {
 
 		// OpenAI 設定
 		OpenAI: OpenAIConfig{
-			APIKey:    getEnv("OPENAI_API_KEY", ""),
-			Model:     getEnv("OPENAI_MODEL", "gpt-4o-mini"),
-			MaxTokens: getEnvAsInt("OPENAI_MAX_TOKENS", 2000),
+			APIKey:              getEnv("OPENAI_API_KEY", ""),
+			Model:               getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+			MaxTokens:           getEnvAsInt("OPENAI_MAX_TOKENS", 2000),
+			EmbeddingModel:      getEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
+			EmbeddingDimensions: getEnvAsInt("OPENAI_EMBEDDING_DIMENSIONS", 512),
 		},
 
 		// 前端 URL

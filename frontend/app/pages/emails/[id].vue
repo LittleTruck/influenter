@@ -71,6 +71,26 @@ const markAsRead = async (isRead: boolean) => {
   }
 }
 
+// 標記為優質回信範例（僅寄出回信，供 AI 擬信 few-shot 參考）
+const togglingGoodExample = ref(false)
+const toggleGoodExample = async () => {
+  if (!email.value) return
+  const next = !email.value.is_good_example
+  togglingGoodExample.value = true
+  try {
+    await emailsStore.markAsGoodExample(emailId, next)
+    toast.add({
+      title: next ? '已設為優質範例' : '已取消優質範例',
+      description: next ? 'AI 擬信時會優先參考這封回信的語氣與寫法' : undefined,
+      color: 'success'
+    })
+  } catch (e) {
+    // error 已在 store 中處理
+  } finally {
+    togglingGoodExample.value = false
+  }
+}
+
 // 返回列表（若從案件進來，返回該案件）
 const fromCaseId = route.query.from_case as string | undefined
 const goBack = () => {
@@ -286,6 +306,19 @@ const sendReply = async () => {
               @click="markAsRead(!email.is_read)"
             >
               {{ email.is_read ? '標記未讀' : '標記已讀' }}
+            </BaseButton>
+
+            <!-- 設為優質範例（僅寄出回信，供 AI 擬信參考） -->
+            <BaseButton
+              v-if="email.direction === 'outgoing'"
+              :icon="email.is_good_example ? 'i-lucide-star' : 'i-lucide-star-off'"
+              :color="email.is_good_example ? 'warning' : 'neutral'"
+              variant="outline"
+              size="sm"
+              :loading="togglingGoodExample"
+              @click="toggleGoodExample"
+            >
+              {{ email.is_good_example ? '優質範例' : '設為範例' }}
             </BaseButton>
 
             <!-- 更多操作 -->

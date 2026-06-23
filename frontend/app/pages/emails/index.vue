@@ -306,6 +306,27 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
   }
 }
 
+// 設為／取消「優質範例」（僅寄出回信，供 AI 擬信 few-shot 參考）
+const togglingGoodExample = ref(false)
+const toggleGoodExample = async () => {
+  if (!selectedEmail.value) return
+  const next = !selectedEmail.value.is_good_example
+  togglingGoodExample.value = true
+  try {
+    await emailsStore.markAsGoodExample(selectedEmail.value.id, next)
+    selectedEmail.value.is_good_example = next
+    toast.add({
+      title: next ? '已設為優質範例' : '已取消優質範例',
+      description: next ? 'AI 擬信時會優先參考這封回信的語氣與寫法' : undefined,
+      color: 'success'
+    })
+  } catch (e: any) {
+    // error 已在 store 中處理
+  } finally {
+    togglingGoodExample.value = false
+  }
+}
+
 </script>
 
 <template>
@@ -653,6 +674,19 @@ const toggleRead = async (email: EmailDetail, isRead: boolean) => {
                   @click="toggleRead(selectedEmail, !selectedEmail.is_read)"
                 >
                   {{ selectedEmail.is_read ? '標記未讀' : '標記已讀' }}
+                </BaseButton>
+
+                <!-- 設為優質範例（僅寄出回信，供 AI 擬信參考） -->
+                <BaseButton
+                  v-if="(selectedEmail as any).direction === 'outgoing'"
+                  :icon="selectedEmail.is_good_example ? 'i-lucide-star' : 'i-lucide-star-off'"
+                  :color="selectedEmail.is_good_example ? 'warning' : 'neutral'"
+                  variant="ghost"
+                  size="sm"
+                  :loading="togglingGoodExample"
+                  @click="toggleGoodExample"
+                >
+                  {{ selectedEmail.is_good_example ? '優質範例' : '設為範例' }}
                 </BaseButton>
 
                 <BaseDropdownMenu

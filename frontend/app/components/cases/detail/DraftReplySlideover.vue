@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CaseDetail, CaseEmail } from '~/types/cases'
-import { BaseSlideover, BaseButton, BaseFormField, BaseSelect, BaseTextarea, BaseRichTextEditor } from '~/components/base'
+import { BaseSlideover, BaseButton, BaseFormField, BaseSelect, BaseTextarea, BaseRichTextEditor, BaseAlert, BaseBadge } from '~/components/base'
 
 interface Props {
   modelValue: boolean
@@ -38,6 +38,17 @@ const generating = ref(false)
 const sending = ref(false)
 const selectedTemplateId = ref<string | undefined>(undefined)
 const templates = ref<ReplyTemplate[]>([])
+
+// AI 擬信回傳的判斷結果（來信類型、是否需人工介入）
+const needsReview = ref(false)
+const reviewReason = ref('')
+const emailTypeLabel = ref('')
+
+const resetDraftMeta = () => {
+  needsReview.value = false
+  reviewReason.value = ''
+  emailTypeLabel.value = ''
+}
 
 const emailOptions = computed(() => {
   return props.emails.map((e) => ({
@@ -80,8 +91,12 @@ const handleGenerate = async () => {
   }
 
   generating.value = true
+  resetDraftMeta()
   try {
-    const res = await $fetch<{ draft: string }>(
+    const res = await $fetch<{
+      draft: string
+      meta?: { needs_human_review?: boolean; review_reason?: string; email_type_label?: string }
+    }>(
       `${config.public.apiBase}/api/v1/cases/${props.caseId}/draft-reply`,
       {
         method: 'POST',
@@ -97,6 +112,9 @@ const handleGenerate = async () => {
       }
     )
     replyBody.value = res.draft ?? ''
+    needsReview.value = res.meta?.needs_human_review ?? false
+    reviewReason.value = res.meta?.review_reason ?? ''
+    emailTypeLabel.value = res.meta?.email_type_label ?? ''
     toast.add({ title: '草稿已產生', color: 'success' })
   } catch (e: any) {
     const msg = e?.data?.message || e?.message || '產生草稿失敗'
@@ -133,6 +151,7 @@ const handleSend = async () => {
     toast.add({ title: '回信已寄出', color: 'success' })
     replyBody.value = ''
     instruction.value = ''
+    resetDraftMeta()
     isOpen.value = false
     emit('sent')
   } catch (e: any) {
@@ -159,6 +178,7 @@ watch(isOpen, (open) => {
     instruction.value = ''
     replyBody.value = ''
     selectedTemplateId.value = undefined
+    resetDraftMeta()
     fetchTemplates()
   }
 })
@@ -212,6 +232,20 @@ watch(isOpen, (open) => {
         >
           AI 產生草稿
         </BaseButton>
+
+        <div v-if="emailTypeLabel" class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+          <span>來信判斷：</span>
+          <BaseBadge color="neutral" variant="soft" size="sm">{{ emailTypeLabel }}</BaseBadge>
+        </div>
+
+        <BaseAlert
+          v-if="needsReview"
+          color="warning"
+          variant="soft"
+          icon="i-lucide-alert-triangle"
+          title="建議由真人確認後再寄出"
+          :description="reviewReason || '此來信可能涉及議價、合約或敏感內容，AI 草稿僅供參考。'"
+        />
 
         <BaseFormField label="回信內容">
           <BaseRichTextEditor

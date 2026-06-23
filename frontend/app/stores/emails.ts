@@ -16,6 +16,7 @@ export interface Email {
   labels?: string[]
   case_id?: string
   ai_analyzed: boolean
+  is_good_example?: boolean
 }
 
 export interface EmailDetail extends Email {
@@ -227,6 +228,38 @@ export const useEmailsStore = defineStore('emails', () => {
     } catch (e: any) {
       error.value = e.message
       console.error('Failed to link email to case:', e)
+      throw e
+    }
+  }
+
+  // 標記／取消「優質範例」（供擬信 few-shot 檢索使用）
+  const markAsGoodExample = async (id: string, value: boolean) => {
+    try {
+      const config = useRuntimeConfig()
+      const authStore = useAuthStore()
+
+      const data = await $fetch<EmailDetail>(`${config.public.apiBase}/api/v1/emails/${id}`, {
+        method: 'PATCH',
+        body: { is_good_example: value },
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      })
+
+      // 更新本地狀態
+      const target = emails.value.find(e => e.id === id)
+      if (target) {
+        target.is_good_example = value
+      }
+
+      if (currentEmail.value?.id === id) {
+        currentEmail.value.is_good_example = value
+      }
+
+      return data
+    } catch (e: any) {
+      error.value = e.message
+      console.error('Failed to mark email as good example:', e)
       throw e
     }
   }
@@ -500,6 +533,7 @@ export const useEmailsStore = defineStore('emails', () => {
     fetchEmail,
     markAsRead,
     linkToCase,
+    markAsGoodExample,
     createCaseFromEmail,
     fetchGmailStatus,
     triggerSync,
